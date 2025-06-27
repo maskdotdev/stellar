@@ -3,6 +3,14 @@ use std::collections::HashMap;
 use tauri::{State, AppHandle, Emitter};
 use tokio::sync::Mutex;
 use futures_util::StreamExt;
+use std::sync::Arc;
+
+// New modules
+mod database;
+mod pdf_processor;
+
+use database::{Database, Document, CreateDocumentRequest};
+use pdf_processor::PdfProcessor;
 
 // AI Provider types
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -100,10 +108,170 @@ pub struct ChatStreamDelta {
 // Secure storage for API keys
 type ApiKeyStore = Mutex<HashMap<String, String>>;
 
+// Database state
+type DatabaseState = Arc<Mutex<Option<Database>>>;
+
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
+}
+
+// Document Management Commands
+#[tauri::command]
+async fn init_database(state: State<'_, DatabaseState>) -> Result<(), String> {
+    println!("DEBUG: Starting database initialization...");
+    
+    let mut db_state = state.lock().await;
+    
+    // Use current working directory for now to avoid permissions issues
+    let current_dir = std::env::current_dir()
+        .map_err(|e| format!("Failed to get current directory: {}", e))?;
+    let db_dir = current_dir.join("stellar_data");
+    let db_path = db_dir.join("documents.db");
+    
+    println!("DEBUG: Database directory: {:?}", db_dir);
+    println!("DEBUG: Database path: {:?}", db_path);
+    
+    // Ensure directory exists
+    if let Err(e) = std::fs::create_dir_all(&db_dir) {
+        let error_msg = format!("Failed to create app directory: {}", e);
+        println!("DEBUG: {}", error_msg);
+        return Err(error_msg);
+    }
+    
+    println!("DEBUG: Directory created successfully");
+    
+    // Test file permissions by trying to create a test file
+    let test_file = db_dir.join("test.txt");
+    match std::fs::write(&test_file, "test") {
+        Ok(_) => {
+            println!("DEBUG: File write test successful");
+            let _ = std::fs::remove_file(&test_file);
+        }
+        Err(e) => {
+            let error_msg = format!("File write test failed: {}", e);
+            println!("DEBUG: {}", error_msg);
+            return Err(error_msg);
+        }
+    }
+    
+    // Try using the proper SQLite URL format with connection options
+    let database_url = format!("sqlite://{}?mode=rwc", db_path.to_string_lossy());
+    println!("DEBUG: Database URL: {}", database_url);
+    
+    let database = Database::new(&database_url).await
+        .map_err(|e| {
+            let error_msg = format!("Failed to initialize database: {}", e);
+            println!("DEBUG: {}", error_msg);
+            error_msg
+        })?;
+    
+    println!("DEBUG: Database initialized successfully");
+    
+    *db_state = Some(database);
+    Ok(())
+}
+
+#[tauri::command]
+async fn upload_and_process_pdf(
+    state: State<'_, DatabaseState>,
+    file_path: String,
+    title: Option<String>,
+    tags: Option<Vec<String>>,
+) -> Result<Document, String> {
+    println!("DEBUG: upload_and_process_pdf called with file_path: {}", file_path);
+    
+    let db_state = state.lock().await;
+    let database = db_state.as_ref().ok_or("Database not initialized")?;
+    
+    println!("DEBUG: Database state obtained");
+    
+    // Process the PDF
+    let processor = PdfProcessor::new();
+    println!("DEBUG: Created PDF processor");
+    
+    let content = processor.extract_text_from_pdf(&file_path)
+        .map_err(|e| format!("Failed to process PDF: {:?}", e))?;
+    
+    println!("DEBUG: Extracted content length: {}", content.len());
+    
+    let metadata = processor.extract_metadata(&file_path)
+        .map_err(|e| format!("Failed to extract metadata: {:?}", e))?;
+    
+    println!("DEBUG: Extracted metadata: {:?}", metadata);
+    
+    // Create document request
+    let request = CreateDocumentRequest {
+        title: title.unwrap_or(metadata.title),
+        content,
+        file_path: Some(file_path),
+        doc_type: "pdf".to_string(),
+        tags: tags.unwrap_or_default(),
+        status: Some("reading".to_string()),
+    };
+    
+    println!("DEBUG: Created document request: {:?}", request.title);
+    
+    // Save to database
+    let result = database.create_document(request).await
+        .map_err(|e| format!("Failed to save document: {}", e));
+    
+    println!("DEBUG: Database operation result: {:?}", result.is_ok());
+    
+    result
+}
+
+#[tauri::command]
+async fn create_document(
+    state: State<'_, DatabaseState>,
+    request: CreateDocumentRequest,
+) -> Result<Document, String> {
+    let db_state = state.lock().await;
+    let database = db_state.as_ref().ok_or("Database not initialized")?;
+    
+    database.create_document(request).await
+        .map_err(|e| format!("Failed to create document: {}", e))
+}
+
+#[tauri::command]
+async fn get_all_documents(state: State<'_, DatabaseState>) -> Result<Vec<Document>, String> {
+    let db_state = state.lock().await;
+    let database = db_state.as_ref().ok_or("Database not initialized")?;
+    
+    database.get_all_documents().await
+        .map_err(|e| format!("Failed to get documents: {}", e))
+}
+
+#[tauri::command]
+async fn get_document(state: State<'_, DatabaseState>, id: String) -> Result<Option<Document>, String> {
+    let db_state = state.lock().await;
+    let database = db_state.as_ref().ok_or("Database not initialized")?;
+    
+    database.get_document(&id).await
+        .map_err(|e| format!("Failed to get document: {}", e))
+}
+
+#[tauri::command]
+async fn update_document(
+    state: State<'_, DatabaseState>,
+    id: String,
+    request: CreateDocumentRequest,
+) -> Result<Option<Document>, String> {
+    let db_state = state.lock().await;
+    let database = db_state.as_ref().ok_or("Database not initialized")?;
+    
+    database.update_document(&id, request).await
+        .map_err(|e| format!("Failed to update document: {}", e))
+}
+
+#[tauri::command]
+async fn delete_document(state: State<'_, DatabaseState>, id: String) -> Result<bool, String> {
+    let db_state = state.lock().await;
+    let database = db_state.as_ref().ok_or("Database not initialized")?;
+    
+    database.delete_document(&id).await
+        .map_err(|e| format!("Failed to delete document: {}", e))
 }
 
 #[tauri::command]
@@ -634,7 +802,10 @@ async fn get_ollama_models(provider: &AIProvider) -> Result<Vec<AIModel>, String
 pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_fs::init())
         .manage(ApiKeyStore::default())
+        .manage(DatabaseState::new(Mutex::new(None)))
         .invoke_handler(tauri::generate_handler![
             greet,
             store_api_key,
@@ -643,7 +814,14 @@ pub fn run() {
             ai_test_connection,
             ai_chat_completion,
             ai_chat_completion_stream,
-            ai_get_models
+            ai_get_models,
+            init_database,
+            upload_and_process_pdf,
+            create_document,
+            get_all_documents,
+            get_document,
+            update_document,
+            delete_document
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

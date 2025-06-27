@@ -110,11 +110,298 @@
   --sidebar-ring: oklch(0.551 0.027 264.364);
 }
 
+/* Blue Theme */
+.blue {
+  --background: oklch(0.98 0.01 220);
+  --foreground: oklch(0.15 0.08 240);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.15 0.08 240);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.15 0.08 240);
+  --primary: oklch(0.5 0.2 240);
+  --primary-foreground: oklch(0.98 0.01 220);
+  --secondary: oklch(0.95 0.02 240);
+  --secondary-foreground: oklch(0.25 0.08 240);
+  --muted: oklch(0.95 0.02 240);
+  --muted-foreground: oklch(0.5 0.08 240);
+  --accent: oklch(0.92 0.04 240);
+  --accent-foreground: oklch(0.25 0.08 240);
+  --destructive: oklch(0.6 0.24 20);
+  --border: oklch(0.9 0.02 240);
+  --input: oklch(0.9 0.02 240);
+  --ring: oklch(0.5 0.2 240);
+}
+
+/* Green Theme */
+.green {
+  --background: oklch(0.98 0.01 140);
+  --foreground: oklch(0.15 0.08 140);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.15 0.08 140);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.15 0.08 140);
+  --primary: oklch(0.5 0.2 140);
+  --primary-foreground: oklch(0.98 0.01 140);
+  --secondary: oklch(0.95 0.02 140);
+  --secondary-foreground: oklch(0.25 0.08 140);
+  --muted: oklch(0.95 0.02 140);
+  --muted-foreground: oklch(0.5 0.08 140);
+  --accent: oklch(0.92 0.04 140);
+  --accent-foreground: oklch(0.25 0.08 140);
+  --destructive: oklch(0.6 0.24 20);
+  --border: oklch(0.9 0.02 140);
+  --input: oklch(0.9 0.02 140);
+  --ring: oklch(0.5 0.2 140);
+}
+
+/* Purple Theme */
+.purple {
+  --background: oklch(0.98 0.01 280);
+  --foreground: oklch(0.15 0.08 280);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.15 0.08 280);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.15 0.08 280);
+  --primary: oklch(0.5 0.2 280);
+  --primary-foreground: oklch(0.98 0.01 280);
+  --secondary: oklch(0.95 0.02 280);
+  --secondary-foreground: oklch(0.25 0.08 280);
+  --muted: oklch(0.95 0.02 280);
+  --muted-foreground: oklch(0.5 0.08 280);
+  --accent: oklch(0.92 0.04 280);
+  --accent-foreground: oklch(0.25 0.08 280);
+  --destructive: oklch(0.6 0.24 20);
+  --border: oklch(0.9 0.02 280);
+  --input: oklch(0.9 0.02 280);
+  --ring: oklch(0.5 0.2 280);
+}
+
+/* Orange Theme */
+.orange {
+  --background: oklch(0.98 0.01 50);
+  --foreground: oklch(0.15 0.08 50);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.15 0.08 50);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.15 0.08 50);
+  --primary: oklch(0.6 0.2 50);
+  --primary-foreground: oklch(0.98 0.01 50);
+  --secondary: oklch(0.95 0.02 50);
+  --secondary-foreground: oklch(0.25 0.08 50);
+  --muted: oklch(0.95 0.02 50);
+  --muted-foreground: oklch(0.5 0.08 50);
+  --accent: oklch(0.92 0.04 50);
+  --accent-foreground: oklch(0.25 0.08 50);
+  --destructive: oklch(0.6 0.24 20);
+  --border: oklch(0.9 0.02 50);
+  --input: oklch(0.9 0.02 50);
+  --ring: oklch(0.6 0.2 50);
+}
+
+/* Rose Theme */
+.rose {
+  --background: oklch(0.98 0.01 10);
+  --foreground: oklch(0.15 0.08 10);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.15 0.08 10);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.15 0.08 10);
+  --primary: oklch(0.6 0.2 10);
+  --primary-foreground: oklch(0.98 0.01 10);
+  --secondary: oklch(0.95 0.02 10);
+  --secondary-foreground: oklch(0.25 0.08 10);
+  --muted: oklch(0.95 0.02 10);
+  --muted-foreground: oklch(0.5 0.08 10);
+  --accent: oklch(0.92 0.04 10);
+  --accent-foreground: oklch(0.25 0.08 10);
+  --destructive: oklch(0.6 0.24 20);
+  --border: oklch(0.9 0.02 10);
+  --input: oklch(0.9 0.02 10);
+  --ring: oklch(0.6 0.2 10);
+}
+
+/* Dark Teal - Modern Slate/Cyan Theme */
+.dark-teal {
+  /* Deep slate background (slate-900 equivalent) */
+  --background: oklch(0.15 0.014 235);
+  /* Bright cyan foreground (cyan-100 equivalent) */
+  --foreground: oklch(0.95 0.04 195);
+  /* Slate card backgrounds (slate-800 equivalent) */
+  --card: oklch(0.2 0.016 235);
+  --card-foreground: oklch(0.95 0.04 195);
+  /* Darker popover backgrounds */
+  --popover: oklch(0.18 0.015 235);
+  --popover-foreground: oklch(0.95 0.04 195);
+  /* Cyan primary accent (cyan-500 equivalent) */
+  --primary: oklch(0.7 0.131 195);
+  --primary-foreground: oklch(0.15 0.014 235);
+  /* Muted slate secondary (slate-700 equivalent) */
+  --secondary: oklch(0.25 0.017 235);
+  --secondary-foreground: oklch(0.9 0.035 195);
+  /* Subtle muted backgrounds */
+  --muted: oklch(0.22 0.016 235);
+  --muted-foreground: oklch(0.65 0.03 195);
+  /* Cyan accent colors */
+  --accent: oklch(0.25 0.017 235);
+  --accent-foreground: oklch(0.9 0.035 195);
+  /* Red destructive for contrast */
+  --destructive: oklch(0.65 0.2 25);
+  /* Subtle cyan borders (cyan-400/20 equivalent) */
+  --border: oklch(0.6 0.1 195 / 20%);
+  /* Input backgrounds with subtle cyan tint */
+  --input: oklch(0.2 0.016 235 / 80%);
+  /* Cyan focus ring */
+  --ring: oklch(0.7 0.131 195 / 60%);
+  /* Chart colors with cyan/teal palette */
+  --chart-1: oklch(0.7 0.131 195);
+  --chart-2: oklch(0.65 0.12 180);
+  --chart-3: oklch(0.6 0.11 210);
+  --chart-4: oklch(0.75 0.14 170);
+  --chart-5: oklch(0.55 0.1 200);
+  /* Sidebar with consistent theming */
+  --sidebar: oklch(0.18 0.015 235);
+  --sidebar-foreground: oklch(0.9 0.035 195);
+  --sidebar-primary: oklch(0.7 0.131 195);
+  --sidebar-primary-foreground: oklch(0.15 0.014 235);
+  --sidebar-accent: oklch(0.25 0.017 235);
+  --sidebar-accent-foreground: oklch(0.9 0.035 195);
+  --sidebar-border: oklch(0.6 0.1 195 / 15%);
+  --sidebar-ring: oklch(0.7 0.131 195 / 60%);
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+/* Diffused Spotlight Effects */
+@layer components {
+  .spotlight-bg {
+    position: relative;
+    overflow: hidden;
+  }
+  
+  /* Main spotlight diffusion layer */
+  .spotlight-bg::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: 
+      radial-gradient(
+        600px circle at 20% 30%, 
+        hsl(var(--primary) / 0.5) 0%, 
+        hsl(var(--primary) / 0.25) 30%,
+        transparent 65%
+      ),
+      radial-gradient(
+        800px circle at 80% 70%, 
+        hsl(var(--accent) / 0.4) 0%, 
+        hsl(var(--accent) / 0.2) 30%,
+        transparent 65%
+      ),
+      /* Bright flare centers */
+      radial-gradient(
+        200px circle at 20% 30%, 
+        hsl(var(--primary) / 0.9) 0%, 
+        transparent 40%
+      ),
+      radial-gradient(
+        250px circle at 80% 70%, 
+        hsl(var(--accent) / 0.8) 0%, 
+        transparent 40%
+      );
+    pointer-events: none;
+    z-index: 0;
+  }
+  
+  /* Secondary spotlight layer for more depth */
+  .spotlight-bg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: 
+      radial-gradient(
+        400px circle at 60% 10%, 
+        hsl(var(--primary) / 0.25) 0%, 
+        transparent 50%
+      ),
+      radial-gradient(
+        500px circle at 10% 90%, 
+        hsl(var(--accent) / 0.2) 0%, 
+        transparent 50%
+      );
+    pointer-events: none;
+    z-index: 0;
+  }
+  
+  .spotlight-content {
+    position: relative;
+    z-index: 1;
+  }
+  
+  /* Enhanced spotlight for dark themes */
+  .dark .spotlight-bg::before {
+    background: 
+      radial-gradient(
+        600px circle at 20% 30%, 
+        hsl(var(--primary) / 0.7) 0%, 
+        hsl(var(--primary) / 0.35) 30%,
+        transparent 65%
+      ),
+      radial-gradient(
+        800px circle at 80% 70%, 
+        hsl(var(--accent) / 0.6) 0%, 
+        hsl(var(--accent) / 0.3) 30%,
+        transparent 65%
+      ),
+      /* Bright flare centers for dark theme */
+      radial-gradient(
+        200px circle at 20% 30%, 
+        hsl(var(--primary) / 1) 0%, 
+        transparent 40%
+      ),
+      radial-gradient(
+        250px circle at 80% 70%, 
+        hsl(var(--accent) / 0.9) 0%, 
+        transparent 40%
+      );
+  }
+  
+  .dark .spotlight-bg::after {
+    background: 
+      radial-gradient(
+        400px circle at 60% 10%, 
+        hsl(var(--primary) / 0.4) 0%, 
+        transparent 50%
+      ),
+      radial-gradient(
+        500px circle at 10% 90%, 
+        hsl(var(--accent) / 0.3) 0%, 
+        transparent 50%
+      );
+  }
+  
+  /* Subtle breathing animation for the spotlights */
+  @keyframes spotlight-breathe {
+    0%, 100% { 
+      opacity: 1; 
+      transform: scale(1);
+    }
+    50% { 
+      opacity: 0.85; 
+      transform: scale(1.02);
+    }
+  }
+  
+  .spotlight-bg::before {
+    animation: spotlight-breathe 12s ease-in-out infinite;
+  }
+  
+  .spotlight-bg::after {
+    animation: spotlight-breathe 16s ease-in-out infinite reverse;
   }
 }

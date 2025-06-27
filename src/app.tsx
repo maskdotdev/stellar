@@ -4,14 +4,16 @@ import { useEffect } from "react"
 import { SlimNavRail } from "@/components/home/slim-nav-rail"
 import { ContextBar } from "@/components/home/context-bar"
 import { FocusPane } from "@/components/home/focus-pane"
-import { InteractionDrawer } from "@/components/home/interaction-drawer"
+import { FloatingChat } from "@/components/home/floating-chat"
 import { CommandPalette } from "@/components/home/command-palette"
 import { GraphView } from "@/components/home/graph-view"
 import { Library } from "@/components/home/library"
 import { Workspace } from "@/components/home/workspace"
 import { History } from "@/components/home/history"
 import { Settings } from "@/components/home/settings"
+import { ThemeProvider } from "@/components/theme-provider"
 import { useStudyStore } from "@/lib/study-store"
+import { MessageCircle } from "lucide-react"
 
 export function App() {
   const {
@@ -19,8 +21,10 @@ export function App() {
     focusMode,
     showCommandPalette,
     showInteractionDrawer,
+    showFloatingChat,
     setShowCommandPalette,
     setShowInteractionDrawer,
+    setShowFloatingChat,
     setFocusMode,
     setCurrentView,
   } = useStudyStore()
@@ -49,10 +53,10 @@ export function App() {
         setFocusMode(!focusMode)
       }
 
-      // Interaction Drawer
+      // Floating Chat
       if (e.shiftKey && e.code === "Space") {
         e.preventDefault()
-        setShowInteractionDrawer(!showInteractionDrawer)
+        setShowFloatingChat(!showFloatingChat)
       }
 
       // Navigation shortcuts
@@ -65,7 +69,7 @@ export function App() {
       // Escape to close overlays
       if (e.key === "Escape") {
         setShowCommandPalette(false)
-        setShowInteractionDrawer(false)
+        setShowFloatingChat(false)
       }
 
       // Tab to toggle context bar
@@ -80,7 +84,7 @@ export function App() {
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [focusMode, showInteractionDrawer, setShowCommandPalette, setShowInteractionDrawer, setFocusMode, setCurrentView])
+  }, [focusMode, showFloatingChat, setShowCommandPalette, setShowFloatingChat, setFocusMode, setCurrentView])
 
   const renderCurrentView = () => {
     switch (currentView) {
@@ -99,42 +103,56 @@ export function App() {
   }
 
   return (
-    <div className="h-screen bg-background text-foreground overflow-hidden">
-      {/* Main Layout Grid */}
-      <div className="h-full grid grid-cols-[48px_1fr] grid-rows-[auto_1fr_auto]">
-        {/* Slim Nav Rail */}
-        <div className="row-span-3 border-r border-border">
-          <SlimNavRail />
+    <ThemeProvider
+      attribute="class"
+      defaultTheme="dark-teal"
+      enableSystem
+      disableTransitionOnChange
+    >
+      <div className="h-screen bg-background text-foreground overflow-hidden spotlight-bg">
+        {/* Main Layout Grid */}
+        <div className="h-full grid grid-cols-[48px_1fr] grid-rows-[auto_1fr_auto] spotlight-content">
+          {/* Slim Nav Rail */}
+          <div className="row-span-3 border-r border-border">
+            <SlimNavRail />
+          </div>
+
+          {/* Context Bar */}
+          {!focusMode && (
+            <div className="border-b border-border">
+              <ContextBar />
+            </div>
+          )}
+
+          {/* Focus Pane */}
+          <div className="overflow-hidden min-h-0 h-full">{currentView === "focus" ? <FocusPane /> : renderCurrentView()}</div>
+
         </div>
 
-        {/* Context Bar */}
-        {!focusMode && (
-          <div className="border-b border-border">
-            <ContextBar />
-          </div>
+        {/* Command Palette Overlay */}
+        {showCommandPalette && <CommandPalette />}
+
+        {/* Floating Chat */}
+        {showFloatingChat && <FloatingChat onClose={() => setShowFloatingChat(false)} />}
+
+        {/* Floating Chat Trigger */}
+        {!showFloatingChat && (
+          <button
+            onClick={() => setShowFloatingChat(true)}
+            className="fixed bottom-6 right-6 w-14 h-14 bg-primary text-primary-foreground rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-105 flex items-center justify-center z-40"
+          >
+            <MessageCircle className="h-6 w-6" />
+          </button>
         )}
 
-        {/* Focus Pane */}
-        <div className="overflow-hidden">{currentView === "focus" ? <FocusPane /> : renderCurrentView()}</div>
-
-        {/* Interaction Drawer */}
-        {showInteractionDrawer && (
-          <div className="border-t border-border">
-            <InteractionDrawer />
+        {/* Focus Mode Indicator */}
+        {focusMode && (
+          <div className="fixed top-4 right-4 px-3 py-1 bg-primary text-primary-foreground text-sm rounded-full">
+            Focus Mode • ⌘.
           </div>
         )}
       </div>
-
-      {/* Command Palette Overlay */}
-      {showCommandPalette && <CommandPalette />}
-
-      {/* Focus Mode Indicator */}
-      {focusMode && (
-        <div className="fixed top-4 right-4 px-3 py-1 bg-primary text-primary-foreground text-sm rounded-full">
-          Focus Mode • ⌘.
-        </div>
-      )}
-    </div>
+    </ThemeProvider>
   )
 }
 

@@ -44,7 +44,8 @@ export function CommandPalette() {
     showCommandPalette, 
     setShowCommandPalette, 
     setCurrentView, 
-    setFocusMode 
+    setFocusMode,
+    setShowFloatingChat
   } = useStudyStore()
 
   const handleSelect = (value: string) => {
@@ -79,10 +80,10 @@ export function CommandPalette() {
           console.log("Create flashcards")
           break
         case "chat":
-          console.log("Ask AI")
+          setShowFloatingChat(true)
           break
         case "settings":
-          console.log("Open settings")
+          setCurrentView("settings")
           break
       }
     }

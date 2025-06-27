@@ -1,16 +1,49 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { FileText, MessageCircle, Lightbulb, Split } from "lucide-react"
+import { FileText, MessageCircle, Lightbulb, Split, Loader2, ArrowLeft } from "lucide-react"
 import { useStudyStore } from "@/lib/study-store"
+import { LibraryService, type Document } from "@/lib/library-service"
 
 export function FocusPane() {
   const [splitView, setSplitView] = useState(false)
   const [selectedText, setSelectedText] = useState("")
-  const { setShowInteractionDrawer } = useStudyStore()
+  const [currentDocument, setCurrentDocument] = useState<Document | null>(null)
+  const [isLoading, setIsLoading] = useState(false)
+  const [notes, setNotes] = useState("")
+  
+  const { 
+    setShowFloatingChat, 
+    currentDocument: currentDocumentId, 
+    setCurrentView 
+  } = useStudyStore()
+
+  const libraryService = LibraryService.getInstance()
+
+  // Load current document
+  useEffect(() => {
+    const loadDocument = async () => {
+      if (!currentDocumentId) {
+        setCurrentDocument(null)
+        return
+      }
+
+      try {
+        setIsLoading(true)
+        const doc = await libraryService.getDocument(currentDocumentId)
+        setCurrentDocument(doc)
+      } catch (error) {
+        console.error('Failed to load document:', error)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    loadDocument()
+  }, [currentDocumentId])
 
   const handleTextSelection = () => {
     const selection = window.getSelection()
@@ -21,8 +54,73 @@ export function FocusPane() {
 
   const handleQuestionShortcut = () => {
     if (selectedText) {
-      setShowInteractionDrawer(true)
+      setShowFloatingChat(true)
     }
+  }
+
+  const handleBackToLibrary = () => {
+    setCurrentView("library")
+  }
+
+  // Render markdown content as HTML
+  const renderMarkdownContent = (content: string) => {
+    // Simple markdown rendering - in a real app you'd use a proper markdown parser
+    const htmlContent = content
+      .replace(/^# (.*$)/gim, '<h1 class="text-3xl font-bold mb-4 mt-6">$1</h1>')
+      .replace(/^## (.*$)/gim, '<h2 class="text-2xl font-semibold mb-3 mt-5">$1</h2>')
+      .replace(/^### (.*$)/gim, '<h3 class="text-xl font-medium mb-2 mt-4">$1</h3>')
+      .replace(/^\* (.*$)/gim, '<li class="ml-4 mb-1">$1</li>')
+      .replace(/\n\n/g, '</p><p class="mb-4">')
+      .replace(/\n/g, '<br/>')
+
+    return `<div class="prose prose-neutral dark:prose-invert max-w-none leading-relaxed"><p class="mb-4">${htmlContent}</p></div>`
+  }
+
+  if (!currentDocumentId) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center">
+          <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">No document selected</h3>
+          <p className="text-muted-foreground mb-4">
+            Select a document from the library to start reading.
+          </p>
+          <Button onClick={handleBackToLibrary}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Library
+          </Button>
+        </div>
+      </div>
+    )
+  }
+
+  if (isLoading) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="flex flex-col items-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin" />
+          <p className="text-muted-foreground">Loading document...</p>
+        </div>
+      </div>
+    )
+  }
+
+  if (!currentDocument) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <div className="text-center">
+          <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
+          <h3 className="text-lg font-medium mb-2">Document not found</h3>
+          <p className="text-muted-foreground mb-4">
+            The selected document could not be loaded.
+          </p>
+          <Button onClick={handleBackToLibrary}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to Library
+          </Button>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -30,8 +128,17 @@ export function FocusPane() {
       {/* Toolbar */}
       <div className="flex items-center justify-between p-2 border-b">
         <div className="flex items-center space-x-2">
+          <Button variant="ghost" size="sm" onClick={handleBackToLibrary}>
+            <ArrowLeft className="h-4 w-4" />
+          </Button>
           <FileText className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium">Attention Is All You Need</span>
+          <span className="text-sm font-medium">{currentDocument.title}</span>
+          <span className="text-xs px-2 py-1 bg-muted rounded">
+            {currentDocument.doc_type}
+          </span>
+          <span className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded">
+            {currentDocument.content.length.toLocaleString()} chars
+          </span>
         </div>
         <div className="flex items-center space-x-1">
           <Button variant="ghost" size="sm" onClick={() => setSplitView(!splitView)}>
@@ -41,49 +148,18 @@ export function FocusPane() {
       </div>
 
       {/* Content Area */}
-      <div className={`flex-1 flex ${splitView ? "divide-x" : ""}`}>
+      <div className={`flex-1 flex ${splitView ? "divide-x" : ""} min-h-0`}>
         {/* Main Content */}
-        <div className={`${splitView ? "w-1/2" : "w-full"} flex flex-col`}>
-          <ScrollArea className="flex-1 p-6">
-            <div className="prose prose-neutral dark:prose-invert max-w-none" onMouseUp={handleTextSelection}>
-              <h1>Attention Is All You Need</h1>
-              <p className="text-muted-foreground">
-                Ashish Vaswani, Noam Shazeer, Niki Parmar, Jakob Uszkoreit, Llion Jones, Aidan N. Gomez, Lukasz Kaiser,
-                Illia Polosukhin
-              </p>
-
-              <h2>Abstract</h2>
-              <p>
-                The dominant sequence transduction models are based on complex recurrent or convolutional neural
-                networks that include an encoder and a decoder. The best performing models also connect the encoder and
-                decoder through an attention mechanism. We propose a new simple network architecture, the Transformer,
-                based solely on attention mechanisms, dispensing with recurrence and convolutions entirely.
-              </p>
-
-              <p>
-                Experiments on two machine translation tasks show these models to be superior in quality while being
-                more parallelizable and requiring significantly less time to train. Our model achieves 28.4 BLEU on the
-                WMT 2014 English-to-German translation task, improving over the existing best results, including
-                ensembles, by over 2 BLEU.
-              </p>
-
-              <h2>1. Introduction</h2>
-              <p>
-                Recurrent neural networks, long short-term memory and gated recurrent neural networks in particular,
-                have been firmly established as state of the art approaches in sequence modeling and transduction
-                problems such as language modeling and machine translation. Numerous efforts have since continued to
-                push the boundaries of recurrent language models and encoder-decoder architectures.
-              </p>
-
-              {/* Info Dots for annotations */}
-              <div className="relative">
-                <div className="absolute -left-4 top-0 w-2 h-2 bg-blue-500 rounded-full opacity-0 hover:opacity-100 transition-opacity cursor-pointer" />
-                <p>
-                  Attention mechanisms have become an integral part of compelling sequence modeling and transduction
-                  models in various tasks, allowing modeling of dependencies without regard to their distance in the
-                  input or output sequences.
-                </p>
-              </div>
+        <div className={`${splitView ? "w-1/2" : "w-full"} flex flex-col min-h-0`}>
+          <ScrollArea className="flex-1 h-full">
+            <div className="p-6">
+              <div 
+                className="prose prose-neutral dark:prose-invert max-w-none leading-relaxed"
+                onMouseUp={handleTextSelection}
+                dangerouslySetInnerHTML={{ 
+                  __html: renderMarkdownContent(currentDocument.content) 
+                }}
+              />
             </div>
           </ScrollArea>
 
@@ -92,7 +168,9 @@ export function FocusPane() {
             <div className="p-3 border-t bg-muted/20">
               <div className="flex items-center space-x-2">
                 <span className="text-sm text-muted-foreground">Selected:</span>
-                <span className="text-sm font-medium truncate max-w-xs">"{selectedText.substring(0, 50)}..."</span>
+                <span className="text-sm font-medium truncate max-w-xs">
+                  "{selectedText.substring(0, 50)}..."
+                </span>
                 <Button variant="outline" size="sm" onClick={handleQuestionShortcut}>
                   <MessageCircle className="h-3 w-3 mr-1" />
                   Ask (?)
@@ -116,6 +194,8 @@ export function FocusPane() {
               <Textarea
                 placeholder="Take notes here... (markdown supported)"
                 className="h-full resize-none border-0 focus-visible:ring-0"
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
               />
             </div>
           </div>

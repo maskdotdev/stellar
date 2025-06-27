@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Plus, Trash2, Eye, EyeOff, TestTube, CheckCircle, XCircle, X } from "lucide-react"
+import { Plus, Trash2, Eye, EyeOff, TestTube, CheckCircle, XCircle, X, Settings as SettingsIcon, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -14,6 +14,8 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Slider } from "@/components/ui/slider"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { ThemeSwitcher, themes } from "@/components/theme-switcher"
+import { useTheme } from "next-themes"
 import { useAIStore, type AIProvider } from "@/lib/ai-store"
 import { aiService } from "@/lib/ai-service"
 
@@ -155,6 +157,7 @@ export function Settings() {
 
   const activeProvider = getActiveProvider()
   const activeModel = getActiveModel()
+  const { theme, setTheme } = useTheme()
 
   return (
     <TooltipProvider>
@@ -162,23 +165,24 @@ export function Settings() {
         <div className="container mx-auto p-6 max-w-4xl">
         <div className="space-y-6">
           <div>
-            <h1 className="text-3xl font-bold">Settings</h1>
+            <h1 className="text-3xl font-bold text-foreground">Settings</h1>
             <p className="text-muted-foreground">
               Configure AI providers, models, and chat settings
             </p>
           </div>
 
           <Tabs defaultValue="providers" className="w-full">
-            <TabsList className="grid w-full grid-cols-3">
+            <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="providers">AI Providers</TabsTrigger>
               <TabsTrigger value="models">Models</TabsTrigger>
               <TabsTrigger value="chat">Chat Settings</TabsTrigger>
+              <TabsTrigger value="appearance">Appearance</TabsTrigger>
             </TabsList>
 
             <TabsContent value="providers" className="space-y-4">
               <div className="flex justify-between items-center">
                 <div>
-                  <h2 className="text-xl font-semibold">AI Providers</h2>
+                  <h2 className="text-xl font-semibold text-foreground">AI Providers</h2>
                   <p className="text-sm text-muted-foreground">
                     Manage your AI service providers and API keys
                   </p>
@@ -616,6 +620,133 @@ export function Settings() {
                         checked={settings.saveConversations}
                         onCheckedChange={(saveConversations) => updateSettings({ saveConversations })}
                       />
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            <TabsContent value="appearance" className="space-y-4">
+              <div>
+                <h2 className="text-xl font-semibold">Appearance</h2>
+                <p className="text-sm text-muted-foreground">
+                  Customize the look and feel of your application
+                </p>
+              </div>
+
+              <div className="grid gap-6">
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg flex items-center gap-2">
+                      <Sparkles className="w-5 h-5" />
+                      Theme Selection
+                    </CardTitle>
+                    <CardDescription>
+                      Choose from multiple theme options to personalize your experience
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-6">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <Label>Current Theme</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Switch between light, dark, and colored themes
+                        </p>
+                      </div>
+                      <ThemeSwitcher />
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-4">
+                      <Label>Theme Preview</Label>
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                        {themes.map((themeOption) => {
+                          const ThemeIcon = themeOption.icon
+                          const isActive = theme === themeOption.name
+                          
+                          return (
+                            <button
+                              key={themeOption.name}
+                              onClick={() => setTheme(themeOption.name)}
+                              className={`
+                                p-3 rounded-lg border transition-all hover:scale-105
+                                ${isActive 
+                                  ? 'border-primary bg-primary/10 shadow-lg shadow-primary/20' 
+                                  : 'border-border bg-card hover:border-primary/40'
+                                }
+                              `}
+                            >
+                              <div className="flex flex-col items-center gap-2">
+                                <ThemeIcon className={`w-6 h-6 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
+                                <span className={`text-sm font-medium ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
+                                  {themeOption.label}
+                                </span>
+                                {isActive && (
+                                  <div 
+                                    className="w-2 h-2 rounded-full"
+                                    style={{ backgroundColor: themeOption.activeColor }}
+                                  />
+                                )}
+                              </div>
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </div>
+
+                    <Separator />
+
+                    <div className="space-y-3">
+                      <Label>Theme Features</Label>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <div className="w-2 h-2 rounded-full bg-green-500" />
+                          <span>Automatic system detection</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <div className="w-2 h-2 rounded-full bg-green-500" />
+                          <span>Smooth color transitions</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <div className="w-2 h-2 rounded-full bg-green-500" />
+                          <span>Multiple color schemes</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-muted-foreground">
+                          <div className="w-2 h-2 rounded-full bg-green-500" />
+                          <span>Persistent theme settings</span>
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="text-lg">Display Preferences</CardTitle>
+                    <CardDescription>
+                      Adjust visual settings for better accessibility
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <Label>Reduce Motion</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Minimize animations and transitions
+                        </p>
+                      </div>
+                      <Switch />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-1">
+                        <Label>High Contrast</Label>
+                        <p className="text-sm text-muted-foreground">
+                          Increase contrast for better visibility
+                        </p>
+                      </div>
+                      <Switch />
                     </div>
                   </CardContent>
                 </Card>
