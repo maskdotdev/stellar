@@ -1,5 +1,7 @@
 use pdf_extract::extract_text;
 use std::path::Path;
+use reqwest;
+use serde_json;
 
 #[derive(Debug)]
 #[allow(dead_code)]
@@ -121,6 +123,63 @@ impl PdfProcessor {
             subject: None,
             creator: None,
         })
+    }
+
+    /// Extract text using Marker API (high quality)
+    pub async fn extract_with_marker(&self, file_path: &str) -> Result<String, PdfError> {
+        // Check if file exists
+        if !Path::new(file_path).exists() {
+            return Err(PdfError::ExtractionError(format!("File not found: {}", file_path)));
+        }
+
+        // Call Marker API
+        let client = reqwest::Client::new();
+        let form_data = serde_json::json!({
+            "filepath": file_path,
+            "extract_images": false,
+            "use_llm": true  // For better quality
+        });
+
+        let response = client
+            .post("http://localhost:8001/marker")
+            .header("Content-Type", "application/json")
+            .body(form_data.to_string())
+            .send()
+            .await
+            .map_err(|e| PdfError::ExtractionError(format!("Marker API error: {}", e)))?;
+
+        if !response.status().is_success() {
+            return Err(PdfError::ExtractionError(format!(
+                "Marker API returned status: {}", 
+                response.status()
+            )));
+        }
+
+        let result: serde_json::Value = response
+            .json()
+            .await
+            .map_err(|e| PdfError::ExtractionError(format!("Failed to parse response: {}", e)))?;
+
+        // Extract markdown from response
+        let markdown = result["markdown"]
+            .as_str()
+            .ok_or_else(|| PdfError::ExtractionError("No markdown in response".to_string()))?
+            .to_string();
+
+        Ok(markdown)
+    }
+
+    /// Fallback to simple extraction if Marker is unavailable
+    pub async fn extract_text_smart(&self, file_path: &str) -> Result<String, PdfError> {
+        // Try Marker first
+        match self.extract_with_marker(file_path).await {
+            Ok(markdown) => Ok(markdown),
+            Err(_) => {
+                // Fallback to simple extraction
+                println!("Marker unavailable, falling back to simple extraction");
+                self.extract_text_from_pdf(file_path)
+            }
+        }
     }
 }
 

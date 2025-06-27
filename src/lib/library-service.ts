@@ -22,6 +22,12 @@ export interface CreateDocumentRequest {
   status?: string
 }
 
+export interface UploadPdfOptions {
+  title?: string
+  tags?: string[]
+  useMarker?: boolean
+}
+
 export class LibraryService {
   private static instance: LibraryService
   private initialized = false
@@ -74,7 +80,48 @@ export class LibraryService {
       const document = await invoke<Document>('upload_and_process_pdf', {
         filePath: file,
         title: null,
-        tags: null
+        tags: null,
+        useMarker: false
+      })
+
+      console.log('PDF processed successfully:', document)
+      return document
+    } catch (error) {
+      console.error('Failed to upload PDF:', error)
+      throw error
+    }
+  }
+
+  async uploadPdfWithOptions(options: UploadPdfOptions): Promise<Document | null> {
+    try {
+      console.log('Starting PDF upload process with options:', options)
+      
+      // Open file dialog to select PDF
+      const file = await open({
+        multiple: false,
+        filters: [
+          {
+            name: 'PDF Files',
+            extensions: ['pdf']
+          }
+        ]
+      })
+
+      console.log('File dialog result:', file)
+
+      if (!file) {
+        console.log('User cancelled file selection')
+        return null // User cancelled
+      }
+
+      console.log('Processing PDF file:', file)
+      
+      // Process the PDF with options
+      const document = await invoke<Document>('upload_and_process_pdf', {
+        filePath: file,
+        title: options.title || null,
+        tags: options.tags || null,
+        useMarker: options.useMarker || false
       })
 
       console.log('PDF processed successfully:', document)
@@ -106,7 +153,8 @@ export class LibraryService {
       const document = await invoke<Document>('upload_and_process_pdf', {
         filePath: file,
         title,
-        tags
+        tags,
+        useMarker: false
       })
 
       console.log('PDF processed successfully:', document)

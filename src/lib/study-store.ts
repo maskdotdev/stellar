@@ -4,17 +4,19 @@ import { create } from "zustand"
 import type { Document } from "./library-service"
 
 interface StudyState {
-  currentView: "focus" | "library" | "graph" | "workspace" | "history" | "settings"
+  currentView: "focus" | "library" | "graph" | "workspace" | "history" | "settings" | "note-editor"
   focusMode: boolean
   showCommandPalette: boolean
   showInteractionDrawer: boolean
   showFloatingChat: boolean
   currentDocument: string | null
+  editingNoteId: string | null
   currentTags: string[]
   documents: Document[]
   isLoadingDocuments: boolean
 
   setCurrentView: (view: StudyState["currentView"]) => void
+  setEditingNoteId: (noteId: string | null) => void
   setFocusMode: (enabled: boolean) => void
   setShowCommandPalette: (show: boolean) => void
   setShowInteractionDrawer: (show: boolean) => void
@@ -35,11 +37,13 @@ export const useStudyStore = create<StudyState>((set) => ({
   showInteractionDrawer: false,
   showFloatingChat: false,
   currentDocument: null,
+  editingNoteId: null,
   currentTags: ["transformer", "attention", "nlp"],
   documents: [],
   isLoadingDocuments: false,
 
   setCurrentView: (view) => set({ currentView: view }),
+  setEditingNoteId: (noteId) => set({ editingNoteId: noteId }),
   setFocusMode: (enabled) => set({ focusMode: enabled }),
   setShowCommandPalette: (show) => set({ showCommandPalette: show }),
   setShowInteractionDrawer: (show) => set({ showInteractionDrawer: show }),

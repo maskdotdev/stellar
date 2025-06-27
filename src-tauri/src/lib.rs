@@ -124,37 +124,25 @@ async fn init_database(state: State<'_, DatabaseState>) -> Result<(), String> {
     
     let mut db_state = state.lock().await;
     
-    // Use current working directory for now to avoid permissions issues
-    let current_dir = std::env::current_dir()
-        .map_err(|e| format!("Failed to get current directory: {}", e))?;
-    let db_dir = current_dir.join("stellar_data");
-    let db_path = db_dir.join("documents.db");
+    // Use a data directory outside the watched src-tauri folder
+    let app_data_dir = std::env::current_dir()
+        .map_err(|e| format!("Failed to get current directory: {}", e))?
+        .parent()
+        .unwrap_or_else(|| std::path::Path::new("."))
+        .join("stellar_data");
+    let db_path = app_data_dir.join("documents.db");
     
-    println!("DEBUG: Database directory: {:?}", db_dir);
+    println!("DEBUG: Database directory: {:?}", app_data_dir);
     println!("DEBUG: Database path: {:?}", db_path);
     
     // Ensure directory exists
-    if let Err(e) = std::fs::create_dir_all(&db_dir) {
+    if let Err(e) = std::fs::create_dir_all(&app_data_dir) {
         let error_msg = format!("Failed to create app directory: {}", e);
         println!("DEBUG: {}", error_msg);
         return Err(error_msg);
     }
     
     println!("DEBUG: Directory created successfully");
-    
-    // Test file permissions by trying to create a test file
-    let test_file = db_dir.join("test.txt");
-    match std::fs::write(&test_file, "test") {
-        Ok(_) => {
-            println!("DEBUG: File write test successful");
-            let _ = std::fs::remove_file(&test_file);
-        }
-        Err(e) => {
-            let error_msg = format!("File write test failed: {}", e);
-            println!("DEBUG: {}", error_msg);
-            return Err(error_msg);
-        }
-    }
     
     // Try using the proper SQLite URL format with connection options
     let database_url = format!("sqlite://{}?mode=rwc", db_path.to_string_lossy());
@@ -179,6 +167,7 @@ async fn upload_and_process_pdf(
     file_path: String,
     title: Option<String>,
     tags: Option<Vec<String>>,
+    use_marker: Option<bool>,
 ) -> Result<Document, String> {
     println!("DEBUG: upload_and_process_pdf called with file_path: {}", file_path);
     
@@ -191,8 +180,13 @@ async fn upload_and_process_pdf(
     let processor = PdfProcessor::new();
     println!("DEBUG: Created PDF processor");
     
-    let content = processor.extract_text_from_pdf(&file_path)
-        .map_err(|e| format!("Failed to process PDF: {:?}", e))?;
+    let content = if use_marker.unwrap_or(false) {
+        processor.extract_text_smart(&file_path).await
+            .map_err(|e| format!("Failed to process PDF with Marker: {:?}", e))?
+    } else {
+        processor.extract_text_from_pdf(&file_path)
+            .map_err(|e| format!("Failed to process PDF: {:?}", e))?
+    };
     
     println!("DEBUG: Extracted content length: {}", content.len());
     

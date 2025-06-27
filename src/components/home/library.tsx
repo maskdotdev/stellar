@@ -5,7 +5,27 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Search, Filter, Grid, List, FileText, BookOpen, Code, Headphones, Calendar, Tag, Upload, Plus, Loader2 } from "lucide-react"
+import { 
+  Search, Filter, Grid, List, FileText, BookOpen, Code, 
+  Headphones, Calendar, Tag, Upload, Plus, Loader2, 
+  MoreVertical, Trash2, Edit, Sparkles
+} from "lucide-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 import { useStudyStore } from "@/lib/study-store"
 import { LibraryService, type Document } from "@/lib/library-service"
 import { useToast } from "@/hooks/use-toast"
@@ -23,16 +43,19 @@ export function Library() {
   const [searchQuery, setSearchQuery] = useState("")
   const [viewMode, setViewMode] = useState<"grid" | "list">("list")
   const [isUploading, setIsUploading] = useState(false)
+  const [deleteDocumentId, setDeleteDocumentId] = useState<string | null>(null)
   const { toast } = useToast()
   
   const { 
     setCurrentView, 
     setCurrentDocument, 
+    setEditingNoteId,
     documents, 
     isLoadingDocuments, 
     setDocuments, 
     setIsLoadingDocuments,
-    addDocument 
+    addDocument,
+    removeDocument
   } = useStudyStore()
 
   const libraryService = LibraryService.getInstance()
@@ -69,8 +92,15 @@ export function Library() {
   )
 
   const handleItemClick = (item: Document) => {
-    setCurrentDocument(item.id)
-    setCurrentView("focus")
+    if (item.doc_type === "note") {
+      // Use note editor for notes
+      setEditingNoteId(item.id)
+      setCurrentView("note-editor")
+    } else {
+      // Use focus view for other documents (PDFs, etc.)
+      setCurrentDocument(item.id)
+      setCurrentView("focus")
+    }
   }
 
   const handleUploadPdf = async () => {
@@ -97,32 +127,65 @@ export function Library() {
     }
   }
 
-  const handleCreateNote = async () => {
+  const handleUploadPdfWithMarker = async () => {
     try {
-      const document = await libraryService.createDocument({
-        title: "New Note",
-        content: "# New Note\n\nStart writing your notes here...",
-        doc_type: "note",
-        tags: ["note"],
-        status: "draft"
+      setIsUploading(true)
+      const document = await libraryService.uploadPdfWithOptions({
+        useMarker: true
       })
       
-      addDocument(document)
-      setCurrentDocument(document.id)
-      setCurrentView("focus")
-      
-      toast({
-        title: "Success",
-        description: "New note created successfully!",
-      })
+      if (document) {
+        addDocument(document)
+        toast({
+          title: "Success",
+          description: `PDF "${document.title}" processed with enhanced quality!`,
+        })
+      }
     } catch (error) {
-      console.error('Failed to create note:', error)
+      console.error('Failed to upload PDF with Marker:', error)
       toast({
-        title: "Error",
-        description: "Failed to create note. Please try again.",
+        title: "Error", 
+        description: "Enhanced processing failed. Try basic upload or check if Marker server is running.",
         variant: "destructive",
       })
+    } finally {
+      setIsUploading(false)
     }
+  }
+
+  const handleDeleteDocument = async (documentId: string) => {
+    try {
+      const success = await libraryService.deleteDocument(documentId)
+      
+      if (success) {
+        removeDocument(documentId)
+        toast({
+          title: "Success",
+          description: "Document deleted successfully.",
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to delete document.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error('Failed to delete document:', error)
+      toast({
+        title: "Error",
+        description: "Failed to delete document. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setDeleteDocumentId(null)
+    }
+  }
+
+  const handleCreateNote = () => {
+    // Navigate to note editor for new note creation
+    setEditingNoteId(null) // null indicates new note
+    setCurrentView("note-editor")
   }
 
   if (isLoadingDocuments) {
@@ -143,19 +206,42 @@ export function Library() {
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold">Library</h1>
           <div className="flex items-center space-x-2">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleUploadPdf}
-              disabled={isUploading}
-            >
-              {isUploading ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <Upload className="h-4 w-4 mr-2" />
-              )}
-              Upload PDF
-            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  disabled={isUploading}
+                >
+                  {isUploading ? (
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  ) : (
+                    <Upload className="h-4 w-4 mr-2" />
+                  )}
+                  Upload PDF
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem 
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleUploadPdf()
+                  }}
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Basic Processing
+                </DropdownMenuItem>
+                <DropdownMenuItem 
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleUploadPdfWithMarker()
+                  }}
+                >
+                  <Sparkles className="h-4 w-4 mr-2 text-yellow-500" />
+                  Enhanced Processing
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <Button 
               variant="outline" 
               size="sm" 
@@ -228,11 +314,13 @@ export function Library() {
                 return (
                   <div
                     key={item.id}
-                    className="p-4 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                    onClick={() => handleItemClick(item)}
+                    className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
                   >
                     <div className="flex items-start justify-between">
-                      <div className="flex items-start space-x-3">
+                      <div 
+                        className="flex items-start space-x-3 flex-1 cursor-pointer"
+                        onClick={() => handleItemClick(item)}
+                      >
                         <Icon className="h-5 w-5 mt-0.5 text-muted-foreground" />
                         <div className="flex-1">
                           <h3 className="font-medium">{item.title}</h3>
@@ -261,6 +349,34 @@ export function Library() {
                           </div>
                         </div>
                       </div>
+                      
+                      {/* Document Actions */}
+                      <div className="flex items-center space-x-1" onClick={(e) => e.stopPropagation()}>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleItemClick(item)
+                          }}
+                          className="h-8 px-2"
+                        >
+                          <Edit className="h-4 w-4 mr-1" />
+                          Open
+                        </Button>
+                        <Button 
+                          variant="ghost" 
+                          size="sm"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setDeleteDocumentId(item.id)
+                          }}
+                          className="h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Delete
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 )
@@ -273,28 +389,63 @@ export function Library() {
                 return (
                   <div
                     key={item.id}
-                    className="p-4 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
-                    onClick={() => handleItemClick(item)}
+                    className="p-4 border rounded-lg hover:bg-muted/50 transition-colors relative group"
                   >
-                    <Icon className="h-8 w-8 text-muted-foreground mb-3" />
-                    <h3 className="font-medium mb-2">{item.title}</h3>
-                    <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
-                      {libraryService.getContentPreview(item.content, 100)}
-                    </p>
-                    <div className="flex flex-wrap gap-1 mb-2">
-                      {item.tags.slice(0, 2).map((tag) => (
-                        <Badge key={tag} variant="secondary" className="text-xs">
-                          {tag}
-                        </Badge>
-                      ))}
-                      {item.tags.length > 2 && (
-                        <Badge variant="secondary" className="text-xs">
-                          +{item.tags.length - 2}
-                        </Badge>
-                      )}
+                    {/* Document Actions for Grid View */}
+                    <div 
+                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleItemClick(item)
+                        }}
+                        className="h-7 w-7 p-0"
+                        title="Open"
+                      >
+                        <Edit className="h-3 w-3" />
+                      </Button>
+                      <Button 
+                        variant="ghost" 
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setDeleteDocumentId(item.id)
+                        }}
+                        className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
+                        title="Delete"
+                      >
+                        <Trash2 className="h-3 w-3" />
+                      </Button>
                     </div>
-                    <div className="text-xs text-muted-foreground">
-                      {libraryService.formatDate(item.updated_at)}
+
+                    <div 
+                      className="cursor-pointer"
+                      onClick={() => handleItemClick(item)}
+                    >
+                      <Icon className="h-8 w-8 text-muted-foreground mb-3" />
+                      <h3 className="font-medium mb-2">{item.title}</h3>
+                      <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
+                        {libraryService.getContentPreview(item.content, 100)}
+                      </p>
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {item.tags.slice(0, 2).map((tag) => (
+                          <Badge key={tag} variant="secondary" className="text-xs">
+                            {tag}
+                          </Badge>
+                        ))}
+                        {item.tags.length > 2 && (
+                          <Badge variant="secondary" className="text-xs">
+                            +{item.tags.length - 2}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {libraryService.formatDate(item.updated_at)}
+                      </div>
                     </div>
                   </div>
                 )
@@ -303,6 +454,27 @@ export function Library() {
           )}
         </div>
       </ScrollArea>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!deleteDocumentId} onOpenChange={() => setDeleteDocumentId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Document</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this document? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              className="bg-red-600 hover:bg-red-700"
+              onClick={() => deleteDocumentId && handleDeleteDocument(deleteDocumentId)}
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

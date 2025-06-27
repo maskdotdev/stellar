@@ -44,6 +44,7 @@ export function CommandPalette() {
     showCommandPalette, 
     setShowCommandPalette, 
     setCurrentView, 
+    setEditingNoteId,
     setFocusMode,
     setShowFloatingChat
   } = useStudyStore()
@@ -74,7 +75,8 @@ export function CommandPalette() {
           console.log("Import file")
           break
         case "new-note":
-          console.log("New note")
+          setEditingNoteId(null) // null indicates new note
+          setCurrentView("note-editor")
           break
         case "flashcards":
           console.log("Create flashcards")

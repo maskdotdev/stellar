@@ -11,6 +11,7 @@ import { Library } from "@/components/home/library"
 import { Workspace } from "@/components/home/workspace"
 import { History } from "@/components/home/history"
 import { Settings } from "@/components/home/settings"
+import { NoteEditor } from "@/components/home/note-editor"
 import { ThemeProvider } from "@/components/theme-provider"
 import { useStudyStore } from "@/lib/study-store"
 import { MessageCircle } from "lucide-react"
@@ -22,11 +23,13 @@ export function App() {
     showCommandPalette,
     showInteractionDrawer,
     showFloatingChat,
+    editingNoteId,
     setShowCommandPalette,
     setShowInteractionDrawer,
     setShowFloatingChat,
     setFocusMode,
     setCurrentView,
+    setEditingNoteId,
   } = useStudyStore()
 
   // Keyboard shortcuts
@@ -96,6 +99,13 @@ export function App() {
         return <History />
       case "settings":
         return <Settings />
+      case "note-editor":
+        return (
+          <NoteEditor 
+            documentId={editingNoteId} 
+            onBack={() => setCurrentView("library")} 
+          />
+        )
       case "library":
       default:
         return <Library />
