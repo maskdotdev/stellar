@@ -1,6 +1,5 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import {
   CommandDialog,
   CommandInput,
@@ -11,25 +10,14 @@ import {
   CommandShortcut,
   CommandSeparator,
 } from "@/components/ui/command"
-import { FileText, Plus, Import, Network, Zap, BookOpen, MessageCircle, Clock, Settings } from "lucide-react"
+import { FileText, Plus, Import, Network, Zap, BookOpen, MessageCircle, Clock, Settings, Bot, Palette, MessageSquare, Cpu, Keyboard } from "lucide-react"
 import { useStudyStore } from "@/lib/study-store"
 
-const quickActions = [
-  { id: "import", label: "Import PDF", icon: Import, shortcut: "⌘I" },
-  { id: "new-note", label: "New Note", icon: Plus, shortcut: "⌘N" },
-  { id: "graph", label: "Open Graph View", icon: Network, shortcut: "⌘2" },
-  { id: "flashcards", label: "Create Flashcards", icon: Zap, shortcut: "⌘F" },
-  { id: "focus", label: "Focus Mode", icon: BookOpen, shortcut: "⌘." },
-  { id: "chat", label: "Ask AI", icon: MessageCircle, shortcut: "⇧Space" },
-  { id: "settings", label: "Settings", icon: Settings, shortcut: "⌘," },
-]
-
-const navigationActions = [
-  { id: "library", label: "Library", shortcut: "⌘1" },
-  { id: "graph", label: "Graph View", shortcut: "⌘2" },
-  { id: "workspace", label: "Workspace", shortcut: "⌘3" },
-  { id: "history", label: "History", shortcut: "⌘4" },
-]
+// Helper to get keybinding by id
+const getKeybindingShortcut = (keybindings: any[], id: string): string => {
+  const binding = keybindings.find(kb => kb.id === id)
+  return binding?.currentKeys || ""
+}
 
 const recentFiles = [
   "Attention Is All You Need",
@@ -46,8 +34,35 @@ export function CommandPalette() {
     setCurrentView, 
     setEditingNoteId,
     setFocusMode,
-    setShowFloatingChat
+    setShowFloatingChat,
+    setSettingsTab,
+    keybindings
   } = useStudyStore()
+
+  // Dynamic actions based on keybindings
+  const quickActions = [
+    { id: "import", label: "Import PDF", icon: Import, shortcut: getKeybindingShortcut(keybindings, "import") },
+    { id: "new-note", label: "New Note", icon: Plus, shortcut: getKeybindingShortcut(keybindings, "new-note") },
+    { id: "graph", label: "Open Graph View", icon: Network, shortcut: getKeybindingShortcut(keybindings, "graph") },
+    { id: "flashcards", label: "Create Flashcards", icon: Zap, shortcut: getKeybindingShortcut(keybindings, "flashcards") },
+    { id: "focus", label: "Focus Mode", icon: BookOpen, shortcut: getKeybindingShortcut(keybindings, "focus") },
+    { id: "chat", label: "Ask AI", icon: MessageCircle, shortcut: getKeybindingShortcut(keybindings, "chat") },
+  ]
+
+  const settingsActions = [
+    { id: "settings-providers", label: "AI Providers Settings", icon: Bot, shortcut: getKeybindingShortcut(keybindings, "settings-providers") },
+    { id: "settings-models", label: "Models Settings", icon: Cpu, shortcut: getKeybindingShortcut(keybindings, "settings-models") },
+    { id: "settings-chat", label: "Chat Settings", icon: MessageSquare, shortcut: getKeybindingShortcut(keybindings, "settings-chat") },
+    { id: "settings-appearance", label: "Appearance Settings", icon: Palette, shortcut: getKeybindingShortcut(keybindings, "settings-appearance") },
+    { id: "settings-keybindings", label: "Keybindings Settings", icon: Keyboard, shortcut: getKeybindingShortcut(keybindings, "settings-keybindings") },
+  ]
+
+  const navigationActions = [
+    { id: "library", label: "Library", shortcut: getKeybindingShortcut(keybindings, "library") },
+    { id: "graph", label: "Graph View", shortcut: getKeybindingShortcut(keybindings, "graph") },
+    { id: "workspace", label: "Workspace", shortcut: getKeybindingShortcut(keybindings, "workspace") },
+    { id: "history", label: "History", shortcut: getKeybindingShortcut(keybindings, "history") },
+  ]
 
   const handleSelect = (value: string) => {
     // Handle quick actions
@@ -84,7 +99,31 @@ export function CommandPalette() {
         case "chat":
           setShowFloatingChat(true)
           break
-        case "settings":
+      }
+    }
+
+    // Handle settings actions
+    const settingsAction = settingsActions.find(a => a.id === value)
+    if (settingsAction) {
+      switch (settingsAction.id) {
+        case "settings-providers":
+          setSettingsTab("providers")
+          setCurrentView("settings")
+          break
+        case "settings-models":
+          setSettingsTab("models")
+          setCurrentView("settings")
+          break
+        case "settings-chat":
+          setSettingsTab("chat")
+          setCurrentView("settings")
+          break
+        case "settings-appearance":
+          setSettingsTab("appearance")
+          setCurrentView("settings")
+          break
+        case "settings-keybindings":
+          setSettingsTab("keybindings")
           setCurrentView("settings")
           break
       }
@@ -118,6 +157,22 @@ export function CommandPalette() {
         
         <CommandGroup heading="Quick Actions">
           {quickActions.map((action) => (
+            <CommandItem 
+              key={action.id} 
+              value={action.id}
+              onSelect={handleSelect}
+            >
+              <action.icon className="mr-2 h-4 w-4" />
+              <span>{action.label}</span>
+              <CommandShortcut>{action.shortcut}</CommandShortcut>
+            </CommandItem>
+          ))}
+        </CommandGroup>
+        
+        <CommandSeparator />
+        
+        <CommandGroup heading="Settings">
+          {settingsActions.map((action) => (
             <CommandItem 
               key={action.id} 
               value={action.id}

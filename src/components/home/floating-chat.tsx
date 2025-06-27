@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { DocumentMention } from "@/components/library"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -23,6 +24,7 @@ import {
 import { useStudyStore } from "@/lib/study-store"
 import { useChat } from "@/hooks/use-chat"
 import { useAIStore } from "@/lib/ai-store"
+import { DocumentContextParser } from "@/lib/document-context"
 import { cn } from "@/lib/utils"
 
 interface FloatingChatProps {
@@ -35,7 +37,35 @@ export function FloatingChat({ onClose }: FloatingChatProps) {
   const [isMaximized, setIsMaximized] = useState(false)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   
-  const { setCurrentView } = useStudyStore()
+  const { setCurrentView, documents, setDocuments, setIsLoadingDocuments } = useStudyStore()
+  const documentParser = DocumentContextParser.getInstance()
+  
+  // Debug: Log documents when floating chat renders
+  console.log("🏠 FloatingChat - Documents from store:", documents.length, documents.map(doc => ({ id: doc.id, title: doc.title })))
+  
+  // Load documents if not already loaded
+  useEffect(() => {
+    const loadDocuments = async () => {
+      if (documents.length === 0) {
+        console.log("🔄 FloatingChat - Loading documents as none exist in store")
+        try {
+          setIsLoadingDocuments(true)
+          const { LibraryService } = await import("@/lib/library-service")
+          const libraryService = LibraryService.getInstance()
+          await libraryService.initialize()
+          const docs = await libraryService.getAllDocuments()
+          console.log("📚 FloatingChat - Loaded documents:", docs.length, docs.map(doc => ({ id: doc.id, title: doc.title })))
+          setDocuments(docs)
+        } catch (error) {
+          console.error("❌ FloatingChat - Failed to load documents:", error)
+        } finally {
+          setIsLoadingDocuments(false)
+        }
+      }
+    }
+    
+    loadDocuments()
+  }, [])
   
   const {
     messages,
@@ -65,6 +95,14 @@ export function FloatingChat({ onClose }: FloatingChatProps) {
     if (!chatInput.trim() || !canSendMessage) return
     
     const message = chatInput
+    console.log("🚀 Sending message:", message)
+    
+    // Log document mentions before sending
+    if (message.includes('@')) {
+      const mentionedDocs = getMentionedDocuments()
+      console.log("📄 Message contains @ mentions:", mentionedDocs.map(doc => doc.title))
+    }
+    
     setChatInput("")
     await sendMessage(message)
   }
@@ -99,6 +137,26 @@ export function FloatingChat({ onClose }: FloatingChatProps) {
     clearError()
   }
 
+  // Check for document mentions in current input
+  const hasDocumentMentions = chatInput.includes('@')
+  console.log("🔍 Chat input changed:", chatInput)
+  console.log("📋 Has @ mentions:", hasDocumentMentions)
+  
+  const getMentionedDocuments = () => {
+    const mentioned = documents.filter(doc => {
+      const mentionPattern = `@${doc.title}`
+      const isIncluded = chatInput.includes(mentionPattern)
+      if (isIncluded) {
+        console.log(`✅ Found mention for document: "${doc.title}" with pattern: "${mentionPattern}"`)
+      }
+      return isIncluded
+    })
+    console.log("📄 Total mentioned documents:", mentioned.length)
+    return mentioned
+  }
+  
+  const mentionedDocs = getMentionedDocuments()
+
   if (isMinimized) {
     return (
       <div className="fixed bottom-6 right-6 z-50">
@@ -131,7 +189,7 @@ export function FloatingChat({ onClose }: FloatingChatProps) {
             isMaximized ? "left-6" : "w-96"
           )}
         >
-          <Card className="h-full flex flex-col shadow-2xl border-2 pb-0">
+          <Card className="h-full flex flex-col shadow-2xl border-2 border-primary/20 pb-0">
             <CardHeader className="flex-row items-center justify-between space-y-0 pb-2 border-b">
               <div className="flex items-center space-x-2">
                 <MessageCircle className="h-5 w-5 text-primary" />
@@ -264,7 +322,12 @@ export function FloatingChat({ onClose }: FloatingChatProps) {
                           <div className="text-center text-muted-foreground py-8">
                             <Bot className="h-12 w-12 mx-auto mb-4 text-muted-foreground/50" />
                             <h3 className="font-medium mb-2">Start a Conversation</h3>
-                            <p className="text-sm">Ask {activeModel.name} anything about your documents</p>
+                            <p className="text-sm mb-2">Ask {activeModel.name} anything about your documents</p>
+                            {documents.length > 0 && (
+                              <div className="text-xs text-muted-foreground/70">
+                                💡 Tip: Type <code className="bg-muted px-1 rounded">@</code> to reference specific documents
+                              </div>
+                            )}
                           </div>
                         )}
                         
@@ -314,14 +377,35 @@ export function FloatingChat({ onClose }: FloatingChatProps) {
                     </ScrollArea>
                   </div>
 
-                  <div className="border-t bg-background/50 backdrop-blur-sm">
+                  <div className="border-t bg-background/50 backdrop-blur-sm rounded-b-xl">
                     <div className="p-4">
+                      {mentionedDocs.length > 0 && (
+                        <div className="mb-3 p-2 bg-muted/50 rounded-md">
+                          <div className="text-xs text-muted-foreground mb-1">
+                            Referenced documents:
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {mentionedDocs.map(doc => (
+                              <Badge key={doc.id} variant="secondary" className="text-xs">
+                                {doc.title}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       <div className="flex space-x-2">
-                        <Input
-                          placeholder={`Ask ${activeModel.name} about your documents...`}
+                        <DocumentMention
+                          placeholder={documents.length > 0 
+                            ? `Ask ${activeModel.name} about your documents... Type @ to reference a document`
+                            : `Ask ${activeModel.name} anything...`
+                          }
                           value={chatInput}
-                          onChange={(e) => setChatInput(e.target.value)}
+                          onChange={(value) => {
+                            console.log("📝 DocumentMention onChange:", value)
+                            setChatInput(value)
+                          }}
                           onKeyDown={handleKeyPress}
+                          onSend={handleSendMessage}
                           disabled={!canSendMessage}
                           className="flex-1"
                         />

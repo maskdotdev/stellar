@@ -1,8 +1,6 @@
-"use client"
-
 import * as React from "react"
-import { useTheme } from "next-themes"
-import { Monitor, Moon, Sun, Palette } from "lucide-react"
+import { useTheme } from "@/components/theme-provider"
+import { Monitor, Moon, Sun, Palette, Sparkles, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -17,57 +15,75 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 export const themes = [
   {
     name: "dark-teal",
-    label: "Dark Teal",
+    label: "Stellar Dark",
     icon: Moon,
     activeColor: "oklch(0.7 0.131 195)",
   },
   {
+    name: "light-teal",
+    label: "Stellar Light",
+    icon: Sun,
+    activeColor: "oklch(0.65 0.15 195)",
+  },
+  {
     name: "light",
-    label: "Light",
+    label: "Solar",
     icon: Sun,
     activeColor: "oklch(0.129 0.042 264.695)",
   },
   {
     name: "dark",
-    label: "Dark", 
+    label: "Eclipse", 
     icon: Moon,
     activeColor: "oklch(0.984 0.003 247.858)",
   },
   {
     name: "system",
-    label: "System",
+    label: "Auto",
     icon: Monitor,
     activeColor: "oklch(0.554 0.046 257.417)",
   },
   {
     name: "blue",
-    label: "Blue",
+    label: "Galaxy",
     icon: Palette,
     activeColor: "oklch(0.5 0.2 240)",
   },
   {
     name: "green", 
-    label: "Green",
+    label: "Terra",
     icon: Palette,
     activeColor: "oklch(0.5 0.2 140)",
   },
   {
     name: "purple",
-    label: "Purple", 
+    label: "Nebula", 
     icon: Palette,
     activeColor: "oklch(0.5 0.2 280)",
   },
   {
     name: "orange",
-    label: "Orange",
+    label: "Solar Flare",
     icon: Palette,
     activeColor: "oklch(0.6 0.2 50)",
   },
   {
     name: "rose",
-    label: "Rose",
+    label: "Nova",
     icon: Palette,
     activeColor: "oklch(0.6 0.2 10)",
+  },
+  {
+    name: "space",
+    label: "Deep Space",
+    icon: Sparkles,
+    activeColor: "oklch(0.65 0.25 285)",
+  },
+  {
+    name: "aurora",
+    label: "Aurora",
+    icon: Zap,
+    activeColor: "oklch(0.78 0.15 85)",
   },
 ] as const
 
@@ -113,17 +129,17 @@ export function ThemeSwitcher() {
           return (
             <DropdownMenuItem
               key={themeOption.name}
-              onClick={() => setTheme(themeOption.name)}
+              onClick={() => setTheme(themeOption.name as any)}
               className="flex items-center gap-2"
             >
               <ThemeIcon className="h-4 w-4" />
               <span>{themeOption.label}</span>
-              {theme === themeOption.name && (
-                <div 
-                  className="ml-auto h-2 w-2 rounded-full"
-                  style={{ backgroundColor: themeOption.activeColor }}
-                />
-              )}
+              <div 
+                className={`ml-auto h-2 w-2 rounded-full transition-opacity ${
+                  theme === themeOption.name ? 'opacity-100' : 'opacity-0'
+                }`}
+                style={{ backgroundColor: themeOption.activeColor }}
+              />
             </DropdownMenuItem>
           )
         })}

@@ -1,0 +1,391 @@
+@import "@/styles/themes.css";
+/* Simple Editor Theme Override to match Stellar's design system */
+
+/* Override Tiptap variables with our theme colors */
+:root {
+  /* Map Tiptap color variables to our CSS custom properties */
+  --tt-bg-color: hsl(var(--background));
+  --tt-border-color: hsl(var(--border));
+  --tt-border-color-tint: hsl(var(--border));
+  --tt-sidebar-bg-color: hsl(var(--muted));
+  --tt-scrollbar-color: hsl(var(--border));
+  --tt-cursor-color: hsl(var(--primary));
+  --tt-selection-color: hsl(var(--primary) / 0.35);
+  --tt-card-bg-color: hsl(var(--card));
+  --tt-card-border-color: hsl(var(--border));
+  --tt-theme-text: hsl(var(--foreground));
+  
+  /* Button colors */
+  --tt-button-bg: hsl(var(--secondary));
+  --tt-button-bg-hover: hsl(var(--secondary) / 0.8);
+  --tt-button-text: hsl(var(--secondary-foreground));
+  --tt-button-border: hsl(var(--border));
+  
+  /* Active/Selected states */
+  --tt-button-active-bg: hsl(var(--primary));
+  --tt-button-active-text: hsl(var(--primary-foreground));
+  
+  /* Muted colors */
+  --tt-muted-bg: hsl(var(--muted));
+  --tt-muted-text: hsl(var(--muted-foreground));
+  
+  /* Destructive colors */
+  --tt-destructive-bg: hsl(var(--destructive));
+  --tt-destructive-text: hsl(var(--destructive-foreground));
+}
+
+/* Override specific component styles */
+.tiptap-toolbar {
+  background-color: hsl(var(--background)) !important;
+  border-color: hsl(var(--border)) !important;
+  border-bottom: 1px solid hsl(var(--border)) !important;
+  
+  /* Ensure all icons in toolbar are visible */
+  svg,
+  .tiptap-button-icon,
+  .tiptap-button-dropdown-small {
+    color: hsl(var(--foreground)) !important;
+    opacity: 0.8 !important;
+  }
+}
+
+/* Button overrides */
+.tiptap-button {
+  background-color: transparent !important;
+  color: hsl(var(--foreground)) !important;
+  border: 1px solid transparent !important;
+  border-radius: calc(var(--radius) - 2px) !important;
+  transition: all 0.2s ease !important;
+  
+  /* Ensure icons have proper visibility */
+  svg {
+    color: hsl(var(--foreground)) !important;
+    opacity: 0.8 !important;
+  }
+  
+  &:hover {
+    background-color: hsl(var(--accent)) !important;
+    color: hsl(var(--accent-foreground)) !important;
+    
+    svg {
+      color: hsl(var(--accent-foreground)) !important;
+      opacity: 1 !important;
+    }
+  }
+  
+  &[data-state="on"],
+  &[aria-pressed="true"],
+  &.is-active {
+    background-color: hsl(var(--primary)) !important;
+    color: hsl(var(--primary-foreground)) !important;
+    
+    svg {
+      color: hsl(var(--primary-foreground)) !important;
+      opacity: 1 !important;
+    }
+  }
+  
+  &:disabled {
+    opacity: 0.5 !important;
+    pointer-events: none !important;
+  }
+}
+
+/* Specific button type overrides for proper theming */
+button.tiptap-button,
+[role="button"].tiptap-button {
+  background-color: transparent !important;
+  color: hsl(var(--foreground)) !important;
+  border: 1px solid transparent !important;
+  border-radius: calc(var(--radius) - 2px) !important;
+  
+  /* Ensure all icon types have proper visibility */
+  svg,
+  .tiptap-button-icon {
+    color: hsl(var(--foreground)) !important;
+    opacity: 0.8 !important;
+  }
+  
+  &:hover:not(:disabled) {
+    background-color: hsl(var(--accent)) !important;
+    color: hsl(var(--accent-foreground)) !important;
+    
+    svg,
+    .tiptap-button-icon {
+      color: hsl(var(--accent-foreground)) !important;
+      opacity: 1 !important;
+    }
+  }
+  
+  &[data-state="on"],
+  &[aria-pressed="true"],
+  &.is-active {
+    background-color: hsl(var(--primary)) !important;
+    color: hsl(var(--primary-foreground)) !important;
+    
+    svg,
+    .tiptap-button-icon {
+      color: hsl(var(--primary-foreground)) !important;
+      opacity: 1 !important;
+    }
+  }
+}
+
+/* Dropdown menu overrides */
+.tiptap-dropdown-menu {
+  background-color: hsl(var(--popover)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1) !important;
+  
+  /* Dropdown menu items (direct div children with role="menuitem") */
+  div[role="menuitem"] {
+    color: hsl(var(--popover-foreground)) !important;
+    border-radius: calc(var(--radius) - 2px) !important;
+    
+    &:hover,
+    &:focus,
+    &[data-highlighted="true"] {
+      background-color: hsl(var(--accent)) !important;
+      color: hsl(var(--accent-foreground)) !important;
+    }
+    
+    &[aria-disabled="true"] {
+      opacity: 0.5 !important;
+      pointer-events: none !important;
+    }
+  }
+}
+
+/* Popover overrides */
+.tiptap-popover {
+  background-color: hsl(var(--popover)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: var(--radius) !important;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1) !important;
+}
+
+/* Editor content styling */
+.simple-editor-content .tiptap.ProseMirror {
+  color: hsl(var(--foreground)) !important;
+  background-color: transparent !important;
+  
+  /* Headings */
+  h1, h2, h3, h4, h5, h6 {
+    color: hsl(var(--foreground)) !important;
+  }
+  
+  /* Code styling */
+  code {
+    background-color: hsl(var(--muted)) !important;
+    color: hsl(var(--foreground)) !important;
+    border-radius: calc(var(--radius) - 2px) !important;
+    padding: 0.125rem 0.25rem !important;
+  }
+  
+  pre {
+    background-color: hsl(var(--muted)) !important;
+    border: 1px solid hsl(var(--border)) !important;
+    border-radius: var(--radius) !important;
+    
+    code {
+      background-color: transparent !important;
+    }
+  }
+  
+  /* Blockquotes */
+  blockquote {
+    border-left: 4px solid hsl(var(--primary)) !important;
+    background-color: hsl(var(--muted) / 0.5) !important;
+    color: hsl(var(--muted-foreground)) !important;
+  }
+  
+  /* Links */
+  a {
+    color: hsl(var(--primary)) !important;
+    
+    &:hover {
+      color: hsl(var(--primary) / 0.8) !important;
+    }
+  }
+  
+  /* Lists */
+  ul[data-type="taskList"] {
+    li {
+      input[type="checkbox"] {
+        accent-color: hsl(var(--primary)) !important;
+      }
+    }
+  }
+  
+  /* Text Selection - Enhanced for better visibility */
+  ::selection {
+    background-color: hsl(var(--primary) / 0.4) !important;
+    color: hsl(var(--primary-foreground)) !important;
+  }
+  
+  ::-moz-selection {
+    background-color: hsl(var(--primary) / 0.4) !important;
+    color: hsl(var(--primary-foreground)) !important;
+  }
+  
+  /* Override any weaker selection styles */
+  * {
+    &::selection {
+      background-color: hsl(var(--primary) / 0.4) !important;
+      color: hsl(var(--primary-foreground)) !important;
+    }
+    
+    &::-moz-selection {
+      background-color: hsl(var(--primary) / 0.4) !important;
+      color: hsl(var(--primary-foreground)) !important;
+    }
+  }
+  
+  /* Custom selection decoration when editor is not focused - High specificity */
+  span.selection,
+  .selection {
+    background-color: hsl(var(--primary) / 0.4) !important;
+    color: hsl(var(--primary-foreground)) !important;
+    border-radius: 2px !important;
+    padding: 1px 2px !important;
+    display: inline !important;
+    text-decoration: none !important;
+  }
+  
+  /* FORCE selection styling with maximum specificity - including content-wrapper */
+.content-wrapper .simple-editor-content .tiptap.ProseMirror span.selection,
+.content-wrapper .simple-editor-content .tiptap.ProseMirror .selection,
+.content-wrapper div[role="presentation"] .tiptap.ProseMirror span.selection,
+.content-wrapper div[role="presentation"] .tiptap.ProseMirror .selection,
+.simple-editor-content .tiptap.ProseMirror.h-full span.selection,
+.simple-editor-content .tiptap.ProseMirror.h-full .selection,
+div[role="presentation"] .tiptap.ProseMirror.h-full span.selection,
+div[role="presentation"] .tiptap.ProseMirror.h-full .selection {
+  background-color: hsl(var(--primary) / 0.4) !important;
+  color: hsl(var(--primary-foreground)) !important;
+  border-radius: 2px !important;
+  padding: 1px 2px !important;
+  display: inline !important;
+  text-decoration: none !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+}
+  
+  /* Placeholder */
+  .is-editor-empty:first-child::before {
+    color: hsl(var(--muted-foreground)) !important;
+    opacity: 0.7 !important;
+  }
+  
+  /* Alternative placeholder selectors for better coverage */
+  p.is-editor-empty:first-child::before,
+  .ProseMirror-placeholder {
+    color: hsl(var(--muted-foreground)) !important;
+    opacity: 0.7 !important;
+  }
+}
+
+/* Input field overrides (for link editing, etc.) */
+.tiptap-input {
+  background-color: hsl(var(--background)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  color: hsl(var(--foreground)) !important;
+  border-radius: calc(var(--radius) - 2px) !important;
+  
+  &:focus {
+    border-color: hsl(var(--ring)) !important;
+    box-shadow: 0 0 0 2px hsl(var(--ring) / 0.2) !important;
+  }
+}
+
+/* Separator overrides */
+.tiptap-separator {
+  background-color: hsl(var(--border)) !important;
+}
+
+/* Scrollbar styling for content area */
+.content-wrapper {
+  &::-webkit-scrollbar-thumb {
+    background-color: hsl(var(--border)) !important;
+  }
+  
+  /* Firefox scrollbar */
+  scrollbar-color: hsl(var(--border)) transparent !important;
+}
+
+/* Remove default font family override to use our app fonts */
+body .tiptap.ProseMirror {
+  font-family: inherit !important;
+}
+
+/* Ensure proper spacing and sizing */
+.simple-editor-content {
+  padding: 1rem !important;
+  background-color: hsl(var(--background)) !important;
+}
+
+.simple-editor-content .tiptap.ProseMirror {
+  padding: 1.5rem !important;
+  min-height: 200px !important;
+  background-color: hsl(var(--background)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: var(--radius) !important;
+}
+
+/* Focus states */
+.simple-editor-content .tiptap.ProseMirror:focus {
+  outline: none !important;
+  border-color: hsl(var(--ring)) !important;
+  box-shadow: 0 0 0 2px hsl(var(--ring) / 0.2) !important;
+}
+
+@media screen and (max-width: 480px) {
+  .simple-editor-content .tiptap.ProseMirror {
+    padding: 1rem !important;
+  }
+}
+
+/* Override any conflicting theme toggle styles */
+.simple-editor .theme-toggle {
+  display: none !important;
+}
+
+/* Global icon visibility fixes */
+.tiptap-button-icon,
+.tiptap-button-dropdown-small,
+.tiptap-button-highlight {
+  color: inherit !important;
+  opacity: inherit !important;
+}
+
+/* Ensure all SVG icons inherit proper colors */
+.tiptap-toolbar svg,
+.tiptap-dropdown-menu svg,
+.tiptap-popover svg {
+  color: inherit !important;
+  fill: currentColor !important;
+}
+
+/* Fix any remaining placeholder visibility issues */
+.simple-editor-content .ProseMirror p.is-editor-empty:first-child::before,
+.simple-editor-content .ProseMirror .is-editor-empty:first-child::before {
+  color: hsl(var(--muted-foreground)) !important;
+  opacity: 0.6 !important;
+  font-style: italic !important;
+}
+
+/* Essential TipTap mark styles for highlighting */
+.simple-editor-content .tiptap.ProseMirror {
+  /* TipTap creates <mark> elements with inline styles for highlights */
+  mark {
+    border-radius: 3px;
+    padding: 1px 2px;
+    /* TipTap will add inline background-color styles automatically */
+  }
+  
+  /* Fallback for marks without inline styles */
+  mark:not([style*="background-color"]) {
+    background-color: #fef3c7; /* Default yellow highlight */
+  }
+}

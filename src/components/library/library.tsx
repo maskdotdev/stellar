@@ -8,14 +8,8 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { 
   Search, Filter, Grid, List, FileText, BookOpen, Code, 
   Headphones, Calendar, Tag, Upload, Plus, Loader2, 
-  MoreVertical, Trash2, Edit, Sparkles
+  MoreVertical, Trash2, Edit
 } from "lucide-react"
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,6 +23,10 @@ import {
 import { useStudyStore } from "@/lib/study-store"
 import { LibraryService, type Document } from "@/lib/library-service"
 import { useToast } from "@/hooks/use-toast"
+import { useSimpleSettingsStore } from "@/lib/simple-settings-store"
+import { cn } from "@/lib/utils"
+import { buttonVariants } from "@/components/ui/button"
+import { PdfUploadDialog } from "./pdf-upload-dialog"
 
 const typeIcons = {
   pdf: FileText,
@@ -41,10 +39,15 @@ const typeIcons = {
 
 export function Library() {
   const [searchQuery, setSearchQuery] = useState("")
-  const [viewMode, setViewMode] = useState<"grid" | "list">("list")
   const [isUploading, setIsUploading] = useState(false)
   const [deleteDocumentId, setDeleteDocumentId] = useState<string | null>(null)
+  const [showUploadDialog, setShowUploadDialog] = useState(false)
   const { toast } = useToast()
+  
+  // Use persistent settings for layout preferences
+  const viewMode = useSimpleSettingsStore((state) => state.libraryViewMode)
+  const setLibraryViewMode = useSimpleSettingsStore((state) => state.setLibraryViewMode)
+  const addSearchHistory = useSimpleSettingsStore((state) => state.addSearchHistory)
   
   const { 
     setCurrentView, 
@@ -103,54 +106,9 @@ export function Library() {
     }
   }
 
-  const handleUploadPdf = async () => {
-    try {
-      setIsUploading(true)
-      const document = await libraryService.uploadPdf()
-      
-      if (document) {
-        addDocument(document)
-        toast({
-          title: "Success",
-          description: `PDF "${document.title}" uploaded and processed successfully!`,
-        })
-      }
-    } catch (error) {
-      console.error('Failed to upload PDF:', error)
-      toast({
-        title: "Error",
-        description: "Failed to upload PDF. Please try again.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsUploading(false)
-    }
-  }
-
-  const handleUploadPdfWithMarker = async () => {
-    try {
-      setIsUploading(true)
-      const document = await libraryService.uploadPdfWithOptions({
-        useMarker: true
-      })
-      
-      if (document) {
-        addDocument(document)
-        toast({
-          title: "Success",
-          description: `PDF "${document.title}" processed with enhanced quality!`,
-        })
-      }
-    } catch (error) {
-      console.error('Failed to upload PDF with Marker:', error)
-      toast({
-        title: "Error", 
-        description: "Enhanced processing failed. Try basic upload or check if Marker server is running.",
-        variant: "destructive",
-      })
-    } finally {
-      setIsUploading(false)
-    }
+  const handleUploadSuccess = (document: Document) => {
+    addDocument(document)
+    // Toast is already handled in the dialog
   }
 
   const handleDeleteDocument = async (documentId: string) => {
@@ -206,42 +164,14 @@ export function Library() {
         <div className="flex items-center justify-between mb-4">
           <h1 className="text-2xl font-bold">Library</h1>
           <div className="flex items-center space-x-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  disabled={isUploading}
-                >
-                  {isUploading ? (
-                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                  ) : (
-                    <Upload className="h-4 w-4 mr-2" />
-                  )}
-                  Upload PDF
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuItem 
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleUploadPdf()
-                  }}
-                >
-                  <FileText className="h-4 w-4 mr-2" />
-                  Basic Processing
-                </DropdownMenuItem>
-                <DropdownMenuItem 
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    handleUploadPdfWithMarker()
-                  }}
-                >
-                  <Sparkles className="h-4 w-4 mr-2 text-yellow-500" />
-                  Enhanced Processing
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setShowUploadDialog(true)}
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Upload PDF
+            </Button>
             <Button 
               variant="outline" 
               size="sm" 
@@ -250,10 +180,10 @@ export function Library() {
               <Plus className="h-4 w-4 mr-2" />
               New Note
             </Button>
-            <Button variant={viewMode === "list" ? "default" : "outline"} size="sm" onClick={() => setViewMode("list")}>
+            <Button variant={viewMode === "list" ? "default" : "outline"} size="sm" onClick={() => setLibraryViewMode("list")}>
               <List className="h-4 w-4" />
             </Button>
-            <Button variant={viewMode === "grid" ? "default" : "outline"} size="sm" onClick={() => setViewMode("grid")}>
+            <Button variant={viewMode === "grid" ? "default" : "outline"} size="sm" onClick={() => setLibraryViewMode("grid")}>
               <Grid className="h-4 w-4" />
             </Button>
           </div>
@@ -267,6 +197,11 @@ export function Library() {
               placeholder="Search documents, tags, content..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && searchQuery.trim()) {
+                  addSearchHistory(searchQuery.trim())
+                }
+              }}
               className="pl-10"
             />
           </div>
@@ -292,12 +227,8 @@ export function Library() {
               </p>
               {documents.length === 0 && (
                 <div className="flex space-x-2">
-                  <Button onClick={handleUploadPdf} disabled={isUploading}>
-                    {isUploading ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      <Upload className="h-4 w-4 mr-2" />
-                    )}
+                  <Button onClick={() => setShowUploadDialog(true)}>
+                    <Upload className="h-4 w-4 mr-2" />
                     Upload PDF
                   </Button>
                   <Button variant="outline" onClick={handleCreateNote}>
@@ -371,7 +302,7 @@ export function Library() {
                             e.stopPropagation()
                             setDeleteDocumentId(item.id)
                           }}
-                          className="h-8 px-2 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
+                          className="h-8 px-2 text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/20"
                         >
                           <Trash2 className="h-4 w-4 mr-1" />
                           Delete
@@ -415,7 +346,7 @@ export function Library() {
                           e.stopPropagation()
                           setDeleteDocumentId(item.id)
                         }}
-                        className="h-7 w-7 p-0 text-red-600 hover:text-red-700 hover:bg-red-50 dark:text-red-400 dark:hover:text-red-300 dark:hover:bg-red-900/20"
+                        className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/20"
                         title="Delete"
                       >
                         <Trash2 className="h-3 w-3" />
@@ -467,7 +398,7 @@ export function Library() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction 
-              className="bg-red-600 hover:bg-red-700"
+              className={cn(buttonVariants({ variant: "destructive" }))}
               onClick={() => deleteDocumentId && handleDeleteDocument(deleteDocumentId)}
             >
               Delete
@@ -475,6 +406,13 @@ export function Library() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* PDF Upload Dialog */}
+      <PdfUploadDialog
+        open={showUploadDialog}
+        onOpenChange={setShowUploadDialog}
+        onSuccess={handleUploadSuccess}
+      />
     </div>
   )
 }

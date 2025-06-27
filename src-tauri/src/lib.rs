@@ -217,6 +217,104 @@ async fn upload_and_process_pdf(
 }
 
 #[tauri::command]
+async fn upload_and_process_pdf_from_url(
+    state: State<'_, DatabaseState>,
+    url: String,
+    title: Option<String>,
+    tags: Option<Vec<String>>,
+    use_marker: Option<bool>,
+) -> Result<Document, String> {
+    println!("DEBUG: upload_and_process_pdf_from_url called with URL: {}", url);
+    
+    let db_state = state.lock().await;
+    let database = db_state.as_ref().ok_or("Database not initialized")?;
+    
+    println!("DEBUG: Database state obtained");
+    
+    // Download PDF from URL to a temporary file
+    let client = reqwest::Client::new();
+    let response = client.get(&url).send().await
+        .map_err(|e| format!("Failed to download PDF: {}", e))?;
+    
+    if !response.status().is_success() {
+        return Err(format!("Failed to download PDF: HTTP {}", response.status()));
+    }
+    
+    // Extract filename from URL or use default
+    let filename = url
+        .split('/')
+        .last()
+        .and_then(|name| if name.ends_with(".pdf") { Some(name) } else { None })
+        .unwrap_or("downloaded.pdf");
+    
+    // Create temporary directory for downloads
+    let temp_dir = std::env::temp_dir().join("stellar_downloads");
+    std::fs::create_dir_all(&temp_dir)
+        .map_err(|e| format!("Failed to create temp directory: {}", e))?;
+    
+    let temp_file_path = temp_dir.join(filename);
+    
+    // Download and save the file
+    let bytes = response.bytes().await
+        .map_err(|e| format!("Failed to read PDF bytes: {}", e))?;
+    
+    std::fs::write(&temp_file_path, &bytes)
+        .map_err(|e| format!("Failed to save PDF: {}", e))?;
+    
+    println!("DEBUG: Downloaded PDF to: {:?}", temp_file_path);
+    
+    // Process the PDF
+    let processor = PdfProcessor::new();
+    
+    let content = if use_marker.unwrap_or(false) {
+        processor.extract_text_smart(temp_file_path.to_str().unwrap()).await
+            .map_err(|e| format!("Failed to process PDF with Marker: {:?}", e))?
+    } else {
+        processor.extract_text_from_pdf(temp_file_path.to_str().unwrap())
+            .map_err(|e| format!("Failed to process PDF: {:?}", e))?
+    };
+    
+    println!("DEBUG: Extracted content length: {}", content.len());
+    
+    let metadata = processor.extract_metadata(temp_file_path.to_str().unwrap())
+        .map_err(|e| format!("Failed to extract metadata: {:?}", e))?;
+    
+    println!("DEBUG: Extracted metadata: {:?}", metadata);
+    
+    // Clean up temporary file
+    let _ = std::fs::remove_file(&temp_file_path);
+    
+    // Create document request
+    let doc_title = title.unwrap_or_else(|| {
+        // Try to extract title from URL or use metadata title
+        url.split('/')
+            .last()
+            .and_then(|name| name.split('.').next())
+            .map(|name| name.replace(['_', '-'], " "))
+            .unwrap_or(metadata.title)
+    });
+    
+    let request = CreateDocumentRequest {
+        title: doc_title,
+        content,
+        file_path: Some(url), // Store the URL as the file path
+        doc_type: "pdf".to_string(),
+        tags: tags.unwrap_or_default(),
+        status: Some("reading".to_string()),
+    };
+    
+    println!("DEBUG: Created document request: {:?}", request.title);
+    
+    // Save to database
+    let result = database.create_document(request).await
+        .map_err(|e| format!("Failed to save document: {}", e));
+    
+    println!("DEBUG: Database operation result: {:?}", result.is_ok());
+    
+    result
+}
+
+#[tauri::command]
 async fn create_document(
     state: State<'_, DatabaseState>,
     request: CreateDocumentRequest,
@@ -811,6 +909,7 @@ pub fn run() {
             ai_get_models,
             init_database,
             upload_and_process_pdf,
+            upload_and_process_pdf_from_url,
             create_document,
             get_all_documents,
             get_document,

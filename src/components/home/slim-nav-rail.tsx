@@ -6,17 +6,23 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Library, Network, FileText, History, Settings, BookOpen } from "lucide-react"
 import { useStudyStore } from "@/lib/study-store"
 
-const navItems = [
-  { id: "library", icon: Library, label: "Library", shortcut: "⌘1" },
-  { id: "graph", icon: Network, label: "Graph", shortcut: "⌘2" },
-  { id: "workspace", icon: FileText, label: "Workspace", shortcut: "⌘3" },
-  { id: "history", icon: History, label: "History", shortcut: "⌘4" },
-  { id: "settings", icon: Settings, label: "Settings", shortcut: "⌘5" },
-]
-
 export function SlimNavRail() {
-  const { currentView, setCurrentView } = useStudyStore()
+  const { currentView, setCurrentView, keybindings } = useStudyStore()
   const [isExpanded, setIsExpanded] = useState(false)
+
+  // Helper to get keybinding by id
+  const getKeybindingShortcut = (id: string): string => {
+    const binding = keybindings.find(kb => kb.id === id)
+    return binding?.currentKeys || ""
+  }
+
+  const navItems = [
+    { id: "library", icon: Library, label: "Library", shortcut: getKeybindingShortcut("library") },
+    { id: "graph", icon: Network, label: "Graph", shortcut: getKeybindingShortcut("graph") },
+    { id: "workspace", icon: FileText, label: "Workspace", shortcut: getKeybindingShortcut("workspace") },
+    { id: "history", icon: History, label: "History", shortcut: getKeybindingShortcut("history") },
+    { id: "settings", icon: Settings, label: "Settings", shortcut: "⌘5" }, // This one doesn't exist in keybindings yet
+  ]
 
   return (
     <TooltipProvider>
@@ -38,7 +44,7 @@ export function SlimNavRail() {
             </Button>
           </TooltipTrigger>
           <TooltipContent side="right">
-            <p>Focus Pane</p>
+            <p>Focus Pane • {getKeybindingShortcut("focus")}</p>
           </TooltipContent>
         </Tooltip>
 

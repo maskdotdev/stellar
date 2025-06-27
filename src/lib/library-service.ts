@@ -1,5 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
+import { extractTextFromHTML } from './tiptap-utils'
 
 export interface Document {
   id: string
@@ -23,6 +24,13 @@ export interface CreateDocumentRequest {
 }
 
 export interface UploadPdfOptions {
+  title?: string
+  tags?: string[]
+  useMarker?: boolean
+}
+
+export interface UploadPdfFromUrlOptions {
+  url: string
   title?: string
   tags?: string[]
   useMarker?: boolean
@@ -132,6 +140,26 @@ export class LibraryService {
     }
   }
 
+  async uploadPdfFromUrl(options: UploadPdfFromUrlOptions): Promise<Document | null> {
+    try {
+      console.log('Starting PDF upload from URL:', options)
+      
+      // Process the PDF from URL
+      const document = await invoke<Document>('upload_and_process_pdf_from_url', {
+        url: options.url,
+        title: options.title || null,
+        tags: options.tags || null,
+        useMarker: options.useMarker || false
+      })
+
+      console.log('PDF from URL processed successfully:', document)
+      return document
+    } catch (error) {
+      console.error('Failed to upload PDF from URL:', error)
+      throw error
+    }
+  }
+
   async uploadPdfWithMetadata(title: string, tags: string[] = []): Promise<Document | null> {
     try {
       // Open file dialog to select PDF
@@ -220,11 +248,10 @@ export class LibraryService {
 
   // Helper method to extract text content preview
   getContentPreview(content: string, maxLength: number = 200): string {
-    const plainText = content.replace(/#{1,6}\s/g, '').replace(/\n+/g, ' ').trim()
-    if (plainText.length <= maxLength) {
-      return plainText
-    }
-    return plainText.substring(0, maxLength) + '...'
+    if (!content) return ''
+    
+    // Use the utility function to extract text from HTML content
+    return extractTextFromHTML(content, maxLength)
   }
 
   // Helper method to format document date

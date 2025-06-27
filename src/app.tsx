@@ -1,20 +1,172 @@
-"use client"
+'use client'
 
 import { useEffect } from "react"
 import { SlimNavRail } from "@/components/home/slim-nav-rail"
 import { ContextBar } from "@/components/home/context-bar"
-import { FocusPane } from "@/components/home/focus-pane"
+import { FocusPane, NoteEditor } from "@/components/focus"
 import { FloatingChat } from "@/components/home/floating-chat"
 import { CommandPalette } from "@/components/home/command-palette"
 import { GraphView } from "@/components/home/graph-view"
-import { Library } from "@/components/home/library"
+import { Library } from "@/components/library"
 import { Workspace } from "@/components/home/workspace"
-import { History } from "@/components/home/history"
-import { Settings } from "@/components/home/settings"
-import { NoteEditor } from "@/components/home/note-editor"
+import { History } from "@/components/history"
+import { Settings } from "@/components/settings"
 import { ThemeProvider } from "@/components/theme-provider"
 import { useStudyStore } from "@/lib/study-store"
 import { MessageCircle } from "lucide-react"
+
+// Helper function to check if user is actively editing
+const isUserActivelyEditing = (target: HTMLElement): boolean => {
+  // Basic input/textarea/contentEditable check
+  if (
+    target.tagName === "INPUT" || 
+    target.tagName === "TEXTAREA" || 
+    target.isContentEditable
+  ) {
+    return true
+  }
+  
+  // Check for TipTap editor elements (based on the actual TipTap structure in the codebase)
+  if (
+    target.closest('.tiptap') ||
+    target.closest('[data-tiptap-editor]') ||
+    target.closest('.ProseMirror') ||
+    target.closest('.tiptap-editor') ||
+    target.closest('[data-editor]') ||
+    target.closest('.editor-content')
+  ) {
+    return true
+  }
+  
+  // Check for command palette input (allow shortcuts in command palette for navigation)
+  if (target.closest('[data-slot="command-input"]')) {
+    return false // Allow shortcuts in command palette
+  }
+  
+  // Check for other editor-related elements from the codebase
+  if (
+    target.closest('.monaco-editor') || // Monaco editor
+    target.closest('.cm-editor') ||     // CodeMirror
+    target.closest('[role="textbox"]') ||
+    target.closest('[data-slot="textarea"]') ||
+    target.closest('[data-slot="input"]') ||
+    target.closest('[data-slot="select-trigger"]') || // Select dropdowns
+    target.closest('.simple-editor') ||  // From simple-editor.scss
+    target.hasAttribute('contenteditable')
+  ) {
+    return true
+  }
+  
+  // Check for focus states that indicate active editing
+  if (
+    target.matches(':focus') && (
+      target.tagName === "INPUT" ||
+      target.tagName === "TEXTAREA" ||
+      target.isContentEditable ||
+      target.closest('[role="textbox"]')
+    )
+  ) {
+    return true
+  }
+  
+  // Check if any parent element has editing-related classes or states
+  let parent = target.parentElement
+  while (parent && parent !== document.body) {
+    if (
+      parent.classList.contains('editor') ||
+      parent.classList.contains('input-wrapper') ||
+      parent.classList.contains('text-editor') ||
+      parent.classList.contains('tiptap-editor') ||
+      parent.classList.contains('simple-editor') ||
+      parent.hasAttribute('contenteditable') ||
+      parent.hasAttribute('data-editor')
+    ) {
+      return true
+    }
+    parent = parent.parentElement
+  }
+  
+  return false
+}
+
+// Helper function to parse keyboard shortcut strings
+const parseKeybinding = (keybinding: string): { modifiers: Set<string>, key: string } => {
+  const modifiers = new Set<string>()
+  let key = ''
+  
+  // Handle special cases first
+  if (keybinding.includes('Space')) {
+    if (keybinding.includes('⇧')) modifiers.add('Shift')
+    if (keybinding.includes('⌘')) modifiers.add('Meta')
+    if (keybinding.includes('⌥')) modifiers.add('Alt')
+    if (keybinding.includes('^') || keybinding.includes('Ctrl')) modifiers.add('Control')
+    return { modifiers, key: ' ' }
+  }
+  
+  if (keybinding.includes('Escape')) {
+    return { modifiers, key: 'Escape' }
+  }
+  
+  // Handle compound shortcuts like ⌘,P
+  if (keybinding.includes(',')) {
+    const parts = keybinding.split(',')
+    const modifierPart = parts[0]
+    const keyPart = parts[1]
+    
+    if (modifierPart.includes('⌘')) modifiers.add('Meta')
+    if (modifierPart.includes('⇧')) modifiers.add('Shift')
+    if (modifierPart.includes('⌥')) modifiers.add('Alt')
+    if (modifierPart.includes('^') || modifierPart.includes('Ctrl')) modifiers.add('Control')
+    
+    return { modifiers, key: keyPart.toLowerCase() }
+  }
+  
+  // Parse regular shortcuts
+  const chars = keybinding.split('')
+  for (const char of chars) {
+    if (char === '⌘') {
+      modifiers.add('Meta')
+    } else if (char === '⇧') {
+      modifiers.add('Shift')
+    } else if (char === '⌥') {
+      modifiers.add('Alt')
+    } else if (char === '^') {
+      modifiers.add('Control')
+    } else {
+      key += char
+    }
+  }
+  
+  // Check for Ctrl in string format
+  if (keybinding.includes('Ctrl')) {
+    modifiers.add('Control')
+    key = keybinding.replace(/Ctrl\+?/gi, '').trim()
+  }
+  
+  return { modifiers, key: key.toLowerCase() }
+}
+
+// Helper function to check if pressed keys match a keybinding
+const matchesKeybinding = (event: KeyboardEvent, keybinding: string): boolean => {
+  const { modifiers, key } = parseKeybinding(keybinding)
+  
+  // Check modifiers
+  const eventModifiers = new Set<string>()
+  if (event.metaKey) eventModifiers.add('Meta')
+  if (event.ctrlKey) eventModifiers.add('Control')
+  if (event.shiftKey) eventModifiers.add('Shift')
+  if (event.altKey) eventModifiers.add('Alt')
+  
+  // Compare modifiers
+  if (modifiers.size !== eventModifiers.size) return false
+  for (const mod of modifiers) {
+    if (!eventModifiers.has(mod)) return false
+  }
+  
+  // Compare key
+  const eventKey = event.key === ' ' ? ' ' : event.key.toLowerCase()
+  return eventKey === key
+}
 
 export function App() {
   const {
@@ -24,70 +176,148 @@ export function App() {
     showInteractionDrawer,
     showFloatingChat,
     editingNoteId,
+    keybindings,
     setShowCommandPalette,
     setShowInteractionDrawer,
     setShowFloatingChat,
     setFocusMode,
     setCurrentView,
     setEditingNoteId,
+    setSettingsTab,
   } = useStudyStore()
 
-  // Keyboard shortcuts
+  // Dynamic keyboard shortcuts using store keybindings
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Command Palette
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
+      // Skip if user is typing in an input field
+      const target = e.target as HTMLElement
+      const isTyping = isUserActivelyEditing(target)
+      
+      // Debug logging for development (can be removed in production)
+      if (process.env.NODE_ENV === 'development' && isTyping) {
+        console.log('🚫 Keybinding blocked - user is editing:', {
+          target: target.tagName,
+          isContentEditable: target.isContentEditable,
+          classList: Array.from(target.classList),
+          closest: {
+            tiptap: !!target.closest('.tiptap'),
+            prosemirror: !!target.closest('.ProseMirror'),
+            simpleEditor: !!target.closest('.simple-editor'),
+            dataSlotInput: !!target.closest('[data-slot="input"]'),
+            dataSlotTextarea: !!target.closest('[data-slot="textarea"]'),
+          }
+        })
+      }
+      
+      // Handle keybindings
+      for (const binding of keybindings) {
+        if (matchesKeybinding(e, binding.currentKeys)) {
+          // Some keybindings should work even when editing (like Escape)
+          const alwaysAllowedActions = ['escape', 'command-palette']
+          const shouldPreventWhenTyping = !alwaysAllowedActions.includes(binding.id)
+          
+          if (isTyping && shouldPreventWhenTyping) {
+            continue // Skip this keybinding when user is typing
+          }
+          
+          e.preventDefault()
+          
+          switch (binding.id) {
+            // Navigation
+            case "library":
+              setCurrentView("library")
+              break
+            case "graph":
+              setCurrentView("graph")
+              break
+            case "workspace":
+              setCurrentView("workspace")
+              break
+            case "history":
+              setCurrentView("history")
+              break
+              
+            // Quick Actions
+            case "import":
+              console.log("Import PDF")
+              break
+            case "new-note":
+              setEditingNoteId(null)
+              setCurrentView("note-editor")
+              break
+            case "focus":
+              setFocusMode(!focusMode)
+              setCurrentView("focus")
+              break
+            case "chat":
+              setShowFloatingChat(!showFloatingChat)
+              break
+            case "flashcards":
+              console.log("Create flashcards")
+              break
+              
+            // Settings
+            case "settings-providers":
+              setSettingsTab("providers")
+              setCurrentView("settings")
+              break
+            case "settings-models":
+              setSettingsTab("models")
+              setCurrentView("settings")
+              break
+            case "settings-chat":
+              setSettingsTab("chat")
+              setCurrentView("settings")
+              break
+            case "settings-appearance":
+              setSettingsTab("appearance")
+              setCurrentView("settings")
+              break
+            case "settings-keybindings":
+              setSettingsTab("keybindings")
+              setCurrentView("settings")
+              break
+              
+            // System
+            case "command-palette":
+              setShowCommandPalette(true)
+              break
+            case "escape":
+              setShowCommandPalette(false)
+              setShowFloatingChat(false)
+              break
+          }
+          
+          return // Stop processing if we found a match
+        }
+      }
+      
+      // Quick search with "/" key (only if not typing)
+      if (e.key === "/" && !e.metaKey && !e.ctrlKey && !isTyping) {
         e.preventDefault()
         setShowCommandPalette(true)
       }
-
-      // Quick search
-      if (e.key === "/" && !e.metaKey && !e.ctrlKey) {
-        const target = e.target as HTMLElement
-        if (target.tagName !== "INPUT" && target.tagName !== "TEXTAREA") {
-          e.preventDefault()
-          setShowCommandPalette(true)
-        }
-      }
-
-      // Focus Mode
-      if ((e.metaKey || e.ctrlKey) && e.key === ".") {
+      
+      // Tab to toggle context bar (only if not typing) 
+      if (e.key === "Tab" && !e.shiftKey && !e.metaKey && !e.ctrlKey && !isTyping) {
         e.preventDefault()
-        setFocusMode(!focusMode)
-      }
-
-      // Floating Chat
-      if (e.shiftKey && e.code === "Space") {
-        e.preventDefault()
-        setShowFloatingChat(!showFloatingChat)
-      }
-
-      // Navigation shortcuts
-      if ((e.metaKey || e.ctrlKey) && ["1", "2", "3", "4", "5"].includes(e.key)) {
-        e.preventDefault()
-        const views = ["library", "graph", "workspace", "history", "settings"]
-        setCurrentView(views[Number.parseInt(e.key) - 1] as any)
-      }
-
-      // Escape to close overlays
-      if (e.key === "Escape") {
-        setShowCommandPalette(false)
-        setShowFloatingChat(false)
-      }
-
-      // Tab to toggle context bar
-      if (e.key === "Tab" && !e.shiftKey && !e.metaKey && !e.ctrlKey) {
-        const target = e.target as HTMLElement
-        if (target.tagName !== "INPUT" && target.tagName !== "TEXTAREA") {
-          e.preventDefault()
-          // Toggle context bar visibility logic would go here
-        }
+        // Toggle context bar visibility logic would go here
       }
     }
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [focusMode, showFloatingChat, setShowCommandPalette, setShowFloatingChat, setFocusMode, setCurrentView])
+  }, [
+    keybindings, 
+    focusMode, 
+    showFloatingChat, 
+    setShowCommandPalette, 
+    setShowFloatingChat, 
+    setFocusMode, 
+    setCurrentView, 
+    setEditingNoteId,
+    setSettingsTab
+  ])
 
   const renderCurrentView = () => {
     switch (currentView) {
@@ -114,10 +344,7 @@ export function App() {
 
   return (
     <ThemeProvider
-      attribute="class"
       defaultTheme="dark-teal"
-      enableSystem
-      disableTransitionOnChange
     >
       <div className="h-screen bg-background text-foreground overflow-hidden spotlight-bg">
         {/* Main Layout Grid */}
@@ -158,7 +385,7 @@ export function App() {
         {/* Focus Mode Indicator */}
         {focusMode && (
           <div className="fixed top-4 right-4 px-3 py-1 bg-primary text-primary-foreground text-sm rounded-full">
-            Focus Mode • ⌘.
+            Focus Mode • {keybindings.find(kb => kb.id === "focus")?.currentKeys || "⌘."}
           </div>
         )}
       </div>

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { RichTextEditor } from "@/components/ui/rich-text-editor"
+import { ControlledSimpleEditor } from "@/components/ui/controlled-simple-editor"
 import { 
   Save, 
   ArrowLeft, 
@@ -270,7 +270,7 @@ export function NoteEditor({ documentId, onBack }: NoteEditorProps) {
 
       {/* Editor */}
       <div className="flex-1 p-4">
-        <RichTextEditor
+        <ControlledSimpleEditor
           content={content}
           onChange={setContent}
           placeholder="Start writing your note... Rich text editing with markdown support!"
