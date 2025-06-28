@@ -37,6 +37,12 @@ body {
 .content-wrapper {
   height: calc(100% - var(--tt-toolbar-height));
   overflow-y: auto;
+  overflow-x: hidden;
+  /* Ensure mouse wheel events are captured */
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  /* Make sure the wrapper can receive focus for wheel events */
+  position: relative;
 
   &::-webkit-scrollbar {
     display: block;
