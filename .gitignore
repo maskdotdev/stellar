@@ -25,3 +25,7 @@ dist-ssr
 
 # App data
 stellar_data/
+
+# Python virtual environments (PDF processing)
+marker_env/
+markitdown_env/
