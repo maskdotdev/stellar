@@ -12,6 +12,7 @@ import { Workspace } from "@/components/home/workspace"
 import { History } from "@/components/history"
 import { Settings } from "@/components/settings"
 import { ThemeProvider } from "@/components/theme-provider"
+import { Toaster } from "@/components/ui/sonner"
 import { useStudyStore } from "@/lib/study-store"
 import { MessageCircle } from "lucide-react"
 
@@ -332,7 +333,7 @@ export function App() {
       case "note-editor":
         return (
           <NoteEditor 
-            documentId={editingNoteId} 
+            documentId={editingNoteId || undefined} 
             onBack={() => setCurrentView("library")} 
           />
         )
@@ -389,6 +390,7 @@ export function App() {
           </div>
         )}
       </div>
+      <Toaster />
     </ThemeProvider>
   )
 }

@@ -1,38 +1,37 @@
-import { useState } from "react"
+import { toast as sonnerToast } from "sonner"
 
 export interface Toast {
-  id: string
+  id?: string
   title?: string
   description?: string
   variant?: "default" | "destructive"
 }
 
-// Simple toast implementation
+// Toast implementation using Sonner
 export function useToast() {
-  const [toasts, setToasts] = useState<Toast[]>([])
-
   const toast = ({ title, description, variant = "default" }: Omit<Toast, "id">) => {
-    const id = Math.random().toString(36).substr(2, 9)
-    const newToast: Toast = { id, title, description, variant }
-    
-    setToasts(prev => [...prev, newToast])
-    
-    // Auto-remove after 5 seconds
-    setTimeout(() => {
-      setToasts(prev => prev.filter(t => t.id !== id))
-    }, 5000)
-    
-    // For now, just log to console - in a real app you'd render UI
-    console.log(`Toast: ${title} - ${description}`)
+    if (variant === "destructive") {
+      sonnerToast.error(title, {
+        description,
+      })
+    } else {
+      sonnerToast.success(title, {
+        description,
+      })
+    }
   }
 
-  const dismiss = (id: string) => {
-    setToasts(prev => prev.filter(t => t.id !== id))
+  const dismiss = (id?: string) => {
+    if (id) {
+      sonnerToast.dismiss(id)
+    } else {
+      sonnerToast.dismiss()
+    }
   }
 
   return {
     toast,
     dismiss,
-    toasts
+    toasts: [] // Not used with Sonner
   }
 } 
