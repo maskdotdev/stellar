@@ -73,6 +73,14 @@ interface AIState {
     saveConversations: boolean
   }
 
+  // 🔥 NEW: Catalog state
+  catalogState: {
+    lastUpdated: Date | null
+    totalProviders: number
+    totalModels: number
+    isBuilding: boolean
+  }
+
   // Actions
   addProvider: (provider: Omit<AIProvider, "id">) => void
   updateProvider: (id: string, updates: Partial<AIProvider>) => void
@@ -80,11 +88,20 @@ interface AIState {
   setActiveProvider: (providerId: string) => void
   setActiveModel: (modelId: string) => void
   
-  // New methods for models.dev integration
+  // Enhanced models.dev integration
   importModelsFromDev: () => Promise<void>
   syncProvider: (providerId: string) => Promise<void>
   
-  // 🔥 NEW: Advanced model features
+  // 🔥 NEW: Full catalog management
+  buildFullCatalog: (forceRefresh?: boolean) => Promise<void>
+  importAllProviders: () => Promise<void>
+  importProvidersByCategory: (categories: string[]) => Promise<void>
+  searchModelsInCatalog: (query: string, options?: any) => Promise<AIModel[]>
+  getCatalogStatistics: () => Promise<any>
+  clearModelCache: () => void
+  exportCatalog: () => Promise<string>
+  
+  // Advanced model features
   getModelStatistics: () => Promise<any>
   compareModels: (models: AIModel[], criteria: any) => any[]
   findBestModel: (criteria: any) => Promise<AIModel | null>
@@ -185,6 +202,14 @@ export const useAIStore = create<AIState>()(
         saveConversations: true,
       },
 
+      // 🔥 NEW: Catalog state
+      catalogState: {
+        lastUpdated: null,
+        totalProviders: 0,
+        totalModels: 0,
+        isBuilding: false
+      },
+
       // Actions
       addProvider: (provider) => set((state) => ({
         providers: [...state.providers, { ...provider, id: crypto.randomUUID() }]
@@ -202,7 +227,7 @@ export const useAIStore = create<AIState>()(
       setActiveProvider: (providerId) => set({ activeProviderId: providerId }),
       setActiveModel: (modelId) => set({ activeModelId: modelId }),
       
-      // New methods for models.dev integration
+      // Enhanced models.dev integration
       importModelsFromDev: async () => {
         set({ isLoading: true, error: null })
         try {
@@ -214,7 +239,27 @@ export const useAIStore = create<AIState>()(
             
             // Update existing providers with new models while preserving user settings
             const updatedProviders = state.providers.map(existingProvider => {
-              const matchingProvider = popularProviders.find(p => p.id === existingProvider.id)
+              // Map local provider IDs to models.dev provider IDs for matching
+              const getModelsDevProviderId = (localId: string): string => {
+                switch (localId) {
+                  case "openai-default":
+                    return "openai"
+                  case "anthropic-default":
+                    return "anthropic"
+                  default:
+                    return localId
+                }
+              }
+              
+              const modelsDevId = getModelsDevProviderId(existingProvider.id)
+              const matchingProvider = popularProviders.find(p => p.id === modelsDevId) ||
+                                     popularProviders.find(p => 
+                                       p.name.toLowerCase().includes(existingProvider.name.toLowerCase()) ||
+                                       existingProvider.name.toLowerCase().includes(p.name.toLowerCase()) ||
+                                       (existingProvider.type === 'openai' && p.id === 'openai') ||
+                                       (existingProvider.type === 'anthropic' && p.id === 'anthropic')
+                                     )
+              
               if (matchingProvider) {
                 return {
                   ...existingProvider,
@@ -238,13 +283,170 @@ export const useAIStore = create<AIState>()(
           })
         }
       },
+
+      // 🔥 NEW: Build full catalog (cache all providers and models)
+      buildFullCatalog: async (forceRefresh: boolean = false) => {
+        set((state) => ({ 
+          isLoading: true, 
+          error: null,
+          catalogState: { ...state.catalogState, isBuilding: true }
+        }))
+        
+        try {
+          const catalog = await ModelsService.getFullCatalog(forceRefresh)
+          const stats = await ModelsService.getCatalogStatistics()
+          
+          set((state) => ({
+            isLoading: false,
+            catalogState: {
+              lastUpdated: new Date(),
+              totalProviders: stats.totalProviders,
+              totalModels: stats.totalModels,
+              isBuilding: false
+            }
+          }))
+          
+          console.log(`Full catalog built: ${catalog.length} providers, ${stats.totalModels} models`)
+        } catch (error) {
+          set((state) => ({ 
+            error: error instanceof Error ? error.message : "Failed to build catalog", 
+            isLoading: false,
+            catalogState: { ...state.catalogState, isBuilding: false }
+          }))
+        }
+      },
+
+      // 🔥 NEW: Import ALL providers from catalog
+      importAllProviders: async () => {
+        set({ isLoading: true, error: null })
+        try {
+          const allProviders = await ModelsService.getAllProviders()
+          
+          set((state) => {
+            const existingProviderIds = new Set(state.providers.map(p => p.id))
+            const newProviders = allProviders.filter(p => !existingProviderIds.has(p.id))
+            
+            return {
+              providers: [...state.providers, ...newProviders],
+              isLoading: false
+            }
+          })
+          
+          console.log(`Imported ${allProviders.length} providers from full catalog`)
+        } catch (error) {
+          set({ 
+            error: error instanceof Error ? error.message : "Failed to import all providers", 
+            isLoading: false 
+          })
+        }
+      },
+
+      // 🔥 NEW: Import providers by category
+      importProvidersByCategory: async (categories: string[]) => {
+        set({ isLoading: true, error: null })
+        try {
+          const categoryProviders = await ModelsService.getProvidersByCategory(categories)
+          
+          set((state) => {
+            const existingProviderIds = new Set(state.providers.map(p => p.id))
+            const newProviders = categoryProviders.filter(p => !existingProviderIds.has(p.id))
+            
+            return {
+              providers: [...state.providers, ...newProviders],
+              isLoading: false
+            }
+          })
+          
+          console.log(`Imported ${categoryProviders.length} providers for categories: ${categories.join(', ')}`)
+        } catch (error) {
+          set({ 
+            error: error instanceof Error ? error.message : "Failed to import providers by category", 
+            isLoading: false 
+          })
+        }
+      },
+
+      // 🔥 NEW: Advanced model search in catalog
+      searchModelsInCatalog: async (query: string, options: any = {}) => {
+        set({ isLoading: true, error: null })
+        try {
+          const results = await ModelsService.searchModelsAdvanced(query, options)
+          set({ isLoading: false })
+          return results
+        } catch (error) {
+          set({ 
+            error: error instanceof Error ? error.message : "Failed to search models", 
+            isLoading: false 
+          })
+          return []
+        }
+      },
+
+      // 🔥 NEW: Get catalog statistics
+      getCatalogStatistics: async () => {
+        set({ isLoading: true, error: null })
+        try {
+          const stats = await ModelsService.getCatalogStatistics()
+          set({ isLoading: false })
+          return stats
+        } catch (error) {
+          set({ 
+            error: error instanceof Error ? error.message : "Failed to get catalog statistics", 
+            isLoading: false 
+          })
+          return null
+        }
+      },
+
+      // 🔥 NEW: Clear model cache
+      clearModelCache: () => {
+        ModelsService.clearCache()
+        set((state) => ({
+          catalogState: {
+            lastUpdated: null,
+            totalProviders: 0,
+            totalModels: 0,
+            isBuilding: false
+          }
+        }))
+      },
+
+      // 🔥 NEW: Export catalog
+      exportCatalog: async () => {
+        set({ isLoading: true, error: null })
+        try {
+          const catalogJson = await ModelsService.exportCatalog()
+          set({ isLoading: false })
+          return catalogJson
+        } catch (error) {
+          set({ 
+            error: error instanceof Error ? error.message : "Failed to export catalog", 
+            isLoading: false 
+          })
+          return ""
+        }
+      },
       
       syncProvider: async (providerId: string) => {
         set({ isLoading: true, error: null })
         try {
           const modelsData = await ModelsService.fetchModelsData()
           const allProviders = ModelsService.transformToAIProviders(modelsData)
-          const providerData = allProviders.find(p => p.id === providerId)
+          
+          // Map local provider IDs to models.dev provider IDs
+          const getModelsDevProviderId = (localId: string): string => {
+            switch (localId) {
+              case "openai-default":
+                return "openai"
+              case "anthropic-default":
+                return "anthropic"
+              default:
+                return localId
+            }
+          }
+          
+          const modelsDevProviderId = getModelsDevProviderId(providerId)
+          const providerData = allProviders.find(p => p.id === modelsDevProviderId)
           
           if (providerData) {
             set((state) => ({
@@ -256,7 +458,31 @@ export const useAIStore = create<AIState>()(
               isLoading: false
             }))
           } else {
-            throw new Error(`Provider ${providerId} not found`)
+            // If exact match not found, try fuzzy matching by name or base provider type
+            const currentProvider = get().providers.find(p => p.id === providerId)
+            if (currentProvider) {
+              const fuzzyMatch = allProviders.find(p => 
+                p.name.toLowerCase().includes(currentProvider.name.toLowerCase()) ||
+                currentProvider.name.toLowerCase().includes(p.name.toLowerCase()) ||
+                (currentProvider.type === 'openai' && p.id === 'openai') ||
+                (currentProvider.type === 'anthropic' && p.id === 'anthropic')
+              )
+              
+              if (fuzzyMatch) {
+                set((state) => ({
+                  providers: state.providers.map(p => 
+                    p.id === providerId 
+                      ? { ...p, models: fuzzyMatch.models, name: fuzzyMatch.name }
+                      : p
+                  ),
+                  isLoading: false
+                }))
+              } else {
+                throw new Error(`Provider ${providerId} not found in models.dev data`)
+              }
+            } else {
+              throw new Error(`Local provider ${providerId} not found`)
+            }
           }
         } catch (error) {
           set({ 

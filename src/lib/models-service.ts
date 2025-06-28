@@ -59,6 +59,10 @@ export class ModelsService {
   private static cachedData: ModelsDevResponse | null = null
   private static lastFetch: number = 0
   private static readonly CACHE_DURATION = 1000 * 60 * 60 // 1 hour
+  
+  // 🔥 NEW: Full catalog caching
+  private static fullCatalog: AIProvider[] | null = null
+  private static catalogLastFetch: number = 0
 
   static async fetchModelsData(): Promise<ModelsDevResponse> {
     const now = Date.now()
@@ -75,15 +79,50 @@ export class ModelsService {
       console.log("Response type:", typeof rawData)
       console.log("Response keys:", Object.keys(rawData))
       
-      // For now, assume the data structure and adapt
-      const data: ModelsDevResponse = rawData as ModelsDevResponse
+      // Validate and adapt the data structure
+      if (!rawData || typeof rawData !== 'object') {
+        throw new Error('Invalid response format from models.dev API')
+      }
+
+      let data: ModelsDevResponse
+      
+      // Check if the response has the old structure (with providers field) or new structure (providers at root)
+      if (rawData.providers && typeof rawData.providers === 'object') {
+        // Old structure: { providers: { openai: {...}, anthropic: {...} } }
+        console.log('🔍 DEBUG: Using old API structure with providers field')
+        data = rawData as ModelsDevResponse
+      } else {
+        // New structure: { openai: {...}, anthropic: {...} }
+        console.log('🔍 DEBUG: Using new API structure, wrapping providers at root level')
+        
+        // Filter out any non-provider entries (like metadata) and ensure we have provider-like objects
+        const providerEntries = Object.entries(rawData).filter(([key, value]) => {
+          const isProvider = value && 
+                           typeof value === 'object' && 
+                           ((value as any).name || (value as any).models || typeof value === 'object')
+          console.log(`🔍 DEBUG: Checking entry ${key}:`, isProvider ? 'valid provider' : 'skipping')
+          return isProvider
+        })
+        
+        const providers = Object.fromEntries(providerEntries)
+        console.log('🔍 DEBUG: Filtered providers:', Object.keys(providers))
+        
+        data = { providers } as ModelsDevResponse
+      }
+      
+      // Final validation
+      if (!data.providers || typeof data.providers !== 'object') {
+        console.warn('🔍 DEBUG: Still no valid providers after processing')
+        data.providers = {}
+      }
+      
       this.cachedData = data
       this.lastFetch = now
       
-      if (data.providers) {
+      if (data.providers && Object.keys(data.providers).length > 0) {
         console.log("Successfully fetched models.dev data:", Object.keys(data.providers).length, "providers")
       } else {
-        console.log("No providers field found in response")
+        console.log("No providers found in response")
       }
       
       return data
@@ -100,8 +139,29 @@ export class ModelsService {
   static transformToAIProviders(modelsData: ModelsDevResponse): AIProvider[] {
     const providers: AIProvider[] = []
 
+    console.log('🔍 DEBUG: Starting transformToAIProviders')
+    console.log('🔍 DEBUG: modelsData type:', typeof modelsData)
+    console.log('🔍 DEBUG: modelsData keys:', Object.keys(modelsData || {}))
+
+    // Check if modelsData.providers exists and is not null
+    if (!modelsData?.providers) {
+      console.warn('🔍 DEBUG: No providers data available')
+      return providers
+    }
+
+    console.log('🔍 DEBUG: Found providers:', Object.keys(modelsData.providers).length)
+
     for (const [providerId, providerData] of Object.entries(modelsData.providers)) {
+      console.log(`🔍 DEBUG: Processing provider: ${providerId}`)
       const models: AIModel[] = []
+
+      // Check if providerData.models exists and is not null
+      if (!providerData?.models) {
+        console.warn(`🔍 DEBUG: No models data available for provider: ${providerId}`)
+        continue
+      }
+
+      console.log(`🔍 DEBUG: Provider ${providerId} has ${Object.keys(providerData.models).length} models`)
 
       for (const [modelId, modelData] of Object.entries(providerData.models)) {
         const capabilities = this.extractCapabilities(modelData)
@@ -123,6 +183,7 @@ export class ModelsService {
       }
 
       if (models.length > 0) {
+        console.log(`🔍 DEBUG: Adding provider ${providerId} with ${models.length} models`)
         providers.push({
           id: providerId,
           name: providerData.name,
@@ -131,9 +192,12 @@ export class ModelsService {
           enabled: false, // User needs to explicitly enable and add API keys
           models
         })
+      } else {
+        console.log(`🔍 DEBUG: Skipping provider ${providerId} - no valid models`)
       }
     }
 
+    console.log(`🔍 DEBUG: transformToAIProviders completed: ${providers.length} providers`)
     return providers
   }
 
@@ -210,27 +274,7 @@ export class ModelsService {
   }
 
   static async getPopularProviders(): Promise<AIProvider[]> {
-    try {
-      const modelsData = await this.fetchModelsData()
-      const allProviders = this.transformToAIProviders(modelsData)
-      
-      // Enhanced popularity ranking based on model count, capabilities, and market presence
-      const popularProviderIds = [
-        "openai", "anthropic", "google", "deepseek", "mistral", "xai", 
-        "meta", "groq", "cohere", "openrouter", "azure", "amazon-bedrock"
-      ]
-      
-      return allProviders
-        .filter(provider => popularProviderIds.includes(provider.id.toLowerCase()))
-        .sort((a, b) => {
-          const aIndex = popularProviderIds.indexOf(a.id.toLowerCase())
-          const bIndex = popularProviderIds.indexOf(b.id.toLowerCase())
-          return aIndex - bIndex
-        })
-    } catch (error) {
-      console.error("Failed to fetch popular providers:", error)
-      return []
-    }
+    return this.getProvidersByCategory(["popular"])
   }
 
   static async searchModels(query: string): Promise<AIModel[]> {
@@ -506,5 +550,266 @@ export class ModelsService {
       console.error("Failed to find best model:", error)
       return null
     }
+  }
+
+  // 🔥 NEW: Get complete catalog of ALL providers and models
+  static async getFullCatalog(forceRefresh: boolean = false): Promise<AIProvider[]> {
+    const now = Date.now()
+    
+    // Return cached catalog if still valid and not forcing refresh
+    if (!forceRefresh && this.fullCatalog && (now - this.catalogLastFetch) < this.CACHE_DURATION) {
+      console.log("🔍 DEBUG: Returning cached catalog")
+      return this.fullCatalog
+    }
+
+    try {
+      console.log("🔍 DEBUG: Building full models catalog from models.dev...")
+      const modelsData = await this.fetchModelsData()
+      console.log("🔍 DEBUG: Raw modelsData:", modelsData)
+      console.log("🔍 DEBUG: modelsData.providers keys:", modelsData?.providers ? Object.keys(modelsData.providers) : 'no providers')
+      
+      const allProviders = this.transformToAIProviders(modelsData)
+      console.log("🔍 DEBUG: Transformed providers:", allProviders.length)
+      console.log("🔍 DEBUG: Sample provider:", allProviders[0])
+      
+      // Cache the full catalog
+      this.fullCatalog = allProviders
+      this.catalogLastFetch = now
+      
+      console.log(`🔍 DEBUG: Full catalog built: ${allProviders.length} providers, ${allProviders.reduce((sum, p) => sum + p.models.length, 0)} models`)
+      return allProviders
+    } catch (error) {
+      console.error("🔍 DEBUG: Failed to build full catalog:", error)
+      // Return cached data if available
+      if (this.fullCatalog) {
+        return this.fullCatalog
+      }
+      return []
+    }
+  }
+
+  // 🔥 NEW: Get all providers (not just popular ones)
+  static async getAllProviders(): Promise<AIProvider[]> {
+    return this.getFullCatalog()
+  }
+
+  // 🔥 NEW: Get all models across all providers
+  static async getAllModels(): Promise<AIModel[]> {
+    const catalog = await this.getFullCatalog()
+    return catalog.flatMap(provider => provider.models)
+  }
+
+  // 🔥 NEW: Advanced filtering capabilities
+  static async getProvidersByCategory(categories: string[] = []): Promise<AIProvider[]> {
+    const catalog = await this.getFullCatalog()
+    
+    if (categories.length === 0) return catalog
+    
+    return catalog.filter(provider => {
+      const providerName = provider.name.toLowerCase()
+      const providerId = provider.id.toLowerCase()
+      
+      return categories.some(category => {
+        const cat = category.toLowerCase()
+        switch (cat) {
+          case "popular":
+            return ["openai", "anthropic", "google", "deepseek", "mistral", "xai", "meta", "groq", "cohere", "openrouter", "azure"].includes(providerId)
+          case "free":
+            return provider.models.some(model => 
+              !model.costPer1kTokens || 
+              (model.costPer1kTokens.input === 0 && model.costPer1kTokens.output === 0)
+            )
+          case "vision":
+            return provider.models.some(model => model.capabilities.includes("vision"))
+          case "code":
+            return provider.models.some(model => model.capabilities.includes("code"))
+          case "reasoning":
+            return provider.models.some(model => model.capabilities.includes("reasoning"))
+          case "large-context":
+            return provider.models.some(model => model.contextWindow >= 100000)
+          case "streaming":
+            return provider.models.some(model => model.supportsStreaming)
+          case "tools":
+            return provider.models.some(model => model.supportsTools)
+          default:
+            return providerName.includes(cat) || providerId.includes(cat)
+        }
+      })
+    })
+  }
+
+  // 🔥 NEW: Enhanced model search with ranking
+  static async searchModelsAdvanced(query: string, options: {
+    capability?: string
+    maxCost?: number
+    minContext?: number
+    provider?: string
+    limit?: number
+  } = {}): Promise<AIModel[]> {
+    const allModels = await this.getAllModels()
+    const lowerQuery = query.toLowerCase()
+    
+    let filteredModels = allModels.filter(model => {
+      // Text search
+      const matchesText = query === "" || 
+        model.name.toLowerCase().includes(lowerQuery) ||
+        model.id.toLowerCase().includes(lowerQuery) ||
+        model.capabilities.some(cap => cap.includes(lowerQuery)) ||
+        model.providerId.toLowerCase().includes(lowerQuery)
+      
+      // Capability filter
+      const matchesCapability = !options.capability || 
+        model.capabilities.includes(options.capability as any)
+      
+      // Cost filter
+      const matchesCost = !options.maxCost || 
+        !model.costPer1kTokens?.input || 
+        model.costPer1kTokens.input <= options.maxCost
+      
+      // Context filter
+      const matchesContext = !options.minContext || 
+        model.contextWindow >= options.minContext
+      
+      // Provider filter
+      const matchesProvider = !options.provider || 
+        model.providerId.toLowerCase() === options.provider.toLowerCase()
+      
+      return matchesText && matchesCapability && matchesCost && matchesContext && matchesProvider
+    })
+
+    // Rank results by relevance
+    filteredModels = filteredModels.map(model => ({
+      ...model,
+      _score: this.calculateRelevanceScore(model, query)
+    }))
+    .sort((a: any, b: any) => b._score - a._score)
+    .map(({ _score, ...model }) => model)
+
+    // Apply limit
+    if (options.limit) {
+      filteredModels = filteredModels.slice(0, options.limit)
+    }
+
+    return filteredModels
+  }
+
+  // 🔥 NEW: Calculate relevance score for search ranking
+  private static calculateRelevanceScore(model: AIModel, query: string): number {
+    const lowerQuery = query.toLowerCase()
+    const modelName = model.name.toLowerCase()
+    const modelId = model.id.toLowerCase()
+    
+    let score = 0
+    
+    // Exact name match gets highest score
+    if (modelName === lowerQuery) score += 100
+    else if (modelName.startsWith(lowerQuery)) score += 80
+    else if (modelName.includes(lowerQuery)) score += 60
+    
+    // ID matches
+    if (modelId === lowerQuery) score += 90
+    else if (modelId.startsWith(lowerQuery)) score += 70
+    else if (modelId.includes(lowerQuery)) score += 50
+    
+    // Capability matches
+    if (model.capabilities.some(cap => cap.includes(lowerQuery))) score += 30
+    
+    // Provider matches
+    if (model.providerId.toLowerCase().includes(lowerQuery)) score += 20
+    
+    // Boost popular models slightly
+    const popularModels = ["gpt-4", "claude", "gemini", "deepseek", "llama"]
+    if (popularModels.some(popular => modelName.includes(popular))) score += 10
+    
+    return score
+  }
+
+  // 🔥 NEW: Get catalog statistics
+  static async getCatalogStatistics(): Promise<{
+    totalProviders: number
+    totalModels: number
+    providerBreakdown: Record<string, number>
+    capabilityBreakdown: Record<string, number>
+    costBreakdown: {
+      free: number
+      cheap: number  // < $0.001
+      moderate: number // $0.001 - $0.01
+      expensive: number // > $0.01
+    }
+    contextBreakdown: {
+      small: number // < 8K
+      medium: number // 8K - 32K
+      large: number // 32K - 128K
+      xlarge: number // > 128K
+    }
+    lastUpdated: Date
+  }> {
+    const catalog = await this.getFullCatalog()
+    const allModels = catalog.flatMap(provider => provider.models)
+    
+    const stats = {
+      totalProviders: catalog.length,
+      totalModels: allModels.length,
+      providerBreakdown: {} as Record<string, number>,
+      capabilityBreakdown: {} as Record<string, number>,
+      costBreakdown: { free: 0, cheap: 0, moderate: 0, expensive: 0 },
+      contextBreakdown: { small: 0, medium: 0, large: 0, xlarge: 0 },
+      lastUpdated: new Date(this.catalogLastFetch)
+    }
+    
+    // Calculate breakdowns
+    catalog.forEach(provider => {
+      stats.providerBreakdown[provider.name] = provider.models.length
+    })
+    
+    allModels.forEach(model => {
+      // Capabilities
+      model.capabilities.forEach(cap => {
+        stats.capabilityBreakdown[cap] = (stats.capabilityBreakdown[cap] || 0) + 1
+      })
+      
+      // Cost breakdown
+      const cost = model.costPer1kTokens?.input || 0
+      if (cost === 0) stats.costBreakdown.free++
+      else if (cost < 0.001) stats.costBreakdown.cheap++
+      else if (cost <= 0.01) stats.costBreakdown.moderate++
+      else stats.costBreakdown.expensive++
+      
+      // Context breakdown
+      const context = model.contextWindow
+      if (context < 8000) stats.contextBreakdown.small++
+      else if (context <= 32000) stats.contextBreakdown.medium++
+      else if (context <= 128000) stats.contextBreakdown.large++
+      else stats.contextBreakdown.xlarge++
+    })
+    
+    return stats
+  }
+
+  // 🔥 NEW: Clear all caches
+  static clearCache(): void {
+    this.cachedData = null
+    this.fullCatalog = null
+    this.lastFetch = 0
+    this.catalogLastFetch = 0
+    console.log("Models cache cleared")
+  }
+
+  // 🔥 NEW: Export catalog to JSON
+  static async exportCatalog(): Promise<string> {
+    const catalog = await this.getFullCatalog()
+    const stats = await this.getCatalogStatistics()
+    
+    const exportData = {
+      metadata: {
+        exportedAt: new Date().toISOString(),
+        version: "1.0.0",
+        source: "models.dev",
+        ...stats
+      },
+      providers: catalog
+    }
+    
+    return JSON.stringify(exportData, null, 2)
   }
 } 
