@@ -2,6 +2,7 @@ use sqlx::{sqlite::SqlitePool, Row};
 use serde::{Deserialize, Serialize};
 use chrono::{DateTime, Utc};
 use uuid::Uuid;
+use base64::{engine::general_purpose, Engine as _};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct Document {
@@ -47,6 +48,20 @@ impl Database {
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
                 status TEXT NOT NULL DEFAULT 'draft'
+            )
+            "#,
+        )
+        .execute(&pool)
+        .await?;
+
+        // Create API keys table
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS api_keys (
+                provider_id TEXT PRIMARY KEY,
+                encrypted_key TEXT NOT NULL,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
             )
             "#,
         )
@@ -198,5 +213,92 @@ impl Database {
             .await?;
 
         Ok(result.rows_affected() > 0)
+    }
+
+    // API Key management methods
+    
+    /// Simple XOR encryption for API keys (not production-grade, but better than plaintext)
+    fn encrypt_api_key(&self, api_key: &str) -> String {
+        let key = b"stellar_api_key_encryption_2024"; // 32-byte key
+        let encrypted: Vec<u8> = api_key
+            .bytes()
+            .enumerate()
+            .map(|(i, b)| b ^ key[i % key.len()])
+            .collect();
+        general_purpose::STANDARD.encode(encrypted)
+    }
+
+    /// Decrypt API key
+    fn decrypt_api_key(&self, encrypted_key: &str) -> Result<String, String> {
+        let key = b"stellar_api_key_encryption_2024"; // 32-byte key
+        match general_purpose::STANDARD.decode(encrypted_key) {
+            Ok(encrypted_bytes) => {
+                let decrypted: Vec<u8> = encrypted_bytes
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &b)| b ^ key[i % key.len()])
+                    .collect();
+                String::from_utf8(decrypted).map_err(|e| format!("Failed to decrypt API key: {}", e))
+            }
+            Err(e) => Err(format!("Failed to decode API key: {}", e))
+        }
+    }
+
+    /// Store an encrypted API key
+    pub async fn store_api_key(&self, provider_id: &str, api_key: &str) -> Result<(), sqlx::Error> {
+        let now = Utc::now().to_rfc3339();
+        let encrypted_key = self.encrypt_api_key(api_key);
+
+        sqlx::query(
+            r#"
+            INSERT OR REPLACE INTO api_keys (provider_id, encrypted_key, created_at, updated_at)
+            VALUES (?, ?, ?, ?)
+            "#,
+        )
+        .bind(provider_id)
+        .bind(&encrypted_key)
+        .bind(&now)
+        .bind(&now)
+        .execute(&self.pool)
+        .await?;
+
+        Ok(())
+    }
+
+    /// Retrieve and decrypt an API key
+    pub async fn get_api_key(&self, provider_id: &str) -> Result<Option<String>, sqlx::Error> {
+        let row = sqlx::query("SELECT encrypted_key FROM api_keys WHERE provider_id = ?")
+            .bind(provider_id)
+            .fetch_optional(&self.pool)
+            .await?;
+
+        if let Some(row) = row {
+            let encrypted_key: String = row.get("encrypted_key");
+            match self.decrypt_api_key(&encrypted_key) {
+                Ok(api_key) => Ok(Some(api_key)),
+                Err(_) => Ok(None), // Return None if decryption fails
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Delete an API key
+    pub async fn delete_api_key(&self, provider_id: &str) -> Result<bool, sqlx::Error> {
+        let result = sqlx::query("DELETE FROM api_keys WHERE provider_id = ?")
+            .bind(provider_id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
+    /// List all stored provider IDs (for debugging/management)
+    pub async fn list_api_key_providers(&self) -> Result<Vec<String>, sqlx::Error> {
+        let rows = sqlx::query("SELECT provider_id FROM api_keys ORDER BY updated_at DESC")
+            .fetch_all(&self.pool)
+            .await?;
+
+        Ok(rows.into_iter().map(|row| row.get("provider_id")).collect())
     }
 } 
