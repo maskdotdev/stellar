@@ -35,4 +35,5 @@ tauri-plugin-dialog = "2"
 tauri-plugin-fs = "2"
 regex = "1.0"
 base64 = "0.21"
+dirs = "5.0"
 
