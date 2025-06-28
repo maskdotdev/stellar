@@ -28,10 +28,11 @@ import { cn } from "@/lib/utils"
 
 interface FloatingChatProps {
   onClose: () => void
+  initialText?: string
 }
 
-export function FloatingChat({ onClose }: FloatingChatProps) {
-  const [chatInput, setChatInput] = useState("")
+export function FloatingChat({ onClose, initialText }: FloatingChatProps) {
+  const [chatInput, setChatInput] = useState(initialText || "")
   const [isMinimized, setIsMinimized] = useState(false)
   const [isMaximized, setIsMaximized] = useState(false)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
@@ -92,6 +93,13 @@ export function FloatingChat({ onClose }: FloatingChatProps) {
       }
     }
   }, [messages, streamingMessage])
+
+  // Update chat input when initialText changes (only if input is empty)
+  useEffect(() => {
+    if (initialText && !chatInput) {
+      setChatInput(initialText)
+    }
+  }, [initialText])
 
   // Auto-focus input when chat opens or is restored from minimized
   useEffect(() => {

@@ -177,11 +177,13 @@ export function App() {
     showCommandPalette,
     showInteractionDrawer,
     showFloatingChat,
+    initialChatText,
     editingNoteId,
     keybindings,
     setShowCommandPalette,
     setShowInteractionDrawer,
     setShowFloatingChat,
+    setInitialChatText,
     setFocusMode,
     setCurrentView,
     setEditingNoteId,
@@ -377,7 +379,10 @@ export function App() {
         {showCommandPalette && <CommandPalette />}
 
         {/* Floating Chat */}
-        {showFloatingChat && <FloatingChat onClose={() => setShowFloatingChat(false)} />}
+        {showFloatingChat && <FloatingChat onClose={() => {
+          setShowFloatingChat(false)
+          setInitialChatText(null)
+        }} initialText={initialChatText || undefined} />}
 
         {/* Floating Chat Trigger */}
         {!showFloatingChat && (

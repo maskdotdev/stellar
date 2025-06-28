@@ -45,6 +45,7 @@ interface StudyState {
   showCommandPalette: boolean
   showInteractionDrawer: boolean
   showFloatingChat: boolean
+  initialChatText: string | null
   currentDocument: string | null
   editingNoteId: string | null
   currentTags: string[]
@@ -65,6 +66,7 @@ interface StudyState {
   setShowCommandPalette: (show: boolean) => void
   setShowInteractionDrawer: (show: boolean) => void
   setShowFloatingChat: (show: boolean) => void
+  setInitialChatText: (text: string | null) => void
   setCurrentDocument: (doc: string | null) => void
   setCurrentTags: (tags: string[]) => void
   setDocuments: (documents: Document[]) => void
@@ -97,6 +99,7 @@ export const useStudyStore = create<StudyState>()(
       showCommandPalette: false,
       showInteractionDrawer: false,
       showFloatingChat: false,
+      initialChatText: null,
       currentDocument: null,
       editingNoteId: null,
       currentTags: ["transformer", "attention", "nlp"],
@@ -117,6 +120,7 @@ export const useStudyStore = create<StudyState>()(
       setShowCommandPalette: (show) => set({ showCommandPalette: show }),
       setShowInteractionDrawer: (show) => set({ showInteractionDrawer: show }),
       setShowFloatingChat: (show) => set({ showFloatingChat: show }),
+      setInitialChatText: (text) => set({ initialChatText: text }),
       setCurrentDocument: (doc) => set({ currentDocument: doc }),
       setCurrentTags: (tags) => set({ currentTags: tags }),
       setDocuments: (documents) => set({ documents }),
