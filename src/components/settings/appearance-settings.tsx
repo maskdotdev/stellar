@@ -1,53 +1,117 @@
-import { Sparkles } from "lucide-react"
+import { Sparkles, Moon, Sun } from "lucide-react"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { ThemeSwitcher, themes } from "@/components/theme-switcher"
 import { useTheme } from "@/components/theme-provider"
+import { useState, useEffect } from "react"
 
 export function AppearanceSettings() {
   const { theme, setTheme } = useTheme()
+  const [darkMode, setDarkMode] = useState(false)
 
-  // Categorize themes
-  const lightThemes = themes.filter(t => 
-    t.name.includes('light') || 
-    t.icon.name === 'Sun' ||
-    t.name === 'mint-chocolate' ||
-    t.name === 'lavender-cream' ||
-    t.name === 'ocean-foam' ||
-    t.name === 'pulsar' ||
-    t.name === 'nasa'
-  )
-  
-  const darkThemes = themes.filter(t => 
-    t.name.includes('dark') || 
-    t.icon.name === 'Moon' || 
-    t.name === 'space' ||
-    t.name === 'aurora' ||
-    t.name === 'nebula' ||
-    t.name === 'starfield'
-  )
-  
-  const coloredThemes = themes.filter(t => 
-    !lightThemes.includes(t) && 
-    !darkThemes.includes(t) && 
-    t.name !== 'system'
-  )
+  // Extract base theme name (remove dark-/light- prefix if present)
+  const getBaseTheme = (fullTheme: string): string => {
+    if (fullTheme?.startsWith("dark-")) {
+      return fullTheme.slice(5)
+    }
+    if (fullTheme?.startsWith("light-")) {
+      return fullTheme.slice(6)
+    }
+    if (fullTheme === "light") return "default"
+    if (fullTheme === "dark") return "default"
+    return fullTheme || "teal"
+  }
 
-  const renderThemeGrid = (themeList: Array<typeof themes[number]>) => (
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-      {themeList.map((themeOption) => {
+  // Check if current theme is dark variant
+  const isDarkTheme = (fullTheme: string): boolean => {
+    return fullTheme?.startsWith("dark-") || 
+           fullTheme === "dark" || 
+           fullTheme === "system" ||
+           // These themes are inherently dark (default to dark variant)
+           ["space", "aurora", "starfield"].includes(fullTheme)
+  }
+
+  const baseTheme = getBaseTheme(theme)
+
+  // Update dark mode state when theme changes
+  useEffect(() => {
+    setDarkMode(isDarkTheme(theme))
+  }, [theme])
+
+  const handleDarkModeToggle = (checked: boolean) => {
+    setDarkMode(checked)
+    
+    if (baseTheme === "system") {
+      // Keep system theme as is
+      return
+    }
+    
+    // Theme mapping for light/dark variants
+    const themeVariants: Record<string, { light: string; dark: string }> = {
+      default: { light: "light", dark: "dark" },
+      teal: { light: "light-teal", dark: "dark-teal" },
+      rose: { light: "rose", dark: "dark-rose" },
+      "solar-flare": { light: "solar-flare", dark: "dark-solar-flare" },
+      space: { light: "light-space", dark: "space" },
+      aurora: { light: "light-aurora", dark: "aurora" },
+      starfield: { light: "light-starfield", dark: "starfield" },
+      cosmos: { light: "cosmos", dark: "dark-cosmos" },
+      nebula: { light: "nebula", dark: "dark-nebula" },
+      "starry-night": { light: "starry-night", dark: "dark-starry-night" },
+      infinity: { light: "infinity", dark: "dark-infinity" },
+      pluto: { light: "pluto", dark: "dark-pluto" }
+    }
+
+    const variants = themeVariants[baseTheme]
+    if (variants) {
+      setTheme((checked ? variants.dark : variants.light) as any)
+    }
+  }
+
+  const renderThemeGrid = () => (
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+      {themes.map((themeOption) => {
         const ThemeIcon = themeOption.icon
-        const isActive = theme === themeOption.name
+        const isActive = baseTheme === themeOption.name
         
         return (
           <button
             key={themeOption.name}
-            onClick={() => setTheme(themeOption.name as any)}
+            onClick={() => {
+              // If switching to system, just set it
+              if (themeOption.name === 'system') {
+                setTheme('system' as any)
+                return
+              }
+
+              // For other themes, respect current dark mode preference
+              const themeVariants: Record<string, { light: string; dark: string }> = {
+                default: { light: "light", dark: "dark" },
+                teal: { light: "light-teal", dark: "dark-teal" },
+                rose: { light: "rose", dark: "dark-rose" },
+                "solar-flare": { light: "solar-flare", dark: "dark-solar-flare" },
+                space: { light: "light-space", dark: "space" },
+                aurora: { light: "light-aurora", dark: "aurora" },
+                starfield: { light: "light-starfield", dark: "starfield" },
+                cosmos: { light: "cosmos", dark: "dark-cosmos" },
+                nebula: { light: "nebula", dark: "dark-nebula" },
+                "starry-night": { light: "starry-night", dark: "dark-starry-night" },
+                infinity: { light: "infinity", dark: "dark-infinity" },
+                pluto: { light: "pluto", dark: "dark-pluto" }
+              }
+
+              const variants = themeVariants[themeOption.name]
+              if (variants) {
+                const targetTheme = darkMode ? variants.dark : variants.light
+                setTheme(targetTheme as any)
+              } else {
+                setTheme(themeOption.name as any)
+              }
+            }}
             className={`
-              p-3 rounded-lg border transition-all hover:scale-105
+              p-4 rounded-lg border transition-all hover:scale-105
               ${isActive 
                 ? 'border-primary bg-primary/10 shadow-lg shadow-primary/20' 
                 : 'border-border bg-card hover:border-primary/40'
@@ -56,11 +120,16 @@ export function AppearanceSettings() {
           >
             <div className="flex flex-col items-center gap-2">
               <ThemeIcon className={`w-6 h-6 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
-              <span className={`text-sm font-medium ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
-                {themeOption.label}
-              </span>
+              <div className="text-center">
+                <div className={`text-sm font-medium ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
+                  {themeOption.label}
+                </div>
+                <div className={`text-xs ${isActive ? 'text-muted-foreground' : 'text-muted-foreground/70'}`}>
+                  {themeOption.description}
+                </div>
+              </div>
               <div 
-                className={`w-2 h-2 rounded-full transition-opacity ${
+                className={`w-3 h-3 rounded-full transition-opacity ${
                   isActive ? 'opacity-100' : 'opacity-0'
                 }`}
                 style={{ backgroundColor: themeOption.activeColor }}
@@ -89,7 +158,7 @@ export function AppearanceSettings() {
               Theme Selection
             </CardTitle>
             <CardDescription>
-              Choose from multiple theme options to personalize your experience
+              Choose from multiple theme options to personalize your cosmic experience
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
@@ -97,7 +166,8 @@ export function AppearanceSettings() {
               <div className="space-y-1">
                 <Label>Current Theme</Label>
                 <p className="text-sm text-muted-foreground">
-                  Switch between light, dark, and colored themes
+                  {themes.find(t => t.name === baseTheme)?.label || 'Stellar'} theme
+                  {darkMode && baseTheme !== 'system' ? ' (Dark)' : ''}
                 </p>
               </div>
               <ThemeSwitcher />
@@ -105,49 +175,33 @@ export function AppearanceSettings() {
 
             <Separator />
 
+            <div className="flex items-center justify-between">
+              <div className="space-y-1">
+                <Label className="flex items-center gap-2">
+                  {darkMode ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
+                  Dark Mode
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                  Toggle between light and dark variants
+                </p>
+              </div>
+              <Switch 
+                checked={darkMode} 
+                onCheckedChange={handleDarkModeToggle}
+                disabled={baseTheme === 'system'}
+              />
+            </div>
+
+            <Separator />
+
             <div className="space-y-4">
-              <Label>Theme Categories</Label>
-              
-              <Tabs defaultValue="light" className="w-full">
-                <TabsList className="grid w-full grid-cols-4">
-                  <TabsTrigger value="light">Stellar</TabsTrigger>
-                  <TabsTrigger value="dark">Cosmic</TabsTrigger>
-                  <TabsTrigger value="colored">Galactic</TabsTrigger>
-                  <TabsTrigger value="system">Auto</TabsTrigger>
-                </TabsList>
-                
-                <TabsContent value="light" className="space-y-4">
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-medium">Light Space Themes</h4>
-                    <p className="text-xs text-muted-foreground">Bright cosmic themes - from stellar winds to galactic pulsar energy</p>
-                  </div>
-                  {renderThemeGrid(lightThemes)}
-                </TabsContent>
-                
-                <TabsContent value="dark" className="space-y-4">
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-medium">Dark Space Themes</h4>
-                    <p className="text-xs text-muted-foreground">Deep cosmic themes - from dark matter to distant nebulae</p>
-                  </div>
-                  {renderThemeGrid(darkThemes)}
-                </TabsContent>
-                
-                <TabsContent value="colored" className="space-y-4">
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-medium">Cosmic Themes</h4>
-                    <p className="text-xs text-muted-foreground">Vibrant galactic themes with stellar color palettes</p>
-                  </div>
-                  {renderThemeGrid(coloredThemes)}
-                </TabsContent>
-                
-                <TabsContent value="system" className="space-y-4">
-                  <div className="space-y-2">
-                    <h4 className="text-sm font-medium">Cosmic Auto</h4>
-                    <p className="text-xs text-muted-foreground">Automatically adapts to your system's cosmic preference</p>
-                  </div>
-                  {renderThemeGrid(themes.filter(t => t.name === 'system'))}
-                </TabsContent>
-              </Tabs>
+              <div className="space-y-2">
+                <Label>Available Themes</Label>
+                <p className="text-sm text-muted-foreground">
+                  Choose your favorite cosmic theme - each automatically adapts to your dark mode preference
+                </p>
+              </div>
+              {renderThemeGrid()}
             </div>
 
             <Separator />
@@ -157,15 +211,15 @@ export function AppearanceSettings() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <div className="w-2 h-2 rounded-full bg-green-500" />
-                  <span>Automatic system detection</span>
+                  <span>Automatic light/dark variants</span>
                 </div>
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <div className="w-2 h-2 rounded-full bg-green-500" />
-                  <span>Smooth color transitions</span>
+                  <span>System preference detection</span>
                 </div>
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <div className="w-2 h-2 rounded-full bg-green-500" />
-                  <span>Multiple color schemes</span>
+                  <span>Smooth cosmic transitions</span>
                 </div>
                 <div className="flex items-center gap-2 text-muted-foreground">
                   <div className="w-2 h-2 rounded-full bg-green-500" />

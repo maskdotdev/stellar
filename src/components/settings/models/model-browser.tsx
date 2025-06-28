@@ -1,40 +1,202 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { RefreshCw, Search, Zap, MessageSquare, Star } from "lucide-react"
-import { useAIStore } from "@/lib/ai-store"
-import { useToast } from "@/hooks/use-toast"
-import { getFilteredModels, filterProviders } from "./utils"
-import { ProviderLogo } from "./provider-logos"
+import { useState } from "react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { TooltipWrapper } from "@/components/ui/tooltip";
+import {
+  RefreshCw,
+  Search,
+  Zap,
+  MessageSquare,
+  Star,
+  Eye,
+  Brain,
+  Code,
+  FileText,
+  Image,
+} from "lucide-react";
+import { useAIStore } from "@/lib/ai-store";
+import { useToast } from "@/hooks/use-toast";
+import { getFilteredModels, filterProviders } from "./utils";
+import { ProviderLogo } from "./provider-logos";
+import { cn } from "@/lib/utils";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 
-// Model type colors inspired by Pokemon types
-const getModelTypeColor = (capabilities: string[]) => {
-  if (capabilities.includes('vision')) return 'bg-purple-500'
-  if (capabilities.includes('code')) return 'bg-blue-500'
-  if (capabilities.includes('reasoning')) return 'bg-orange-500'
-  return 'bg-green-500'
-}
+// Provider brand colors
+const getProviderBrandColor = (providerId: string, providerName: string) => {
+  const id = providerId.toLowerCase();
+  const name = providerName.toLowerCase();
 
-const getCapabilityBadgeColor = (capability: string) => {
-  switch (capability) {
-    case 'vision': return 'bg-purple-100 text-purple-800 border-purple-200'
-    case 'code': return 'bg-blue-100 text-blue-800 border-blue-200'
-    case 'reasoning': return 'bg-orange-100 text-orange-800 border-orange-200'
-    default: return 'bg-green-100 text-green-800 border-green-200'
+  // OpenAI - Dark green/black
+  if (id.includes("openai") || name.includes("openai")) {
+    return "bg-gray-900";
   }
-}
+
+  // Anthropic - Orange/coral
+  if (
+    id.includes("anthropic") ||
+    name.includes("anthropic") ||
+    name.includes("claude")
+  ) {
+    return "bg-orange-600";
+  }
+
+  // Google - Blue (Google brand blue)
+  if (
+    id.includes("google") ||
+    name.includes("google") ||
+    name.includes("gemini")
+  ) {
+    return "bg-blue-600";
+  }
+
+  // Meta - Blue (Facebook blue)
+  if (id.includes("meta") || name.includes("meta") || name.includes("llama")) {
+    return "bg-blue-700";
+  }
+
+  // Microsoft/Azure - Blue (Microsoft blue)
+  if (
+    id.includes("azure") ||
+    name.includes("azure") ||
+    id.includes("microsoft") ||
+    name.includes("microsoft")
+  ) {
+    return "bg-blue-500";
+  }
+
+  // Mistral - Orange (Mistral brand color)
+  if (id.includes("mistral") || name.includes("mistral")) {
+    return "bg-orange-500";
+  }
+
+  // HuggingFace - Yellow
+  if (id.includes("huggingface") || name.includes("hugging")) {
+    return "bg-yellow-500";
+  }
+
+  // Cohere - Purple/blue
+  if (id.includes("cohere") || name.includes("cohere")) {
+    return "bg-indigo-600";
+  }
+
+  // Amazon/AWS - Orange
+  if (
+    id.includes("aws") ||
+    name.includes("aws") ||
+    id.includes("amazon") ||
+    name.includes("amazon")
+  ) {
+    return "bg-orange-600";
+  }
+
+  // Ollama - Green
+  if (id.includes("ollama") || name.includes("ollama")) {
+    return "bg-green-600";
+  }
+
+  // Groq - Purple/pink
+  if (id.includes("groq") || name.includes("groq")) {
+    return "bg-purple-600";
+  }
+
+  // X/Grok - Black (X brand color)
+  if (
+    id.includes("grok") ||
+    name.includes("grok") ||
+    id.includes("xai") ||
+    name.includes("x.ai")
+  ) {
+    return "bg-gray-900";
+  }
+
+  // Vercel - Black
+  if (id.includes("vercel") || name.includes("vercel")) {
+    return "bg-gray-900";
+  }
+
+  // GitHub - Dark gray/black
+  if (
+    id.includes("github") ||
+    name.includes("github") ||
+    name.includes("copilot")
+  ) {
+    return "bg-gray-800";
+  }
+
+  // Stability AI - Purple
+  if (id.includes("stability") || name.includes("stability")) {
+    return "bg-purple-700";
+  }
+
+  // Together - Blue
+  if (id.includes("together") || name.includes("together")) {
+    return "bg-blue-600";
+  }
+
+  // Replicate - Black
+  if (id.includes("replicate") || name.includes("replicate")) {
+    return "bg-gray-900";
+  }
+
+  // Perplexity - Blue/teal
+  if (id.includes("perplexity") || name.includes("perplexity")) {
+    return "bg-teal-600";
+  }
+
+  // Default fallback - neutral gray
+  return "bg-gray-600";
+};
+
+const getCapabilityIcon = (capability: string) => {
+  switch (capability) {
+    case "vision":
+      return <Eye className="h-5 w-5 text-green-400" />;
+    case "code":
+      return <Code className="h-5 w-5 text-purple-400" />;
+    case "reasoning":
+      return <Brain className="h-5 w-5 text-pink-400" />;
+    case "text":
+      return <FileText className="h-5 w-5 text-blue-400" />;
+    case "image":
+      return <Image className="h-5 w-5 text-orange-400" />;
+    default:
+      return <FileText className="h-5 w-5 text-blue-400" />;
+  }
+};
+
+const getCapabilityTooltip = (capability: string) => {
+  switch (capability) {
+    case "vision":
+      return "Can analyze and understand images";
+    case "code":
+      return "Specialized for code generation and analysis";
+    case "reasoning":
+      return "Advanced reasoning and problem-solving";
+    case "text":
+      return "Text generation and understanding";
+    case "image":
+      return "Image generation capabilities";
+    default:
+      return "Text processing capabilities";
+  }
+};
 
 const formatModelNumber = (index: number) => {
-  return `#${String(index + 1).padStart(3, '0')}`
-}
-
-
+  return `#${String(index + 1).padStart(3, "0")}`;
+};
 
 export function ModelBrowser() {
   const {
@@ -45,55 +207,70 @@ export function ModelBrowser() {
     isLoading,
     activeProviderId,
     activeModelId,
-    getActiveProvider,
-    getActiveModel
-  } = useAIStore()
+  } = useAIStore();
 
-  const [searchQuery, setSearchQuery] = useState("")
-  const [selectedCapability, setSelectedCapability] = useState<string>("all")
-  const [sortBy, setSortBy] = useState<string>("name")
-  const [showOnlyEnabled, setShowOnlyEnabled] = useState(false)
-  
-  const { toast } = useToast()
+  const [searchQuery, setSearchQuery] = useState("");
+  const [selectedCapability, setSelectedCapability] = useState<string>("all");
+  const [sortBy, setSortBy] = useState<string>("name");
+  const [showOnlyEnabled, setShowOnlyEnabled] = useState(false);
+
+  const { toast } = useToast();
 
   const handleSyncProvider = async (providerId: string) => {
     try {
-      await syncProvider(providerId)
+      await syncProvider(providerId);
       toast({
         title: "Provider synced",
-        description: `Updated models for ${providerId}`
-      })
+        description: `Updated models for ${providerId}`,
+      });
     } catch (error) {
       toast({
         title: "Sync failed",
         description: `Failed to sync provider ${providerId}`,
-        variant: "destructive"
-      })
+        variant: "destructive",
+      });
     }
-  }
+  };
 
-  const handleSelectModel = (providerId: string, modelId: string, modelName: string) => {
-    setActiveProvider(providerId)
-    setActiveModel(modelId)
+  const handleSelectModel = (
+    providerId: string,
+    modelId: string,
+    modelName: string
+  ) => {
+    setActiveProvider(providerId);
+    setActiveModel(modelId);
     toast({
       title: `${modelName} selected`,
-      description: "This model is now active"
-    })
-  }
+      description: "This model is now active",
+    });
+  };
 
   // Filter and sort models based on current settings
-  const filteredProviders = filterProviders(providers, searchQuery, selectedCapability, showOnlyEnabled)
-  
+  const filteredProviders = filterProviders(
+    providers,
+    searchQuery,
+    selectedCapability,
+    showOnlyEnabled
+  );
+
   // Flatten all models for grid display with provider context
-  const allModels = filteredProviders.flatMap(provider => 
-    getFilteredModels(provider, searchQuery, selectedCapability, sortBy).map((model: any, index: number) => ({
-      ...model,
-      providerId: provider.id,
-      providerName: provider.name,
-      providerEnabled: provider.enabled,
-      globalIndex: index
-    }))
-  )
+  const allModels = filteredProviders
+    .flatMap((provider) =>
+      getFilteredModels(provider, searchQuery, selectedCapability, sortBy).map(
+        (model: any, index: number) => ({
+          ...model,
+          providerId: provider.id,
+          providerName: provider.name,
+          providerEnabled: provider.enabled,
+          globalIndex: index,
+        })
+      )
+    )
+    .filter((model) => {
+      // Additional filter for enabled models only
+      if (showOnlyEnabled && !model.providerEnabled) return false;
+      return true;
+    });
 
   return (
     <div className="space-y-6">
@@ -110,8 +287,11 @@ export function ModelBrowser() {
             />
           </div>
         </div>
-        <div className="flex gap-2">
-          <Select value={selectedCapability} onValueChange={setSelectedCapability}>
+        <div className="flex gap-2 items-center">
+          <Select
+            value={selectedCapability}
+            onValueChange={setSelectedCapability}
+          >
             <SelectTrigger className="w-[140px] bg-card border-2 border-muted">
               <SelectValue />
             </SelectTrigger>
@@ -133,54 +313,85 @@ export function ModelBrowser() {
               <SelectItem value="cost">💰 Cost</SelectItem>
             </SelectContent>
           </Select>
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="enabled-only"
+              checked={showOnlyEnabled}
+              onCheckedChange={setShowOnlyEnabled}
+            />
+            <Label htmlFor="enabled-only" className="text-xs">
+              Enabled only
+            </Label>
+          </div>
         </div>
       </div>
 
-             {/* Provider Sync Controls */}
-       <div className="flex flex-wrap gap-2">
-         {providers.map((provider) => (
-           <Button
-             key={provider.id}
-             variant={provider.enabled ? "default" : "outline"}
-             size="sm"
-             onClick={() => handleSyncProvider(provider.id)}
-             disabled={isLoading}
-             className="text-xs"
-           >
-             <ProviderLogo 
-               providerId={provider.id} 
-               providerName={provider.name} 
-               size={14}
-               className="mr-1"
-             />
-             <RefreshCw className="h-3 w-3 mr-1" />
-             {provider.name}
-             {provider.enabled && <Zap className="h-3 w-3 ml-1" />}
-           </Button>
-         ))}
-       </div>
+      {/* Provider Sync Controls */}
+      {/* <div className="flex flex-wrap gap-2">
+          {providers.map((provider) => (
+            <Button
+              key={provider.id}
+              variant={provider.enabled ? "default" : "outline"}
+              size="sm"
+              onClick={() => handleSyncProvider(provider.id)}
+              disabled={isLoading}
+              className="text-xs"
+            >
+              <ProviderLogo
+                providerId={provider.id}
+                providerName={provider.name}
+                size={14}
+                className="mr-1"
+              />
+              <RefreshCw className="h-3 w-3 mr-1" />
+              {provider.name}
+              {provider.enabled && <Zap className="h-3 w-3 ml-1" />}
+            </Button>
+          ))}
+        </div> */}
 
       {/* Model Grid - Pokedex Style */}
       <ScrollArea className="h-[700px]">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-1">
-                     {allModels.map((model: any, index: number) => {
-             const isActive = activeProviderId === model.providerId && activeModelId === model.id
-             const typeColor = getModelTypeColor(model.capabilities)
-            
+          {allModels.map((model: any, index: number) => {
+            const isActive =
+              activeProviderId === model.providerId &&
+              activeModelId === model.id;
+            const brandColor = getProviderBrandColor(
+              model.providerId,
+              model.providerName
+            );
+
             return (
-              <Card 
-                key={`${model.providerId}-${model.id}`} 
-                className={`relative overflow-hidden transition-all duration-300 hover:shadow-lg shadow-muted hover:border-primary cursor-pointer border-2 ${
-                  isActive ? 'border-yellow-400 shadow-yellow-200 shadow-lg' : ''
-                }`}
+              <Card
+                key={`${model.providerId}-${model.id}`}
+                className={cn(
+                  "relative overflow-hidden transition-all duration-300 hover:shadow-lg shadow-muted hover:border-primary cursor-pointer border-2",
+                  isActive && "border-yellow-400 shadow-yellow-200 shadow-lg"
+                )}
               >
                 {/* Model Number Badge */}
                 <div className="absolute top-2 left-2 z-10">
                   <Badge variant="secondary" className="text-xs font-mono">
                     {formatModelNumber(index)}
                   </Badge>
+                  {!model.providerEnabled ? (
+                    <Badge
+                      variant="destructive"
+                      className="text-xs font-mono bg-red-100 text-red-700"
+                    >
+                      Disabled
+                    </Badge>
+                  ) : (
+                    <Badge
+                      variant="secondary"
+                      className="text-xs font-mono bg-green-100 text-green-700"
+                    >
+                      Enabled
+                    </Badge>
+                  )}
                 </div>
-                
+
                 {/* Active Model Star */}
                 {isActive && (
                   <div className="absolute top-2 right-2 z-10">
@@ -188,43 +399,41 @@ export function ModelBrowser() {
                   </div>
                 )}
 
-                                 {/* Model Type Background */}
-                 <div className={`h-20 ${typeColor} relative`}>
-                   <div className="absolute inset-0 bg-black/20"></div>
-                   <div className="absolute bottom-2 left-2 text-white text-xs font-medium flex items-center gap-1">
-                     <ProviderLogo 
-                       providerId={model.providerId} 
-                       providerName={model.providerName} 
-                       size={14}
-                       className="text-white"
-                     />
-                     {model.providerName}
-                   </div>
-                   {!model.providerEnabled && (
-                     <div className="absolute top-2 right-2">
-                       <Badge variant="destructive" className="text-xs">
-                         Disabled
-                       </Badge>
-                     </div>
-                   )}
-                 </div>
+                {/* Model Brand Background */}
+                <div className={cn("h-20 relative", brandColor)}>
+                  <div className="absolute inset-0 bg-black/20"></div>
+                  <div className="absolute bottom-2 left-2 text-white text-xs font-medium flex items-center gap-1">
+                    <ProviderLogo
+                      providerId={model.providerId}
+                      providerName={model.providerName}
+                      size={14}
+                      className="text-white"
+                    />
+                    {model.providerName}
+                  </div>
+                </div>
 
                 <CardContent className="p-4">
                   {/* Model Name */}
-                  <h3 className="font-bold text-sm mb-2 line-clamp-1" title={model.name}>
+                  <h3
+                    className="font-bold text-sm mb-2 line-clamp-1"
+                    title={model.name}
+                  >
                     {model.name}
                   </h3>
 
                   {/* Capabilities */}
                   <div className="flex flex-wrap gap-1 mb-3">
                     {model.capabilities.map((cap: string) => (
-                      <Badge 
-                        key={cap} 
-                        variant="outline" 
-                        className={`text-xs px-2 py-0.5 ${getCapabilityBadgeColor(cap)}`}
+                      <TooltipWrapper
+                        key={cap}
+                        content={getCapabilityTooltip(cap)}
+                        side="top"
                       >
-                        {cap}
-                      </Badge>
+                        <div className="flex items-center gap-1">
+                          {getCapabilityIcon(cap)}
+                        </div>
+                      </TooltipWrapper>
                     ))}
                   </div>
 
@@ -232,45 +441,59 @@ export function ModelBrowser() {
                   <div className="space-y-2 text-xs text-muted-foreground">
                     <div className="flex justify-between">
                       <span>Context:</span>
-                      <span className="font-mono">{(model.contextWindow / 1000).toFixed(0)}K</span>
+                      <span className="font-mono">
+                        {(model.contextWindow / 1000).toFixed(0)}K
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span>Max Tokens:</span>
-                      <span className="font-mono">{(model.maxTokens / 1000).toFixed(0)}K</span>
+                      <span className="font-mono">
+                        {(model.maxTokens / 1000).toFixed(0)}K
+                      </span>
                     </div>
                     {model.costPer1kTokens && (
                       <div className="flex justify-between">
                         <span>Cost/1K:</span>
-                        <span className="font-mono">${model.costPer1kTokens.input.toFixed(4)}</span>
+                        <span className="font-mono">
+                          ${model.costPer1kTokens.input.toFixed(4)}
+                        </span>
                       </div>
                     )}
                   </div>
 
-                                     {/* Select Button */}
-                   {model.providerEnabled && (
-                     <Button
-                       variant={isActive ? "default" : "outline"}
-                       size="sm"
-                       onClick={() => handleSelectModel(model.providerId, model.id, model.name)}
-                       className="w-full mt-3 text-xs"
-                     >
-                       {isActive ? "✨ Active" : "Select"}
-                     </Button>
-                   )}
+                  {/* Select Button */}
+                  {model.providerEnabled && (
+                    <Button
+                      variant={isActive ? "default" : "outline"}
+                      size="sm"
+                      onClick={() =>
+                        handleSelectModel(
+                          model.providerId,
+                          model.id,
+                          model.name
+                        )
+                      }
+                      className="w-full mt-3 text-xs"
+                    >
+                      {isActive ? "✨ Active" : "Select"}
+                    </Button>
+                  )}
                 </CardContent>
               </Card>
-            )
+            );
           })}
         </div>
-        
+
         {allModels.length === 0 && (
           <div className="text-center py-12 text-muted-foreground">
             <MessageSquare className="h-12 w-12 mx-auto mb-4 opacity-50" />
             <p>No models found matching your search criteria.</p>
-            <p className="text-sm">Try adjusting your filters or search terms.</p>
+            <p className="text-sm">
+              Try adjusting your filters or search terms.
+            </p>
           </div>
         )}
       </ScrollArea>
     </div>
-  )
-} 
+  );
+}

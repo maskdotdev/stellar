@@ -12,6 +12,8 @@ import {
 } from "@/components/ui/command"
 import { FileText, Plus, Import, Network, Zap, BookOpen, MessageCircle, Clock, Settings, Bot, Palette, MessageSquare, Cpu, Keyboard } from "lucide-react"
 import { useStudyStore } from "@/lib/study-store"
+import { useTheme } from "@/components/theme-provider"
+import { themes } from "@/components/theme-switcher"
 
 // Helper to get keybinding by id
 const getKeybindingShortcut = (keybindings: any[], id: string): string => {
@@ -38,6 +40,8 @@ export function CommandPalette() {
     setSettingsTab,
     keybindings
   } = useStudyStore()
+  
+  const { theme, setTheme } = useTheme()
 
   // Dynamic actions based on keybindings
   const quickActions = [
@@ -53,7 +57,7 @@ export function CommandPalette() {
     { id: "settings-providers", label: "AI Providers Settings", icon: Bot, shortcut: getKeybindingShortcut(keybindings, "settings-providers") },
     { id: "settings-models", label: "Models Settings", icon: Cpu, shortcut: getKeybindingShortcut(keybindings, "settings-models") },
     { id: "settings-chat", label: "Chat Settings", icon: MessageSquare, shortcut: getKeybindingShortcut(keybindings, "settings-chat") },
-    { id: "settings-appearance", label: "Appearance Settings", icon: Palette, shortcut: getKeybindingShortcut(keybindings, "settings-appearance") },
+    { id: "settings-theme", label: "Theme Settings", icon: Palette, shortcut: getKeybindingShortcut(keybindings, "settings-theme") },
     { id: "settings-keybindings", label: "Keybindings Settings", icon: Keyboard, shortcut: getKeybindingShortcut(keybindings, "settings-keybindings") },
   ]
 
@@ -63,6 +67,21 @@ export function CommandPalette() {
     { id: "workspace", label: "Workspace", shortcut: getKeybindingShortcut(keybindings, "workspace") },
     { id: "history", label: "History", shortcut: getKeybindingShortcut(keybindings, "history") },
   ]
+
+  // Get current base theme for comparison
+  const getBaseTheme = (fullTheme: string): string => {
+    if (fullTheme?.startsWith("dark-")) {
+      return fullTheme.slice(5)
+    }
+    if (fullTheme?.startsWith("light-")) {
+      return fullTheme.slice(6)
+    }
+    if (fullTheme === "light") return "default"
+    if (fullTheme === "dark") return "default"
+    return fullTheme || "teal"
+  }
+
+  const currentBaseTheme = getBaseTheme(theme)
 
   const handleSelect = (value: string) => {
     // Handle quick actions
@@ -118,7 +137,7 @@ export function CommandPalette() {
           setSettingsTab("chat")
           setCurrentView("settings")
           break
-        case "settings-appearance":
+        case "settings-theme":
           setSettingsTab("appearance")
           setCurrentView("settings")
           break
@@ -133,6 +152,12 @@ export function CommandPalette() {
     const navAction = navigationActions.find(a => a.id === value)
     if (navAction) {
       setCurrentView(navAction.id as any)
+    }
+
+    // Handle theme changes
+    const selectedTheme = themes.find(t => `theme-${t.name}` === value)
+    if (selectedTheme) {
+      setTheme(selectedTheme.name as any)
     }
 
     // Handle file selections
@@ -167,6 +192,34 @@ export function CommandPalette() {
               <CommandShortcut>{action.shortcut}</CommandShortcut>
             </CommandItem>
           ))}
+        </CommandGroup>
+        
+        <CommandSeparator />
+        
+        <CommandGroup heading="Themes">
+          {themes.map((themeOption) => {
+            const ThemeIcon = themeOption.icon
+            const isActive = currentBaseTheme === themeOption.name
+            return (
+              <CommandItem 
+                key={`theme-${themeOption.name}`} 
+                value={`theme-${themeOption.name}`}
+                onSelect={handleSelect}
+              >
+                <ThemeIcon className="mr-2 h-4 w-4" />
+                <div className="flex flex-col">
+                  <span>{themeOption.label}</span>
+                  <span className="text-xs text-muted-foreground">{themeOption.description}</span>
+                </div>
+                {isActive && (
+                  <div 
+                    className="ml-auto h-2 w-2 rounded-full"
+                    style={{ backgroundColor: themeOption.activeColor }}
+                  />
+                )}
+              </CommandItem>
+            )
+          })}
         </CommandGroup>
         
         <CommandSeparator />
