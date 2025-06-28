@@ -15,6 +15,19 @@ pub struct Document {
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub status: String, // "draft", "reading", "completed"
+    pub category_id: Option<String>, // Link to category
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct Category {
+    pub id: String,
+    pub name: String,
+    pub description: Option<String>,
+    pub color: Option<String>, // Hex color for UI theming
+    pub icon: Option<String>, // Icon name/emoji
+    pub created_at: DateTime<Utc>,
+    pub updated_at: DateTime<Utc>,
+    pub document_count: i64, // Virtual field for UI
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -25,6 +38,15 @@ pub struct CreateDocumentRequest {
     pub doc_type: String,
     pub tags: Vec<String>,
     pub status: Option<String>,
+    pub category_id: Option<String>, // Category assignment
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreateCategoryRequest {
+    pub name: String,
+    pub description: Option<String>,
+    pub color: Option<String>,
+    pub icon: Option<String>,
 }
 
 pub struct Database {
@@ -36,6 +58,25 @@ impl Database {
         let pool = SqlitePool::connect(database_url).await?;
         
         // Create tables if they don't exist
+        
+        // Categories table
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS categories (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL UNIQUE,
+                description TEXT,
+                color TEXT,
+                icon TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+            "#,
+        )
+        .execute(&pool)
+        .await?;
+
+        // Documents table
         sqlx::query(
             r#"
             CREATE TABLE IF NOT EXISTS documents (
@@ -47,7 +88,9 @@ impl Database {
                 tags TEXT NOT NULL, -- JSON array
                 created_at TEXT NOT NULL,
                 updated_at TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'draft'
+                status TEXT NOT NULL DEFAULT 'draft',
+                category_id TEXT,
+                FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE SET NULL
             )
             "#,
         )
@@ -68,6 +111,23 @@ impl Database {
         .execute(&pool)
         .await?;
 
+        // Migration: Add category_id column to documents table if it doesn't exist
+        let columns = sqlx::query("PRAGMA table_info(documents)")
+            .fetch_all(&pool)
+            .await?;
+        
+        let has_category_id = columns.iter().any(|row| {
+            let column_name: String = row.get("name");
+            column_name == "category_id"
+        });
+
+        if !has_category_id {
+            println!("Migrating database: Adding category_id column to documents table");
+            sqlx::query("ALTER TABLE documents ADD COLUMN category_id TEXT")
+                .execute(&pool)
+                .await?;
+        }
+
         Ok(Database { pool })
     }
 
@@ -87,12 +147,13 @@ impl Database {
             created_at: now,
             updated_at: now,
             status: status.clone(),
+            category_id: req.category_id.clone(),
         };
 
         sqlx::query(
             r#"
-            INSERT INTO documents (id, title, content, file_path, doc_type, tags, created_at, updated_at, status)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO documents (id, title, content, file_path, doc_type, tags, created_at, updated_at, status, category_id)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             "#,
         )
         .bind(&id)
@@ -104,6 +165,7 @@ impl Database {
         .bind(now.to_rfc3339())
         .bind(now.to_rfc3339())
         .bind(&status)
+        .bind(&req.category_id)
         .execute(&self.pool)
         .await?;
 
@@ -137,6 +199,7 @@ impl Database {
                     .unwrap_or_else(|_| Utc::now().into())
                     .with_timezone(&Utc),
                 status: row.get("status"),
+                category_id: row.get("category_id"),
             });
         }
 
@@ -170,6 +233,7 @@ impl Database {
                     .unwrap_or_else(|_| Utc::now().into())
                     .with_timezone(&Utc),
                 status: row.get("status"),
+                category_id: row.get("category_id"),
             }))
         } else {
             Ok(None)
@@ -184,7 +248,7 @@ impl Database {
         let result = sqlx::query(
             r#"
             UPDATE documents 
-            SET title = ?, content = ?, file_path = ?, doc_type = ?, tags = ?, updated_at = ?, status = ?
+            SET title = ?, content = ?, file_path = ?, doc_type = ?, tags = ?, updated_at = ?, status = ?, category_id = ?
             WHERE id = ?
             "#,
         )
@@ -195,6 +259,7 @@ impl Database {
         .bind(&tags_json)
         .bind(now.to_rfc3339())
         .bind(&status)
+        .bind(&req.category_id)
         .bind(id)
         .execute(&self.pool)
         .await?;
@@ -213,6 +278,229 @@ impl Database {
             .await?;
 
         Ok(result.rows_affected() > 0)
+    }
+
+    // Category management methods
+
+    pub async fn create_category(&self, req: CreateCategoryRequest) -> Result<Category, sqlx::Error> {
+        let id = Uuid::new_v4().to_string();
+        let now = Utc::now();
+
+        let category = Category {
+            id: id.clone(),
+            name: req.name.clone(),
+            description: req.description.clone(),
+            color: req.color.clone(),
+            icon: req.icon.clone(),
+            created_at: now,
+            updated_at: now,
+            document_count: 0,
+        };
+
+        sqlx::query(
+            r#"
+            INSERT INTO categories (id, name, description, color, icon, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            "#,
+        )
+        .bind(&id)
+        .bind(&req.name)
+        .bind(&req.description)
+        .bind(&req.color)
+        .bind(&req.icon)
+        .bind(now.to_rfc3339())
+        .bind(now.to_rfc3339())
+        .execute(&self.pool)
+        .await?;
+
+        Ok(category)
+    }
+
+    pub async fn get_all_categories(&self) -> Result<Vec<Category>, sqlx::Error> {
+        let rows = sqlx::query(
+            r#"
+            SELECT c.*, COUNT(d.id) as document_count 
+            FROM categories c 
+            LEFT JOIN documents d ON c.id = d.category_id 
+            GROUP BY c.id 
+            ORDER BY c.name ASC
+            "#
+        )
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut categories = Vec::new();
+        for row in rows {
+            let created_at: String = row.get("created_at");
+            let updated_at: String = row.get("updated_at");
+            let document_count: i64 = row.get("document_count");
+
+            categories.push(Category {
+                id: row.get("id"),
+                name: row.get("name"),
+                description: row.get("description"),
+                color: row.get("color"),
+                icon: row.get("icon"),
+                created_at: DateTime::parse_from_rfc3339(&created_at)
+                    .unwrap_or_else(|_| Utc::now().into())
+                    .with_timezone(&Utc),
+                updated_at: DateTime::parse_from_rfc3339(&updated_at)
+                    .unwrap_or_else(|_| Utc::now().into())
+                    .with_timezone(&Utc),
+                document_count,
+            });
+        }
+
+        Ok(categories)
+    }
+
+    pub async fn get_category(&self, id: &str) -> Result<Option<Category>, sqlx::Error> {
+        let row = sqlx::query(
+            r#"
+            SELECT c.*, COUNT(d.id) as document_count 
+            FROM categories c 
+            LEFT JOIN documents d ON c.id = d.category_id 
+            WHERE c.id = ? 
+            GROUP BY c.id
+            "#
+        )
+        .bind(id)
+        .fetch_optional(&self.pool)
+        .await?;
+
+        if let Some(row) = row {
+            let created_at: String = row.get("created_at");
+            let updated_at: String = row.get("updated_at");
+            let document_count: i64 = row.get("document_count");
+
+            Ok(Some(Category {
+                id: row.get("id"),
+                name: row.get("name"),
+                description: row.get("description"),
+                color: row.get("color"),
+                icon: row.get("icon"),
+                created_at: DateTime::parse_from_rfc3339(&created_at)
+                    .unwrap_or_else(|_| Utc::now().into())
+                    .with_timezone(&Utc),
+                updated_at: DateTime::parse_from_rfc3339(&updated_at)
+                    .unwrap_or_else(|_| Utc::now().into())
+                    .with_timezone(&Utc),
+                document_count,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub async fn update_category(&self, id: &str, req: CreateCategoryRequest) -> Result<Option<Category>, sqlx::Error> {
+        let now = Utc::now();
+
+        let result = sqlx::query(
+            r#"
+            UPDATE categories 
+            SET name = ?, description = ?, color = ?, icon = ?, updated_at = ?
+            WHERE id = ?
+            "#,
+        )
+        .bind(&req.name)
+        .bind(&req.description)
+        .bind(&req.color)
+        .bind(&req.icon)
+        .bind(now.to_rfc3339())
+        .bind(id)
+        .execute(&self.pool)
+        .await?;
+
+        if result.rows_affected() > 0 {
+            self.get_category(id).await
+        } else {
+            Ok(None)
+        }
+    }
+
+    pub async fn delete_category(&self, id: &str) -> Result<bool, sqlx::Error> {
+        // First, set category_id to NULL for all documents in this category
+        sqlx::query("UPDATE documents SET category_id = NULL WHERE category_id = ?")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+
+        // Then delete the category
+        let result = sqlx::query("DELETE FROM categories WHERE id = ?")
+            .bind(id)
+            .execute(&self.pool)
+            .await?;
+
+        Ok(result.rows_affected() > 0)
+    }
+
+    pub async fn get_documents_by_category(&self, category_id: &str) -> Result<Vec<Document>, sqlx::Error> {
+        let rows = sqlx::query("SELECT * FROM documents WHERE category_id = ? ORDER BY updated_at DESC")
+            .bind(category_id)
+            .fetch_all(&self.pool)
+            .await?;
+
+        let mut documents = Vec::new();
+        for row in rows {
+            let tags_json: String = row.get("tags");
+            let tags: Vec<String> = serde_json::from_str(&tags_json).unwrap_or_default();
+            
+            let created_at: String = row.get("created_at");
+            let updated_at: String = row.get("updated_at");
+
+            documents.push(Document {
+                id: row.get("id"),
+                title: row.get("title"),
+                content: row.get("content"),
+                file_path: row.get("file_path"),
+                doc_type: row.get("doc_type"),
+                tags,
+                created_at: DateTime::parse_from_rfc3339(&created_at)
+                    .unwrap_or_else(|_| Utc::now().into())
+                    .with_timezone(&Utc),
+                updated_at: DateTime::parse_from_rfc3339(&updated_at)
+                    .unwrap_or_else(|_| Utc::now().into())
+                    .with_timezone(&Utc),
+                status: row.get("status"),
+                category_id: row.get("category_id"),
+            });
+        }
+
+        Ok(documents)
+    }
+
+    pub async fn get_uncategorized_documents(&self) -> Result<Vec<Document>, sqlx::Error> {
+        let rows = sqlx::query("SELECT * FROM documents WHERE category_id IS NULL ORDER BY updated_at DESC")
+            .fetch_all(&self.pool)
+            .await?;
+
+        let mut documents = Vec::new();
+        for row in rows {
+            let tags_json: String = row.get("tags");
+            let tags: Vec<String> = serde_json::from_str(&tags_json).unwrap_or_default();
+            
+            let created_at: String = row.get("created_at");
+            let updated_at: String = row.get("updated_at");
+
+            documents.push(Document {
+                id: row.get("id"),
+                title: row.get("title"),
+                content: row.get("content"),
+                file_path: row.get("file_path"),
+                doc_type: row.get("doc_type"),
+                tags,
+                created_at: DateTime::parse_from_rfc3339(&created_at)
+                    .unwrap_or_else(|_| Utc::now().into())
+                    .with_timezone(&Utc),
+                updated_at: DateTime::parse_from_rfc3339(&updated_at)
+                    .unwrap_or_else(|_| Utc::now().into())
+                    .with_timezone(&Utc),
+                status: row.get("status"),
+                category_id: row.get("category_id"),
+            });
+        }
+
+        Ok(documents)
     }
 
     // API Key management methods

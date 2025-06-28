@@ -1,4 +1,5 @@
-use crate::database::{Database, Document, CreateDocumentRequest};
+use crate::database::{Database, Document, CreateDocumentRequest, Category, CreateCategoryRequest};
+use crate::commands::pdf::delete_pdf_file;
 use tauri::State;
 use tokio::sync::Mutex;
 use std::sync::Arc;
@@ -97,8 +98,30 @@ pub async fn delete_document(state: State<'_, DatabaseState>, id: String) -> Res
     let db_state = state.lock().await;
     let database = db_state.as_ref().ok_or("Database not initialized")?;
     
-    database.delete_document(&id).await
-        .map_err(|e| format!("Failed to delete document: {}", e))
+    // First, get the document to check if it has a PDF file to clean up
+    let document = database.get_document(&id).await
+        .map_err(|e| format!("Failed to get document for deletion: {}", e))?;
+    
+    // Delete the document from the database
+    let deleted = database.delete_document(&id).await
+        .map_err(|e| format!("Failed to delete document: {}", e))?;
+    
+    // If document was deleted and it's a PDF with a file_path, clean up the PDF file
+    if deleted {
+        if let Some(doc) = document {
+            if doc.doc_type == "pdf" {
+                if let Some(file_path) = doc.file_path {
+                    // Attempt to delete the PDF file, but don't fail the entire operation if this fails
+                    match delete_pdf_file(file_path).await {
+                        Ok(_) => println!("DEBUG: Successfully cleaned up PDF file for document {}", id),
+                        Err(e) => println!("DEBUG: Failed to clean up PDF file for document {}: {}", id, e),
+                    }
+                }
+            }
+        }
+    }
+    
+    Ok(deleted)
 }
 
 #[tauri::command]
@@ -137,4 +160,79 @@ pub async fn delete_api_key(
     database.delete_api_key(&provider_id).await
         .map_err(|e| format!("Failed to delete API key: {}", e))?;
     Ok(())
-} 
+}
+
+// Category management commands
+
+#[tauri::command]
+pub async fn create_category(
+    state: State<'_, DatabaseState>,
+    request: CreateCategoryRequest,
+) -> Result<Category, String> {
+    let db_state = state.lock().await;
+    let database = db_state.as_ref().ok_or("Database not initialized")?;
+    
+    database.create_category(request).await
+        .map_err(|e| format!("Failed to create category: {}", e))
+}
+
+#[tauri::command]
+pub async fn get_all_categories(state: State<'_, DatabaseState>) -> Result<Vec<Category>, String> {
+    let db_state = state.lock().await;
+    let database = db_state.as_ref().ok_or("Database not initialized")?;
+    
+    database.get_all_categories().await
+        .map_err(|e| format!("Failed to get categories: {}", e))
+}
+
+#[tauri::command]
+pub async fn get_category(state: State<'_, DatabaseState>, id: String) -> Result<Option<Category>, String> {
+    let db_state = state.lock().await;
+    let database = db_state.as_ref().ok_or("Database not initialized")?;
+    
+    database.get_category(&id).await
+        .map_err(|e| format!("Failed to get category: {}", e))
+}
+
+#[tauri::command]
+pub async fn update_category(
+    state: State<'_, DatabaseState>,
+    id: String,
+    request: CreateCategoryRequest,
+) -> Result<Option<Category>, String> {
+    let db_state = state.lock().await;
+    let database = db_state.as_ref().ok_or("Database not initialized")?;
+    
+    database.update_category(&id, request).await
+        .map_err(|e| format!("Failed to update category: {}", e))
+}
+
+#[tauri::command]
+pub async fn delete_category(state: State<'_, DatabaseState>, id: String) -> Result<bool, String> {
+    let db_state = state.lock().await;
+    let database = db_state.as_ref().ok_or("Database not initialized")?;
+    
+    database.delete_category(&id).await
+        .map_err(|e| format!("Failed to delete category: {}", e))
+}
+
+#[tauri::command]
+pub async fn get_documents_by_category(
+    state: State<'_, DatabaseState>,
+    category_id: String,
+) -> Result<Vec<Document>, String> {
+    let db_state = state.lock().await;
+    let database = db_state.as_ref().ok_or("Database not initialized")?;
+    
+    database.get_documents_by_category(&category_id).await
+        .map_err(|e| format!("Failed to get documents by category: {}", e))
+}
+
+#[tauri::command]
+pub async fn get_uncategorized_documents(state: State<'_, DatabaseState>) -> Result<Vec<Document>, String> {
+    let db_state = state.lock().await;
+    let database = db_state.as_ref().ok_or("Database not initialized")?;
+    
+    database.get_uncategorized_documents().await
+        .map_err(|e| format!("Failed to get uncategorized documents: {}", e))
+}

@@ -3,9 +3,35 @@ use crate::pdf_processor::{PdfProcessor, MarkerOptions};
 use tauri::State;
 use tokio::sync::Mutex;
 use std::sync::Arc;
+use std::path::PathBuf;
+use uuid::Uuid;
 
 // Database state type
 type DatabaseState = Arc<Mutex<Option<Database>>>;
+
+// Helper function to get PDF storage directory
+fn get_pdf_storage_dir() -> Result<PathBuf, String> {
+    let home_dir = dirs::home_dir()
+        .ok_or("Could not find home directory")?;
+    
+    let storage_dir = home_dir.join("stellar_data").join("pdfs");
+    
+    std::fs::create_dir_all(&storage_dir)
+        .map_err(|e| format!("Failed to create PDF storage directory: {}", e))?;
+    
+    Ok(storage_dir)
+}
+
+// Helper function to generate unique filename
+fn generate_pdf_filename(original_name: &str) -> String {
+    let uuid = Uuid::new_v4();
+    let extension = std::path::Path::new(original_name)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .unwrap_or("pdf");
+    
+    format!("{}.{}", uuid, extension)
+}
 
 #[tauri::command]
 pub async fn upload_and_process_pdf(
@@ -16,6 +42,7 @@ pub async fn upload_and_process_pdf(
     use_marker: Option<bool>,
     use_enhanced: Option<bool>,
     use_markitdown: Option<bool>,
+    category_id: Option<String>,
 ) -> Result<Document, String> {
     println!("DEBUG: upload_and_process_pdf called with file_path: {}", file_path);
     
@@ -23,6 +50,21 @@ pub async fn upload_and_process_pdf(
     let database = db_state.as_ref().ok_or("Database not initialized")?;
     
     println!("DEBUG: Database state obtained");
+    
+    // Get storage directory and generate unique filename
+    let storage_dir = get_pdf_storage_dir()?;
+    let original_filename = std::path::Path::new(&file_path)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("document.pdf");
+    let stored_filename = generate_pdf_filename(original_filename);
+    let stored_path = storage_dir.join(&stored_filename);
+    
+    // Copy the file to persistent storage
+    std::fs::copy(&file_path, &stored_path)
+        .map_err(|e| format!("Failed to copy PDF to storage: {}", e))?;
+    
+    println!("DEBUG: PDF copied to persistent storage: {:?}", stored_path);
     
     // Process the PDF
     let processor = PdfProcessor::new();
@@ -59,14 +101,15 @@ pub async fn upload_and_process_pdf(
     
     println!("DEBUG: Extracted metadata: {:?}", metadata);
     
-    // Create document request
+    // Create document request with stored filename
     let request = CreateDocumentRequest {
         title: title.unwrap_or(metadata.title),
         content,
-        file_path: Some(file_path),
+        file_path: Some(stored_filename), // Store the unique filename
         doc_type: "pdf".to_string(),
         tags: tags.unwrap_or_default(),
         status: Some("reading".to_string()),
+        category_id,
     };
     
     println!("DEBUG: Created document request: {:?}", request.title);
@@ -90,6 +133,7 @@ pub async fn upload_and_process_pdf_from_data(
     use_marker: Option<bool>,
     use_enhanced: Option<bool>,
     use_markitdown: Option<bool>,
+    category_id: Option<String>,
 ) -> Result<Document, String> {
     println!("DEBUG: upload_and_process_pdf_from_data called with file_name: {}", file_name);
     
@@ -98,18 +142,25 @@ pub async fn upload_and_process_pdf_from_data(
     
     println!("DEBUG: Database state obtained, file size: {} bytes", file_data.len());
     
-    // Create temporary directory for uploads
-    let temp_dir = std::env::temp_dir().join("stellar_uploads");
+    // Get storage directory and generate unique filename
+    let storage_dir = get_pdf_storage_dir()?;
+    let stored_filename = generate_pdf_filename(&file_name);
+    let stored_path = storage_dir.join(&stored_filename);
+    
+    // Write the file data to persistent storage
+    std::fs::write(&stored_path, &file_data)
+        .map_err(|e| format!("Failed to save PDF: {}", e))?;
+    
+    println!("DEBUG: Saved PDF to persistent storage: {:?}", stored_path);
+    
+    // Create temporary file for processing (some processors might need file path)
+    let temp_dir = std::env::temp_dir().join("stellar_processing");
     std::fs::create_dir_all(&temp_dir)
         .map_err(|e| format!("Failed to create temp directory: {}", e))?;
     
     let temp_file_path = temp_dir.join(&file_name);
-    
-    // Write the file data to temporary location
     std::fs::write(&temp_file_path, &file_data)
-        .map_err(|e| format!("Failed to save PDF: {}", e))?;
-    
-    println!("DEBUG: Saved PDF to: {:?}", temp_file_path);
+        .map_err(|e| format!("Failed to create temp processing file: {}", e))?;
     
     // Process the PDF
     let processor = PdfProcessor::new();
@@ -145,7 +196,7 @@ pub async fn upload_and_process_pdf_from_data(
     
     println!("DEBUG: Extracted metadata: {:?}", metadata);
     
-    // Clean up temporary file
+    // Clean up temporary processing file
     let _ = std::fs::remove_file(&temp_file_path);
     
     // Create document request
@@ -158,10 +209,11 @@ pub async fn upload_and_process_pdf_from_data(
     let request = CreateDocumentRequest {
         title: doc_title,
         content,
-        file_path: Some(file_name), // Store the original filename
+        file_path: Some(stored_filename), // Store the unique filename
         doc_type: "pdf".to_string(),
         tags: tags.unwrap_or_default(),
         status: Some("reading".to_string()),
+        category_id,
     };
     
     println!("DEBUG: Created document request: {:?}", request.title);
@@ -184,6 +236,7 @@ pub async fn upload_and_process_pdf_from_url(
     use_marker: Option<bool>,
     use_enhanced: Option<bool>,
     use_markitdown: Option<bool>,
+    category_id: Option<String>,
 ) -> Result<Document, String> {
     println!("DEBUG: upload_and_process_pdf_from_url called with URL: {}", url);
     
@@ -192,7 +245,7 @@ pub async fn upload_and_process_pdf_from_url(
     
     println!("DEBUG: Database state obtained");
     
-    // Download PDF from URL to a temporary file
+    // Download PDF from URL
     let client = reqwest::Client::new();
     let response = client.get(&url).send().await
         .map_err(|e| format!("Failed to download PDF: {}", e))?;
@@ -208,21 +261,28 @@ pub async fn upload_and_process_pdf_from_url(
         .and_then(|name| if name.ends_with(".pdf") { Some(name) } else { None })
         .unwrap_or("downloaded.pdf");
     
-    // Create temporary directory for downloads
-    let temp_dir = std::env::temp_dir().join("stellar_downloads");
+    // Get storage directory and generate unique filename
+    let storage_dir = get_pdf_storage_dir()?;
+    let stored_filename = generate_pdf_filename(filename);
+    let stored_path = storage_dir.join(&stored_filename);
+    
+    // Download and save the file to persistent storage
+    let bytes = response.bytes().await
+        .map_err(|e| format!("Failed to read PDF bytes: {}", e))?;
+    
+    std::fs::write(&stored_path, &bytes)
+        .map_err(|e| format!("Failed to save PDF: {}", e))?;
+    
+    println!("DEBUG: Downloaded PDF to persistent storage: {:?}", stored_path);
+    
+    // Create temporary file for processing
+    let temp_dir = std::env::temp_dir().join("stellar_processing");
     std::fs::create_dir_all(&temp_dir)
         .map_err(|e| format!("Failed to create temp directory: {}", e))?;
     
     let temp_file_path = temp_dir.join(filename);
-    
-    // Download and save the file
-    let bytes = response.bytes().await
-        .map_err(|e| format!("Failed to read PDF bytes: {}", e))?;
-    
     std::fs::write(&temp_file_path, &bytes)
-        .map_err(|e| format!("Failed to save PDF: {}", e))?;
-    
-    println!("DEBUG: Downloaded PDF to: {:?}", temp_file_path);
+        .map_err(|e| format!("Failed to create temp processing file: {}", e))?;
     
     // Process the PDF
     let processor = PdfProcessor::new();
@@ -258,7 +318,7 @@ pub async fn upload_and_process_pdf_from_url(
     
     println!("DEBUG: Extracted metadata: {:?}", metadata);
     
-    // Clean up temporary file
+    // Clean up temporary processing file
     let _ = std::fs::remove_file(&temp_file_path);
     
     // Create document request
@@ -274,10 +334,11 @@ pub async fn upload_and_process_pdf_from_url(
     let request = CreateDocumentRequest {
         title: doc_title,
         content,
-        file_path: Some(url), // Store the URL as the file path
+        file_path: Some(stored_filename), // Store the unique filename
         doc_type: "pdf".to_string(),
         tags: tags.unwrap_or_default(),
         status: Some("reading".to_string()),
+        category_id,
     };
     
     println!("DEBUG: Created document request: {:?}", request.title);
@@ -289,4 +350,50 @@ pub async fn upload_and_process_pdf_from_url(
     println!("DEBUG: Database operation result: {:?}", result.is_ok());
     
     result
+}
+
+// New command to serve PDF files to the frontend
+#[tauri::command]
+pub async fn get_pdf_file_path(filename: String) -> Result<String, String> {
+    let storage_dir = get_pdf_storage_dir()?;
+    let file_path = storage_dir.join(&filename);
+    
+    if !file_path.exists() {
+        return Err(format!("PDF file not found: {}", filename));
+    }
+    
+    file_path.to_str()
+        .ok_or_else(|| "Invalid file path".to_string())
+        .map(|s| s.to_string())
+}
+
+// New command to serve PDF file content as bytes for react-pdf
+#[tauri::command]
+pub async fn get_pdf_file_content(filename: String) -> Result<Vec<u8>, String> {
+    let storage_dir = get_pdf_storage_dir()?;
+    let file_path = storage_dir.join(&filename);
+    
+    if !file_path.exists() {
+        return Err(format!("PDF file not found: {}", filename));
+    }
+    
+    std::fs::read(&file_path)
+        .map_err(|e| format!("Failed to read PDF file: {}", e))
+}
+
+// New command to clean up PDF file when document is deleted
+#[tauri::command]
+pub async fn delete_pdf_file(filename: String) -> Result<bool, String> {
+    let storage_dir = get_pdf_storage_dir()?;
+    let file_path = storage_dir.join(&filename);
+    
+    if file_path.exists() {
+        std::fs::remove_file(&file_path)
+            .map_err(|e| format!("Failed to delete PDF file: {}", e))?;
+        println!("DEBUG: Deleted PDF file: {:?}", file_path);
+        Ok(true)
+    } else {
+        println!("DEBUG: PDF file not found for deletion: {:?}", file_path);
+        Ok(false)
+    }
 } 

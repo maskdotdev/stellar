@@ -10,7 +10,7 @@ pub mod pdf_processor;
 // Re-export types and functions
 pub use ai::*;
 pub use commands::*;
-pub use database::{Database, Document, CreateDocumentRequest};
+pub use database::{Database, Document, CreateDocumentRequest, Category, CreateCategoryRequest};
 pub use pdf_processor::{PdfProcessor, MarkerOptions};
 
 // Database state
@@ -37,11 +37,21 @@ pub fn run() {
             upload_and_process_pdf,
             upload_and_process_pdf_from_data,
             upload_and_process_pdf_from_url,
+            get_pdf_file_path,
+            get_pdf_file_content,
+            delete_pdf_file,
             create_document,
             get_all_documents,
             get_document,
             update_document,
-            delete_document
+            delete_document,
+            create_category,
+            get_all_categories,
+            get_category,
+            update_category,
+            delete_category,
+            get_documents_by_category,
+            get_uncategorized_documents
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
