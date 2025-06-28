@@ -61,7 +61,8 @@ export function AppearanceSettings() {
       nebula: { light: "nebula", dark: "dark-nebula" },
       "starry-night": { light: "starry-night", dark: "dark-starry-night" },
       infinity: { light: "infinity", dark: "dark-infinity" },
-      pluto: { light: "pluto", dark: "dark-pluto" }
+      pluto: { light: "pluto", dark: "dark-pluto" },
+      "t3-chat": { light: "t3-chat", dark: "dark-t3-chat" }
     }
 
     const variants = themeVariants[baseTheme]
@@ -99,7 +100,8 @@ export function AppearanceSettings() {
                 nebula: { light: "nebula", dark: "dark-nebula" },
                 "starry-night": { light: "starry-night", dark: "dark-starry-night" },
                 infinity: { light: "infinity", dark: "dark-infinity" },
-                pluto: { light: "pluto", dark: "dark-pluto" }
+                pluto: { light: "pluto", dark: "dark-pluto" },
+                "t3-chat": { light: "t3-chat", dark: "dark-t3-chat" }
               }
 
               const variants = themeVariants[themeOption.name]

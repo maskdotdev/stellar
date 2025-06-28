@@ -103,7 +103,14 @@ export const themes = [
     icon: Circle,
     activeColor: "oklch(0.6489 0.237 26.9728)",
     description: "High-contrast dwarf planet"
-  }
+  },
+  {
+    name: "t3-chat",
+    label: "T3 Chat",
+    icon: Circle,
+    activeColor: "oklch(0.9754 0.0084 325.6414)",
+    description: "T3 Chat theme"
+  },
 ] as const
 
 export function ThemeSwitcher() {

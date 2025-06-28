@@ -327,28 +327,28 @@ export function ModelBrowser() {
       </div>
 
       {/* Provider Sync Controls */}
-      {/* <div className="flex flex-wrap gap-2">
-          {providers.map((provider) => (
-            <Button
-              key={provider.id}
-              variant={provider.enabled ? "default" : "outline"}
-              size="sm"
-              onClick={() => handleSyncProvider(provider.id)}
-              disabled={isLoading}
-              className="text-xs"
-            >
-              <ProviderLogo
-                providerId={provider.id}
-                providerName={provider.name}
-                size={14}
-                className="mr-1"
-              />
-              <RefreshCw className="h-3 w-3 mr-1" />
-              {provider.name}
-              {provider.enabled && <Zap className="h-3 w-3 ml-1" />}
-            </Button>
-          ))}
-        </div> */}
+      <div className="flex flex-wrap gap-2">
+        {providers.map((provider) => (
+          <Button
+            key={provider.id}
+            variant={provider.enabled ? "default" : "outline"}
+            size="sm"
+            onClick={() => handleSyncProvider(provider.id)}
+            disabled={isLoading}
+            className="text-xs"
+          >
+            <ProviderLogo
+              providerId={provider.id}
+              providerName={provider.name}
+              size={14}
+              className="mr-1"
+            />
+            <RefreshCw className="h-3 w-3 mr-1" />
+            {provider.name}
+            {provider.enabled && <Zap className="h-3 w-3 ml-1" />}
+          </Button>
+        ))}
+      </div>
 
       {/* Model Grid - Pokedex Style */}
       <ScrollArea className="h-[700px]">

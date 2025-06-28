@@ -10,7 +10,7 @@ import {
   CommandShortcut,
   CommandSeparator,
 } from "@/components/ui/command"
-import { FileText, Plus, Import, Network, Zap, BookOpen, MessageCircle, Clock, Settings, Bot, Palette, MessageSquare, Cpu, Keyboard } from "lucide-react"
+import { FileText, Plus, Import, Network, Zap, BookOpen, MessageCircle, Clock, Settings, Bot, Palette, MessageSquare, Cpu, Keyboard, Sun, Moon } from "lucide-react"
 import { useStudyStore } from "@/lib/study-store"
 import { useTheme } from "@/components/theme-provider"
 import { themes } from "@/components/theme-switcher"
@@ -51,6 +51,7 @@ export function CommandPalette() {
     { id: "flashcards", label: "Create Flashcards", icon: Zap, shortcut: getKeybindingShortcut(keybindings, "flashcards") },
     { id: "focus", label: "Focus Mode", icon: BookOpen, shortcut: getKeybindingShortcut(keybindings, "focus") },
     { id: "chat", label: "Ask AI", icon: MessageCircle, shortcut: getKeybindingShortcut(keybindings, "chat") },
+    { id: "toggle-theme", label: "Toggle Theme", icon: theme?.startsWith("dark-") || theme === "dark" ? Sun : Moon, shortcut: getKeybindingShortcut(keybindings, "toggle-theme") },
   ]
 
   const settingsActions = [
@@ -79,6 +80,42 @@ export function CommandPalette() {
     if (fullTheme === "light") return "default"
     if (fullTheme === "dark") return "default"
     return fullTheme || "teal"
+  }
+
+  // Check if current theme is dark
+  const isDarkTheme = (fullTheme: string): boolean => {
+    return fullTheme?.startsWith("dark-") || 
+           fullTheme === "dark" || 
+           ["space", "aurora", "starfield"].includes(fullTheme)
+  }
+
+  // Toggle between light and dark variants of current theme
+  const toggleCurrentTheme = () => {
+    const baseTheme = getBaseTheme(theme)
+    const isCurrentlyDark = isDarkTheme(theme)
+    
+    // Theme mapping for light/dark variants
+    const themeVariantMap: Record<string, { light: string; dark: string }> = {
+      default: { light: "light", dark: "dark" },
+      teal: { light: "light-teal", dark: "dark-teal" },
+      rose: { light: "rose", dark: "dark-rose" },
+      "solar-flare": { light: "solar-flare", dark: "dark-solar-flare" },
+      space: { light: "light-space", dark: "space" },
+      aurora: { light: "light-aurora", dark: "aurora" },
+      starfield: { light: "light-starfield", dark: "starfield" },
+      cosmos: { light: "cosmos", dark: "dark-cosmos" },
+      nebula: { light: "nebula", dark: "dark-nebula" },
+      "starry-night": { light: "starry-night", dark: "dark-starry-night" },
+      infinity: { light: "infinity", dark: "dark-infinity" },
+      pluto: { light: "pluto", dark: "dark-pluto" },
+      "t3-chat": { light: "t3-chat", dark: "dark-t3-chat" }
+    }
+    
+    const variants = themeVariantMap[baseTheme]
+    if (variants) {
+      const newTheme = isCurrentlyDark ? variants.light : variants.dark
+      setTheme(newTheme as any)
+    }
   }
 
   const currentBaseTheme = getBaseTheme(theme)
@@ -118,6 +155,9 @@ export function CommandPalette() {
         case "chat":
           setShowFloatingChat(true)
           break
+        case "toggle-theme":
+          toggleCurrentTheme()
+          break
       }
     }
 
@@ -154,10 +194,41 @@ export function CommandPalette() {
       setCurrentView(navAction.id as any)
     }
 
-    // Handle theme changes
+    // Handle theme changes (base themes only)
     const selectedTheme = themes.find(t => `theme-${t.name}` === value)
     if (selectedTheme) {
-      setTheme(selectedTheme.name as any)
+      // Apply the current dark/light preference to the new theme
+      const isCurrentlyDark = isDarkTheme(theme)
+      
+      // Skip system theme for this logic
+      if (selectedTheme.name === 'system') {
+        setTheme('system' as any)
+      } else {
+        // Apply current light/dark preference to new theme
+        const themeVariantMap: Record<string, { light: string; dark: string }> = {
+          default: { light: "light", dark: "dark" },
+          teal: { light: "light-teal", dark: "dark-teal" },
+          rose: { light: "rose", dark: "dark-rose" },
+          "solar-flare": { light: "solar-flare", dark: "dark-solar-flare" },
+          space: { light: "light-space", dark: "space" },
+          aurora: { light: "light-aurora", dark: "aurora" },
+          starfield: { light: "light-starfield", dark: "starfield" },
+          cosmos: { light: "cosmos", dark: "dark-cosmos" },
+          nebula: { light: "nebula", dark: "dark-nebula" },
+          "starry-night": { light: "starry-night", dark: "dark-starry-night" },
+          infinity: { light: "infinity", dark: "dark-infinity" },
+          pluto: { light: "pluto", dark: "dark-pluto" },
+          "t3-chat": { light: "t3-chat", dark: "dark-t3-chat" }
+        }
+        
+        const variants = themeVariantMap[selectedTheme.name]
+        if (variants) {
+          const newTheme = isCurrentlyDark ? variants.dark : variants.light
+          setTheme(newTheme as any)
+        } else {
+          setTheme(selectedTheme.name as any)
+        }
+      }
     }
 
     // Handle file selections

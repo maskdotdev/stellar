@@ -1,9 +1,9 @@
 import * as React from "react"
 
-type Theme = "system" | "default" | "teal" | "rose" | "solar-flare" | "space" | "aurora" | "starfield" | "cosmos" | "nebula" | "starry-night" | "infinity" | "pluto" | 
+type Theme = "system" | "default" | "teal" | "rose" | "solar-flare" | "space" | "aurora" | "starfield" | "cosmos" | "nebula" | "starry-night" | "infinity" | "pluto" | "t3-chat" |
   // Theme variants
   "light" | "dark" | "light-teal" | "dark-teal" | "dark-rose" | "solar-flare" | "dark-solar-flare" | 
-  "light-space" | "light-aurora" | "light-starfield" | "dark-cosmos" | "dark-nebula" | "dark-starry-night" | "dark-infinity" | "dark-pluto"
+  "light-space" | "light-aurora" | "light-starfield" | "dark-cosmos" | "dark-nebula" | "dark-starry-night" | "dark-infinity" | "dark-pluto" | "dark-t3-chat"
 
 type ThemeProviderProps = {
   children: React.ReactNode
@@ -43,7 +43,8 @@ const getThemeVariant = (baseTheme: string, isDark: boolean): string => {
     nebula: { light: "nebula", dark: "dark-nebula" },
     "starry-night": { light: "starry-night", dark: "dark-starry-night" },
     infinity: { light: "infinity", dark: "dark-infinity" },
-    pluto: { light: "pluto", dark: "dark-pluto" }
+    pluto: { light: "pluto", dark: "dark-pluto" },
+    "t3-chat": { light: "t3-chat", dark: "dark-t3-chat" }
   }
 
   // If theme has variants, return appropriate one
@@ -94,7 +95,8 @@ export function ThemeProvider({
       "light", "dark", "dark-teal", "light-teal", "rose", "dark-rose",
       "solar-flare", "dark-solar-flare", "space", "light-space", "aurora", "light-aurora", 
       "starfield", "light-starfield", "cosmos", "dark-cosmos", "nebula", "dark-nebula", 
-      "starry-night", "dark-starry-night", "infinity", "dark-infinity", "pluto", "dark-pluto"
+      "starry-night", "dark-starry-night", "infinity", "dark-infinity", "pluto", "dark-pluto",
+      "t3-chat", "dark-t3-chat"
     ]
     root.classList.remove(...allThemeClasses)
 
