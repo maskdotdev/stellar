@@ -1,6 +1,6 @@
 import * as React from "react"
 import { useTheme } from "@/components/theme-provider"
-import { Monitor, Moon, Sun, Palette, Sparkles, Zap, Star, Waves, Leaf, Flower, Coffee, Rocket } from "lucide-react"
+import { Monitor, Moon, Sun, Sparkles, Zap, Star, Flower, Circle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -14,119 +14,96 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 
 export const themes = [
   {
-    name: "dark-teal",
-    label: "Stellar Dark",
-    icon: Moon,
-    activeColor: "oklch(0.7 0.131 195)",
-  },
-  {
-    name: "light-teal",
-    label: "Stellar Light",
-    icon: Sun,
-    activeColor: "oklch(0.65 0.15 195)",
-  },
-  {
-    name: "light",
-    label: "Solar Flare",
-    icon: Sun,
-    activeColor: "oklch(0.129 0.042 264.695)",
-  },
-  {
-    name: "dark",
-    label: "Dark Matter", 
-    icon: Moon,
-    activeColor: "oklch(0.984 0.003 247.858)",
-  },
-  {
     name: "system",
-    label: "Cosmic Auto",
+    label: "System",
     icon: Monitor,
     activeColor: "oklch(0.554 0.046 257.417)",
+    description: "Follow system preference"
   },
   {
-    name: "blue",
-    label: "Galaxy Blue",
-    icon: Palette,
-    activeColor: "oklch(0.5 0.2 240)",
+    name: "teal",
+    label: "Stellar",
+    icon: Star,
+    activeColor: "oklch(0.65 0.15 195)",
+    description: "Default stellar theme"
   },
   {
-    name: "green", 
-    label: "Exoplanet",
-    icon: Palette,
-    activeColor: "oklch(0.5 0.2 140)",
+    name: "default",
+    label: "Dead Space",
+    icon: Moon,
+    activeColor: "oklch(0.208 0.042 265.755)",
+    description: "Classic dead space theme"
   },
   {
-    name: "purple",
-    label: "Nebula Purple", 
-    icon: Palette,
-    activeColor: "oklch(0.5 0.2 280)",
-  },
-  {
-    name: "orange",
-    label: "Solar Corona",
-    icon: Palette,
-    activeColor: "oklch(0.6 0.2 50)",
+    name: "solar-flare",
+    label: "Solar Flare",
+    icon: Sun,
+    activeColor: "oklch(0.85 0.15 60)",
+    description: "Intense solar flare energy"
   },
   {
     name: "rose",
     label: "Supernova",
-    icon: Palette,
+    icon: Sparkles,
     activeColor: "oklch(0.6 0.2 10)",
+    description: "Explosive supernova energy"
   },
   {
     name: "space",
     label: "Deep Space",
-    icon: Sparkles,
+    icon: Moon,
     activeColor: "oklch(0.65 0.25 285)",
+    description: "Dark cosmic space"
   },
   {
     name: "aurora",
-    label: "Aurora Borealis",
+    label: "Aurora",
     icon: Zap,
     activeColor: "oklch(0.78 0.15 85)",
-  },
-  {
-    name: "nebula",
-    label: "Cosmic Nebula",
-    icon: Sparkles,
-    activeColor: "oklch(0.68 0.28 330)",
+    description: "Electric aurora borealis"
   },
   {
     name: "starfield",
     label: "Starfield",
     icon: Star,
-    activeColor: "oklch(0.72 0.20 220)",
+    activeColor: "oklch(0.7874 0.1179 295.7538)",
+    description: "Brilliant starfield"
   },
   {
-    name: "mint-chocolate",
-    label: "Asteroid Belt",
-    icon: Coffee,
-    activeColor: "oklch(0.30 0.08 25)",
+    name: "cosmos",
+    label: "Cosmos",
+    icon: Sparkles,
+    activeColor: "oklch(0.5417 0.179 288.0332)",
+    description: "Cosmic wonder"
   },
   {
-    name: "lavender-cream",
-    label: "Cosmic Dust",
+    name: "nebula",
+    label: "Nebula",
     icon: Flower,
-    activeColor: "oklch(0.75 0.15 80)",
+    activeColor: "oklch(0.6726 0.2904 341.4084)",
+    description: "Colorful cosmic nebula"
   },
   {
-    name: "ocean-foam",
-    label: "Galactic Tide",
-    icon: Waves,
-    activeColor: "oklch(0.70 0.18 15)",
+    name: "starry-night",
+    label: "Starry Night",
+    icon: Moon,
+    activeColor: "oklch(0.4815 0.1178 263.3758)",
+    description: "Van Gogh inspired starry night"
   },
   {
-    name: "pulsar",
-    label: "Pulsar",
+    name: "infinity",
+    label: "Infinity",
     icon: Zap,
-    activeColor: "oklch(0.45 0.20 240)",
+    activeColor: "oklch(0.5624 0.0947 203.2755)",
+    description: "Infinite possibilities"
   },
   {
-    name: "nasa",
-    label: "NASA",
-    icon: Rocket,
-    activeColor: "oklch(0.45 0.15 230)",
-  },
+    name: "pluto",
+    label: "Pluto",
+    icon: Circle,
+    activeColor: "oklch(0.6489 0.237 26.9728)",
+    description: "High-contrast dwarf planet"
+  }
 ] as const
 
 export function ThemeSwitcher() {
@@ -145,7 +122,9 @@ export function ThemeSwitcher() {
     )
   }
 
-  const currentTheme = themes.find(t => t.name === theme) || themes[0]
+  // Extract base theme name (remove dark- prefix if present)
+  const baseTheme = theme?.startsWith('dark-') ? theme.slice(5) : theme
+  const currentTheme = themes.find(t => t.name === baseTheme) || themes.find(t => t.name === 'teal')! // Default to stellar
   const Icon = currentTheme.icon
 
   return (
@@ -163,11 +142,11 @@ export function ThemeSwitcher() {
           <p>Switch theme</p>
         </TooltipContent>
       </Tooltip>
-      <DropdownMenuContent align="end" className="w-40">
+      <DropdownMenuContent align="end" className="w-48">
         <DropdownMenuLabel>Theme</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        {themes.map((themeOption) => {
-          const ThemeIcon = themeOption.icon
+        {themes.map((themeOption) => {          const ThemeIcon = themeOption.icon
+          const isActive = baseTheme === themeOption.name
           return (
             <DropdownMenuItem
               key={themeOption.name}
@@ -175,10 +154,13 @@ export function ThemeSwitcher() {
               className="flex items-center gap-2"
             >
               <ThemeIcon className="h-4 w-4" />
-              <span>{themeOption.label}</span>
+              <div className="flex flex-col">
+                <span>{themeOption.label}</span>
+                <span className="text-xs text-muted-foreground">{themeOption.description}</span>
+              </div>
               <div 
                 className={`ml-auto h-2 w-2 rounded-full transition-opacity ${
-                  theme === themeOption.name ? 'opacity-100' : 'opacity-0'
+                  isActive ? 'opacity-100' : 'opacity-0'
                 }`}
                 style={{ backgroundColor: themeOption.activeColor }}
               />
