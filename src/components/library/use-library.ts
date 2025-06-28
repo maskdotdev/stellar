@@ -1,0 +1,404 @@
+import { useState, useEffect } from "react"
+import { useToast } from "@/hooks/use-toast"
+import { useStudyStore } from "@/lib/study-store"
+import { useSimpleSettingsStore } from "@/lib/simple-settings-store"
+import { LibraryService, type Document, type Category, type CreateCategoryRequest } from "@/lib/library-service"
+
+export function useLibrary() {
+  const [searchQuery, setSearchQuery] = useState("")
+  const [showUploadDialog, setShowUploadDialog] = useState(false)
+  const [showCategoryDialog, setShowCategoryDialog] = useState(false)
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null)
+  const [deletingCategoryId, setDeletingCategoryId] = useState<string | null>(null)
+  const [deletingDocumentId, setDeletingDocumentId] = useState<string | null>(null)
+  const [categoryForm, setCategoryForm] = useState<CreateCategoryRequest>({
+    name: "",
+    description: "",
+    color: "#3b82f6",
+    icon: "folder"
+  })
+  const [editingTitleId, setEditingTitleId] = useState<string | null>(null)
+  const [editingTitle, setEditingTitle] = useState("")
+  
+  const { toast } = useToast()
+  
+  // Use persistent settings for layout preferences
+  const viewMode = useSimpleSettingsStore((state) => state.libraryViewMode)
+  const setLibraryViewMode = useSimpleSettingsStore((state) => state.setLibraryViewMode)
+  const addSearchHistory = useSimpleSettingsStore((state) => state.addSearchHistory)
+  
+  const { 
+    setCurrentView, 
+    setCurrentDocument, 
+    setEditingNoteId,
+    documents, 
+    isLoadingDocuments,
+    setDocuments, 
+    setIsLoadingDocuments,
+    addDocument,
+    removeDocument,
+    updateDocument,
+    // Category state
+    categories,
+    isLoadingCategories,
+    currentCategory,
+    libraryBreadcrumbs,
+    setCategories,
+    setIsLoadingCategories,
+    addCategory,
+    updateCategory: updateCategoryInStore,
+    removeCategory,
+    navigateToCategory,
+    navigateBackToCategories
+  } = useStudyStore()
+
+  const libraryService = LibraryService.getInstance()
+
+  // Initialize service and load data
+  useEffect(() => {
+    const initializeLibrary = async () => {
+      try {
+        setIsLoadingCategories(true)
+        setIsLoadingDocuments(true)
+        await libraryService.initialize()
+        
+        // Load categories and documents in parallel
+        const [categoriesData, documentsData] = await Promise.all([
+          libraryService.getAllCategories(),
+          currentCategory ? libraryService.getDocumentsByCategory(currentCategory) : []
+        ])
+        
+        setCategories(categoriesData)
+        if (currentCategory) {
+          setDocuments(documentsData)
+        }
+      } catch (error) {
+        console.error('Failed to initialize library:', error)
+        toast({
+          title: "Error",
+          description: "Failed to load library. Please try again.",
+          variant: "destructive",
+        })
+      } finally {
+        setIsLoadingCategories(false)
+        setIsLoadingDocuments(false)
+      }
+    }
+
+    initializeLibrary()
+  }, [])
+
+  // Load documents when category changes
+  useEffect(() => {
+    if (currentCategory) {
+      const loadCategoryDocuments = async () => {
+        try {
+          setIsLoadingDocuments(true)
+          let documentsData: Document[]
+          
+          if (currentCategory === "uncategorized") {
+            // Load uncategorized documents
+            documentsData = await libraryService.getUncategorizedDocuments()
+          } else {
+            // Load documents for specific category
+            documentsData = await libraryService.getDocumentsByCategory(currentCategory)
+          }
+          
+          setDocuments(documentsData)
+        } catch (error) {
+          console.error('Failed to load category documents:', error)
+          toast({
+            title: "Error",
+            description: "Failed to load documents for this category.",
+            variant: "destructive",
+          })
+        } finally {
+          setIsLoadingDocuments(false)
+        }
+      }
+      loadCategoryDocuments()
+    }
+  }, [currentCategory])
+
+  // Filter items based on current view
+  const filteredCategories = currentCategory === null ? categories.filter(
+    (category) =>
+      category.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (category.description && category.description.toLowerCase().includes(searchQuery.toLowerCase()))
+  ) : []
+
+  const filteredDocuments = currentCategory !== null ? documents.filter(
+    (item) =>
+      item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.tags.some((tag) => tag.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      libraryService.getContentPreview(item.content).toLowerCase().includes(searchQuery.toLowerCase())
+  ) : []
+
+  const handleCategoryClick = (category: Category) => {
+    navigateToCategory(category.id, category.name)
+  }
+
+  const handleBackToCategories = () => {
+    navigateBackToCategories()
+  }
+
+  const handleItemClick = (item: Document) => {
+    if (item.doc_type === "note") {
+      setEditingNoteId(item.id)
+      setCurrentView("note-editor")
+    } else {
+      setCurrentDocument(item.id)
+      setCurrentView("focus")
+    }
+  }
+
+  const handleCreateCategory = async () => {
+    if (!categoryForm.name.trim()) {
+      toast({
+        title: "Error",
+        description: "Category name is required.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      const newCategory = await libraryService.createCategory(categoryForm)
+      addCategory(newCategory)
+      setShowCategoryDialog(false)
+      setCategoryForm({ name: "", description: "", color: "#3b82f6", icon: "folder" })
+      toast({
+        title: "Success",
+        description: "Category created successfully.",
+      })
+    } catch (error) {
+      console.error('Failed to create category:', error)
+      toast({
+        title: "Error",
+        description: "Failed to create category. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleUpdateCategory = async () => {
+    if (!editingCategory || !categoryForm.name.trim()) return
+
+    try {
+      const updatedCategory = await libraryService.updateCategory(editingCategory.id, categoryForm)
+      if (updatedCategory) {
+        updateCategoryInStore(editingCategory.id, updatedCategory)
+        setShowCategoryDialog(false)
+        setEditingCategory(null)
+        setCategoryForm({ name: "", description: "", color: "#3b82f6", icon: "folder" })
+        toast({
+          title: "Success",
+          description: "Category updated successfully.",
+        })
+      }
+    } catch (error) {
+      console.error('Failed to update category:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update category. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleDeleteCategory = async (categoryId: string) => {
+    try {
+      const success = await libraryService.deleteCategory(categoryId)
+      if (success) {
+        removeCategory(categoryId)
+        toast({
+          title: "Success",
+          description: "Category deleted successfully. Documents have been moved to uncategorized.",
+        })
+      }
+    } catch (error) {
+      console.error('Failed to delete category:', error)
+      toast({
+        title: "Error",
+        description: "Failed to delete category. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setDeletingCategoryId(null)
+    }
+  }
+
+  const handleUploadSuccess = (document: Document) => {
+    // If document has a category and we're viewing that category, add it to the list
+    if (document.category_id === currentCategory) {
+      addDocument(document)
+    }
+    // If document has no category and we're viewing uncategorized, add it to the list
+    else if (!document.category_id && currentCategory === "uncategorized") {
+      addDocument(document)
+    }
+  }
+
+  const handleCreateNote = () => {
+    setEditingNoteId(null) // null indicates new note
+    setCurrentView("note-editor")
+  }
+
+  const handleDeleteDocument = async (documentId: string) => {
+    try {
+      const success = await libraryService.deleteDocument(documentId)
+      
+      if (success) {
+        removeDocument(documentId)
+        toast({
+          title: "Success",
+          description: "Document deleted successfully.",
+        })
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to delete document.",
+          variant: "destructive",
+        })
+      }
+    } catch (error) {
+      console.error('Failed to delete document:', error)
+      toast({
+        title: "Error",
+        description: "Failed to delete document. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setDeletingDocumentId(null)
+    }
+  }
+
+  const handleStartEditTitle = (documentId: string, currentTitle: string) => {
+    setEditingTitleId(documentId)
+    setEditingTitle(currentTitle)
+  }
+
+  const handleSaveTitle = async (documentId: string) => {
+    if (!editingTitle.trim()) {
+      toast({
+        title: "Error",
+        description: "Title cannot be empty.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      const document = documents.find(doc => doc.id === documentId)
+      if (!document) return
+
+      const updatedDocument = await libraryService.updateDocument(documentId, {
+        title: editingTitle.trim(),
+        content: document.content,
+        file_path: document.file_path,
+        doc_type: document.doc_type,
+        tags: document.tags,
+        status: document.status,
+        category_id: document.category_id
+      })
+
+      if (updatedDocument) {
+        updateDocument(documentId, updatedDocument)
+        toast({
+          title: "Success",
+          description: "Document title updated successfully.",
+        })
+      }
+    } catch (error) {
+      console.error('Failed to update document title:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update document title. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setEditingTitleId(null)
+      setEditingTitle("")
+    }
+  }
+
+  const handleCancelEditTitle = () => {
+    setEditingTitleId(null)
+    setEditingTitle("")
+  }
+
+  const handleSuggestedCategorySelect = (suggested: typeof import('./library-constants').suggestedCategories[0]) => {
+    setCategoryForm({
+      name: suggested.name,
+      description: suggested.description,
+      color: suggested.color,
+      icon: suggested.icon
+    })
+  }
+
+  const handleEditCategory = (category: Category) => {
+    setEditingCategory(category)
+    setCategoryForm({
+      name: category.name,
+      description: category.description || "",
+      color: category.color || "#3b82f6",
+      icon: category.icon || "folder"
+    })
+    setShowCategoryDialog(true)
+  }
+
+  return {
+    // State
+    searchQuery,
+    setSearchQuery,
+    showUploadDialog,
+    setShowUploadDialog,
+    showCategoryDialog,
+    setShowCategoryDialog,
+    editingCategory,
+    setEditingCategory,
+    deletingCategoryId,
+    setDeletingCategoryId,
+    deletingDocumentId,
+    setDeletingDocumentId,
+    categoryForm,
+    setCategoryForm,
+    editingTitleId,
+    editingTitle,
+    setEditingTitle,
+    
+    // Computed state
+    filteredCategories,
+    filteredDocuments,
+    
+    // Settings
+    viewMode,
+    setLibraryViewMode,
+    addSearchHistory,
+    
+    // Store state
+    documents,
+    isLoadingDocuments,
+    categories,
+    isLoadingCategories,
+    currentCategory,
+    libraryBreadcrumbs,
+    libraryService,
+    
+    // Handlers
+    handleCategoryClick,
+    handleBackToCategories,
+    handleItemClick,
+    handleCreateCategory,
+    handleUpdateCategory,
+    handleDeleteCategory,
+    handleUploadSuccess,
+    handleCreateNote,
+    handleDeleteDocument,
+    handleStartEditTitle,
+    handleSaveTitle,
+    handleCancelEditTitle,
+    handleSuggestedCategorySelect,
+    handleEditCategory,
+  }
+} 
