@@ -16,15 +16,18 @@ import {
   Clock
 } from "lucide-react"
 import { useStudyStore } from "@/lib/study-store"
-import { LibraryService, type Document } from "@/lib/library-service"
+import { LibraryService, type Document, type Category } from "@/lib/library-service"
 import { useToast } from "@/hooks/use-toast"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface NoteEditorProps {
   documentId?: string
   onBack?: () => void
+  categories?: Category[]
+  currentCategoryId?: string | null
 }
 
-export function NoteEditor({ documentId, onBack }: NoteEditorProps) {
+export function NoteEditor({ documentId, onBack, categories = [], currentCategoryId = null }: NoteEditorProps) {
   const [title, setTitle] = useState("")
   const [content, setContent] = useState("")
   const [tags, setTags] = useState<string[]>([])
@@ -33,6 +36,9 @@ export function NoteEditor({ documentId, onBack }: NoteEditorProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [document, setDocument] = useState<Document | null>(null)
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | undefined>(
+    currentCategoryId || undefined
+  )
   
   const { toast } = useToast()
   const { addDocument, updateDocument, setEditingNoteId } = useStudyStore()
@@ -46,6 +52,10 @@ export function NoteEditor({ documentId, onBack }: NoteEditorProps) {
         setTitle("Untitled Note")
         setContent("<h1>New Note</h1><p>Start writing your thoughts here...</p>")
         setTags(["note"])
+        // Auto-apply current category if we're in a category context
+        if (currentCategoryId && currentCategoryId !== "uncategorized") {
+          setSelectedCategoryId(currentCategoryId)
+        }
         return
       }
 
@@ -57,6 +67,7 @@ export function NoteEditor({ documentId, onBack }: NoteEditorProps) {
           setTitle(doc.title)
           setContent(doc.content)
           setTags(doc.tags)
+          setSelectedCategoryId(doc.category_id || undefined)
         }
       } catch (error) {
         console.error('Failed to load document:', error)
@@ -106,7 +117,8 @@ export function NoteEditor({ documentId, onBack }: NoteEditorProps) {
           content,
           doc_type: "note",
           tags,
-          status: "draft"
+          status: "draft",
+          category_id: selectedCategoryId
         })
         
         if (updatedDocument) {
@@ -128,7 +140,8 @@ export function NoteEditor({ documentId, onBack }: NoteEditorProps) {
           content,
           doc_type: "note",
           tags,
-          status: "draft"
+          status: "draft",
+          category_id: selectedCategoryId
         })
 
         addDocument(newDocument)
@@ -228,41 +241,71 @@ export function NoteEditor({ documentId, onBack }: NoteEditorProps) {
             </div>
           </div>
 
-          {/* Tags */}
-          <div className="flex items-center flex-wrap gap-2">
-            <div className="flex items-center space-x-1 text-sm text-muted-foreground">
-              <Tag className="h-3 w-3" />
-              <span>Tags:</span>
+          {/* Category and Tags */}
+          <div className="space-y-2">
+            {/* Category Selection */}
+            <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-1 text-sm text-muted-foreground">
+                <FileText className="h-3 w-3" />
+                <span>Category:</span>
+              </div>
+              <Select value={selectedCategoryId || "none"} onValueChange={(value) => setSelectedCategoryId(value === "none" ? undefined : value)}>
+                <SelectTrigger className="h-6 text-xs w-48">
+                  <SelectValue placeholder="Select category..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No Category</SelectItem>
+                  {categories.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      <div className="flex items-center space-x-2">
+                        <div 
+                          className="w-2 h-2 rounded-full" 
+                          style={{ backgroundColor: category.color }}
+                        />
+                        <span>{category.name}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
-            {tags.map((tag) => (
-              <Badge key={tag} variant="secondary" className="text-xs">
-                {tag}
+
+            {/* Tags */}
+            <div className="flex items-center flex-wrap gap-2">
+              <div className="flex items-center space-x-1 text-sm text-muted-foreground">
+                <Tag className="h-3 w-3" />
+                <span>Tags:</span>
+              </div>
+              {tags.map((tag) => (
+                <Badge key={tag} variant="secondary" className="text-xs">
+                  {tag}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-auto p-0 ml-1 hover:bg-transparent"
+                    onClick={() => handleRemoveTag(tag)}
+                  >
+                    <X className="h-3 w-3" />
+                  </Button>
+                </Badge>
+              ))}
+              <div className="flex items-center space-x-1">
+                <Input
+                  value={newTag}
+                  onChange={(e) => setNewTag(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Add tag..."
+                  className="h-6 text-xs w-20"
+                />
                 <Button
                   variant="ghost"
                   size="sm"
-                  className="h-auto p-0 ml-1 hover:bg-transparent"
-                  onClick={() => handleRemoveTag(tag)}
+                  onClick={handleAddTag}
+                  className="h-6 w-6 p-0"
                 >
-                  <X className="h-3 w-3" />
+                  <Plus className="h-3 w-3" />
                 </Button>
-              </Badge>
-            ))}
-            <div className="flex items-center space-x-1">
-              <Input
-                value={newTag}
-                onChange={(e) => setNewTag(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Add tag..."
-                className="h-6 text-xs w-20"
-              />
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleAddTag}
-                className="h-6 w-6 p-0"
-              >
-                <Plus className="h-3 w-3" />
-              </Button>
+              </div>
             </div>
           </div>
         </div>

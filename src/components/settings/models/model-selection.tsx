@@ -29,7 +29,7 @@ export function ModelSelection() {
             <CardTitle className="text-lg">Active Provider</CardTitle>
           </CardHeader>
           <CardContent>
-            <Select value={activeProviderId || ""} onValueChange={setActiveProvider}>
+            <Select value={activeProviderId || "none"} onValueChange={(value) => setActiveProvider(value === "none" ? "" : value)}>
               <SelectTrigger>
                 <SelectValue placeholder="Select a provider" />
               </SelectTrigger>
@@ -55,8 +55,8 @@ export function ModelSelection() {
           </CardHeader>
           <CardContent>
             <Select 
-              value={activeModelId || ""} 
-              onValueChange={setActiveModel}
+              value={activeModelId || "none"} 
+              onValueChange={(value) => setActiveModel(value === "none" ? "" : value)}
               disabled={!activeProvider}
             >
               <SelectTrigger>

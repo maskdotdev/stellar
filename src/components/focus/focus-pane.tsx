@@ -7,6 +7,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { FileText, MessageCircle, Lightbulb, Split, Loader2, ArrowLeft } from "lucide-react"
 import { useStudyStore } from "@/lib/study-store"
 import { LibraryService, type Document } from "@/lib/library-service"
+import { DocumentRenderer } from "@/components/library/document-renderer"
 
 export function FocusPane() {
   const [splitView, setSplitView] = useState(false)
@@ -45,11 +46,8 @@ export function FocusPane() {
     loadDocument()
   }, [currentDocumentId])
 
-  const handleTextSelection = () => {
-    const selection = window.getSelection()
-    if (selection && selection.toString().trim()) {
-      setSelectedText(selection.toString())
-    }
+  const handleTextSelection = (text: string) => {
+    setSelectedText(text)
   }
 
   const handleQuestionShortcut = () => {
@@ -60,20 +58,6 @@ export function FocusPane() {
 
   const handleBackToLibrary = () => {
     setCurrentView("library")
-  }
-
-  // Render markdown content as HTML
-  const renderMarkdownContent = (content: string) => {
-    // Simple markdown rendering - in a real app you'd use a proper markdown parser
-    const htmlContent = content
-      .replace(/^# (.*$)/gim, '<h1 class="text-3xl font-bold mb-4 mt-6">$1</h1>')
-      .replace(/^## (.*$)/gim, '<h2 class="text-2xl font-semibold mb-3 mt-5">$1</h2>')
-      .replace(/^### (.*$)/gim, '<h3 class="text-xl font-medium mb-2 mt-4">$1</h3>')
-      .replace(/^\* (.*$)/gim, '<li class="ml-4 mb-1">$1</li>')
-      .replace(/\n\n/g, '</p><p class="mb-4">')
-      .replace(/\n/g, '<br/>')
-
-    return `<div class="prose prose-neutral dark:prose-invert max-w-none leading-relaxed"><p class="mb-4">${htmlContent}</p></div>`
   }
 
   if (!currentDocumentId) {
@@ -131,14 +115,7 @@ export function FocusPane() {
           <Button variant="ghost" size="sm" onClick={handleBackToLibrary}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <FileText className="h-4 w-4 text-muted-foreground" />
-          <span className="text-sm font-medium">{currentDocument.title}</span>
-          <span className="text-xs px-2 py-1 bg-muted rounded">
-            {currentDocument.doc_type}
-          </span>
-          <span className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded">
-            {currentDocument.content.length.toLocaleString()} chars
-          </span>
+          <span className="text-sm text-muted-foreground">Focus Mode</span>
         </div>
         <div className="flex items-center space-x-1">
           <Button variant="ghost" size="sm" onClick={() => setSplitView(!splitView)}>
@@ -151,17 +128,11 @@ export function FocusPane() {
       <div className={`flex-1 flex ${splitView ? "divide-x" : ""} min-h-0`}>
         {/* Main Content */}
         <div className={`${splitView ? "w-1/2" : "w-full"} flex flex-col min-h-0`}>
-          <ScrollArea className="flex-1 h-full">
-            <div className="p-6">
-              <div 
-                className="prose prose-neutral dark:prose-invert max-w-none leading-relaxed"
-                onMouseUp={handleTextSelection}
-                dangerouslySetInnerHTML={{ 
-                  __html: renderMarkdownContent(currentDocument.content) 
-                }}
-              />
-            </div>
-          </ScrollArea>
+          <DocumentRenderer 
+            document={currentDocument}
+            onTextSelection={handleTextSelection}
+            className="flex-1"
+          />
 
           {/* Selection Actions */}
           {selectedText && (

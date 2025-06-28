@@ -19,13 +19,16 @@ import {
   Plus,
 } from "lucide-react";
 
-import { LibraryService, type Document } from "@/lib/library-service";
+import { LibraryService, type Document, type Category } from "@/lib/library-service";
 import { useToast } from "@/hooks/use-toast";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface PdfUploadDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onSuccess: (document: Document) => void;
+  categories?: Category[];
+  currentCategoryId?: string | null;
 }
 
 type UploadType = "file" | "url";
@@ -35,6 +38,8 @@ export function PdfUploadDialog({
   open,
   onOpenChange,
   onSuccess,
+  categories = [],
+  currentCategoryId = null,
 }: PdfUploadDialogProps) {
   const [title, setTitle] = useState("");
   const [tags, setTags] = useState<string[]>([]);
@@ -45,6 +50,9 @@ export function PdfUploadDialog({
     useState<ConversionMethod>("enhanced");
   const [isUploading, setIsUploading] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  const [selectedCategoryId, setSelectedCategoryId] = useState<string | undefined>(
+    currentCategoryId || undefined
+  );
   const { toast } = useToast();
 
   const libraryService = LibraryService.getInstance();
@@ -81,6 +89,7 @@ export function PdfUploadDialog({
     setUploadType("file");
     setConversionMethod("enhanced");
     setFile(null);
+    setSelectedCategoryId(currentCategoryId || undefined);
     
     // Reset the file input element
     const fileInput = document.getElementById("file-upload") as HTMLInputElement;
@@ -122,6 +131,7 @@ export function PdfUploadDialog({
             useMarker: processingOptions.useMarker,
             useEnhanced: processingOptions.useEnhanced,
             useMarkItDown: processingOptions.useMarkItDown,
+            categoryId: selectedCategoryId,
           });
         } else {
           // Fall back to the file dialog method if no file is selected
@@ -131,6 +141,7 @@ export function PdfUploadDialog({
             useMarker: processingOptions.useMarker,
             useEnhanced: processingOptions.useEnhanced,
             useMarkItDown: processingOptions.useMarkItDown,
+            categoryId: selectedCategoryId,
           });
         }
       } else {
@@ -151,6 +162,7 @@ export function PdfUploadDialog({
           useMarker: processingOptions.useMarker,
           useEnhanced: processingOptions.useEnhanced,
           useMarkItDown: processingOptions.useMarkItDown,
+          categoryId: selectedCategoryId,
         });
       }
 
@@ -314,8 +326,34 @@ export function PdfUploadDialog({
             )}
           </div>
 
+          {/* Category Selection */}
+          <div className="space-y-1 pt-2 border-t border-border">
+            <Label className="text-xs font-medium text-muted-foreground">
+              Category <span className="text-muted-foreground">(optional)</span>
+            </Label>
+            <Select value={selectedCategoryId || "none"} onValueChange={(value) => setSelectedCategoryId(value === "none" ? undefined : value)}>
+              <SelectTrigger className="h-8 text-xs">
+                <SelectValue placeholder="Select a category..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No Category</SelectItem>
+                {categories.map((category) => (
+                  <SelectItem key={category.id} value={category.id}>
+                    <div className="flex items-center space-x-2">
+                      <div 
+                        className="w-3 h-3 rounded-full" 
+                        style={{ backgroundColor: category.color }}
+                      />
+                      <span>{category.name}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           {/* Metadata - Compact */}
-          <div className="space-y-2 pt-2 border-t border-border">
+          <div className="space-y-2">
             <div>
               <Label htmlFor="title" className="text-xs font-medium text-muted-foreground">
                 Title <span className="text-muted-foreground">(optional)</span>

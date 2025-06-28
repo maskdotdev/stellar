@@ -2,7 +2,7 @@
 
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
-import type { Document } from "./library-service"
+import type { Document, Category } from "./library-service"
 
 export interface Keybinding {
   id: string
@@ -52,6 +52,12 @@ interface StudyState {
   isLoadingDocuments: boolean
   settingsTab: "providers" | "models" | "chat" | "appearance" | "keybindings"
   keybindings: Keybinding[]
+  
+  // Category-related state
+  categories: Category[]
+  isLoadingCategories: boolean
+  currentCategory: string | null // null means showing category list, string means showing documents in category
+  libraryBreadcrumbs: Array<{ id: string | null; name: string }>
 
   setCurrentView: (view: StudyState["currentView"]) => void
   setEditingNoteId: (noteId: string | null) => void
@@ -70,6 +76,17 @@ interface StudyState {
   updateKeybinding: (id: string, newKeys: string) => void
   resetKeybinding: (id: string) => void
   resetAllKeybindings: () => void
+
+  // Category-related methods
+  setCategories: (categories: Category[]) => void
+  setIsLoadingCategories: (loading: boolean) => void
+  addCategory: (category: Category) => void
+  updateCategory: (id: string, updatedCategory: Category) => void
+  removeCategory: (id: string) => void
+  setCurrentCategory: (categoryId: string | null) => void
+  setLibraryBreadcrumbs: (breadcrumbs: Array<{ id: string | null; name: string }>) => void
+  navigateToCategory: (categoryId: string | null, categoryName?: string) => void
+  navigateBackToCategories: () => void
 }
 
 export const useStudyStore = create<StudyState>()(
@@ -87,6 +104,12 @@ export const useStudyStore = create<StudyState>()(
       isLoadingDocuments: false,
       settingsTab: "providers",
       keybindings: defaultKeybindings,
+      
+      // Category-related state
+      categories: [],
+      isLoadingCategories: false,
+      currentCategory: null,
+      libraryBreadcrumbs: [{ id: null, name: "Categories" }],
 
       setCurrentView: (view) => set({ currentView: view }),
       setEditingNoteId: (noteId) => set({ editingNoteId: noteId }),
@@ -119,6 +142,43 @@ export const useStudyStore = create<StudyState>()(
       resetAllKeybindings: () => set((state) => ({
         keybindings: state.keybindings.map(kb => ({ ...kb, currentKeys: kb.defaultKeys }))
       })),
+
+      // Category-related methods
+      setCategories: (categories) => set({ categories }),
+      setIsLoadingCategories: (loading) => set({ isLoadingCategories: loading }),
+      addCategory: (category) => set((state) => ({ categories: [category, ...state.categories] })),
+      updateCategory: (id, updatedCategory) => set((state) => ({
+        categories: state.categories.map(cat => cat.id === id ? updatedCategory : cat)
+      })),
+      removeCategory: (id) => set((state) => ({
+        categories: state.categories.filter(cat => cat.id !== id)
+      })),
+      setCurrentCategory: (categoryId) => set({ currentCategory: categoryId }),
+      setLibraryBreadcrumbs: (breadcrumbs) => set({ libraryBreadcrumbs: breadcrumbs }),
+      navigateToCategory: (categoryId, categoryName) => set((state) => {
+        if (categoryId === null) {
+          // Navigate to categories list
+          return {
+            currentCategory: null,
+            libraryBreadcrumbs: [{ id: null, name: "Categories" }]
+          }
+        } else {
+          // Navigate to specific category
+          const category = state.categories.find(cat => cat.id === categoryId)
+          const name = categoryName || category?.name || "Unknown Category"
+          return {
+            currentCategory: categoryId,
+            libraryBreadcrumbs: [
+              { id: null, name: "Categories" },
+              { id: categoryId, name }
+            ]
+          }
+        }
+      }),
+      navigateBackToCategories: () => set({
+        currentCategory: null,
+        libraryBreadcrumbs: [{ id: null, name: "Categories" }]
+      }),
     }),
     {
       name: "stellar-study-store",

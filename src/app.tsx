@@ -186,6 +186,8 @@ export function App() {
     setCurrentView,
     setEditingNoteId,
     setSettingsTab,
+    categories,
+    currentCategory,
   } = useStudyStore()
 
   // Dynamic keyboard shortcuts using store keybindings
@@ -335,7 +337,9 @@ export function App() {
         return (
           <NoteEditor 
             documentId={editingNoteId || undefined} 
-            onBack={() => setCurrentView("library")} 
+            onBack={() => setCurrentView("library")}
+            categories={categories}
+            currentCategoryId={currentCategory}
           />
         )
       case "library":
