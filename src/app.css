@@ -181,3 +181,7 @@
     animation: spotlight-breathe 16s ease-in-out infinite reverse;
   }
 }
+
+[data-description] {
+  color: var(--color-foreground) !important;
+}
