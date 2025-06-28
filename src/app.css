@@ -7,7 +7,10 @@
 
 @custom-variant dark (&:is(.dark *));
 
-@theme inline {
+@theme {
+  --font-family-sans: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
+  --font-family-mono: var(--font-mono, ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Monaco, Consolas, 'Courier New', monospace);
+  --font-family-serif: var(--font-serif, ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -50,7 +53,7 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    @apply bg-background text-foreground font-sans;
   }
 }
 

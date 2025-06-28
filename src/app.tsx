@@ -13,6 +13,7 @@ import { History } from "@/components/history"
 import { Settings } from "@/components/settings"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/sonner"
+import { TooltipProvider } from "@/components/ui/tooltip"
 import { useStudyStore } from "@/lib/study-store"
 import { MessageCircle } from "lucide-react"
 
@@ -347,7 +348,8 @@ export function App() {
     <ThemeProvider
       defaultTheme="dark-teal"
     >
-      <div className="h-screen bg-background text-foreground overflow-hidden spotlight-bg">
+      <TooltipProvider delayDuration={200}>
+        <div className="h-screen bg-background text-foreground overflow-hidden spotlight-bg">
         {/* Main Layout Grid */}
         <div className="h-full grid grid-cols-[48px_1fr] grid-rows-[auto_1fr_auto] spotlight-content">
           {/* Slim Nav Rail */}
@@ -389,8 +391,9 @@ export function App() {
             Focus Mode • {keybindings.find(kb => kb.id === "focus")?.currentKeys || "⌘."}
           </div>
         )}
-      </div>
-      <Toaster />
+        </div>
+        <Toaster />
+      </TooltipProvider>
     </ThemeProvider>
   )
 }
