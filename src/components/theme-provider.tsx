@@ -1,6 +1,6 @@
 import * as React from "react"
 
-type Theme = "light" | "dark" | "dark-teal" | "light-teal" | "blue" | "green" | "purple" | "orange" | "rose" | "space" | "aurora" | "system"
+type Theme = "light" | "dark" | "dark-teal" | "light-teal" | "blue" | "green" | "purple" | "orange" | "rose" | "space" | "aurora" | "nebula" | "starfield" | "mint-chocolate" | "lavender-cream" | "ocean-foam" | "pulsar" | "nasa" | "system"
 
 type ThemeProviderProps = {
   children: React.ReactNode
@@ -33,7 +33,7 @@ export function ThemeProvider({
   React.useEffect(() => {
     const root = window.document.documentElement
 
-    root.classList.remove("light", "dark", "dark-teal", "light-teal", "blue", "green", "purple", "orange", "rose", "space", "aurora")
+    root.classList.remove("light", "dark", "dark-teal", "light-teal", "blue", "green", "purple", "orange", "rose", "space", "aurora", "nebula", "starfield", "mint-chocolate", "lavender-cream", "ocean-foam", "pulsar", "nasa")
 
     if (theme === "system") {
       const systemTheme = window.matchMedia("(prefers-color-scheme: dark)").matches

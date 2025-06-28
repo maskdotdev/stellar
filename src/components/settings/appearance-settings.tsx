@@ -3,11 +3,74 @@ import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { ThemeSwitcher, themes } from "@/components/theme-switcher"
 import { useTheme } from "@/components/theme-provider"
 
 export function AppearanceSettings() {
   const { theme, setTheme } = useTheme()
+
+  // Categorize themes
+  const lightThemes = themes.filter(t => 
+    t.name.includes('light') || 
+    t.icon.name === 'Sun' ||
+    t.name === 'mint-chocolate' ||
+    t.name === 'lavender-cream' ||
+    t.name === 'ocean-foam' ||
+    t.name === 'pulsar' ||
+    t.name === 'nasa'
+  )
+  
+  const darkThemes = themes.filter(t => 
+    t.name.includes('dark') || 
+    t.icon.name === 'Moon' || 
+    t.name === 'space' ||
+    t.name === 'aurora' ||
+    t.name === 'nebula' ||
+    t.name === 'starfield'
+  )
+  
+  const coloredThemes = themes.filter(t => 
+    !lightThemes.includes(t) && 
+    !darkThemes.includes(t) && 
+    t.name !== 'system'
+  )
+
+  const renderThemeGrid = (themeList: Array<typeof themes[number]>) => (
+    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+      {themeList.map((themeOption) => {
+        const ThemeIcon = themeOption.icon
+        const isActive = theme === themeOption.name
+        
+        return (
+          <button
+            key={themeOption.name}
+            onClick={() => setTheme(themeOption.name as any)}
+            className={`
+              p-3 rounded-lg border transition-all hover:scale-105
+              ${isActive 
+                ? 'border-primary bg-primary/10 shadow-lg shadow-primary/20' 
+                : 'border-border bg-card hover:border-primary/40'
+              }
+            `}
+          >
+            <div className="flex flex-col items-center gap-2">
+              <ThemeIcon className={`w-6 h-6 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
+              <span className={`text-sm font-medium ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
+                {themeOption.label}
+              </span>
+              <div 
+                className={`w-2 h-2 rounded-full transition-opacity ${
+                  isActive ? 'opacity-100' : 'opacity-0'
+                }`}
+                style={{ backgroundColor: themeOption.activeColor }}
+              />
+            </div>
+          </button>
+        )
+      })}
+    </div>
+  )
 
   return (
     <div className="space-y-4">
@@ -43,40 +106,48 @@ export function AppearanceSettings() {
             <Separator />
 
             <div className="space-y-4">
-              <Label>Theme Preview</Label>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                {themes.map((themeOption) => {
-                  const ThemeIcon = themeOption.icon
-                  const isActive = theme === themeOption.name
-                  
-                  return (
-                    <button
-                      key={themeOption.name}
-                      onClick={() => setTheme(themeOption.name as any)}
-                      className={`
-                        p-3 rounded-lg border transition-all hover:scale-105
-                        ${isActive 
-                          ? 'border-primary bg-primary/10 shadow-lg shadow-primary/20' 
-                          : 'border-border bg-card hover:border-primary/40'
-                        }
-                      `}
-                    >
-                      <div className="flex flex-col items-center gap-2">
-                        <ThemeIcon className={`w-6 h-6 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
-                        <span className={`text-sm font-medium ${isActive ? 'text-foreground' : 'text-muted-foreground'}`}>
-                          {themeOption.label}
-                        </span>
-                        <div 
-                          className={`w-2 h-2 rounded-full transition-opacity ${
-                            isActive ? 'opacity-100' : 'opacity-0'
-                          }`}
-                          style={{ backgroundColor: themeOption.activeColor }}
-                        />
-                      </div>
-                    </button>
-                  )
-                })}
-              </div>
+              <Label>Theme Categories</Label>
+              
+              <Tabs defaultValue="light" className="w-full">
+                <TabsList className="grid w-full grid-cols-4">
+                  <TabsTrigger value="light">Stellar</TabsTrigger>
+                  <TabsTrigger value="dark">Cosmic</TabsTrigger>
+                  <TabsTrigger value="colored">Galactic</TabsTrigger>
+                  <TabsTrigger value="system">Auto</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="light" className="space-y-4">
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium">Light Space Themes</h4>
+                    <p className="text-xs text-muted-foreground">Bright cosmic themes - from stellar winds to galactic pulsar energy</p>
+                  </div>
+                  {renderThemeGrid(lightThemes)}
+                </TabsContent>
+                
+                <TabsContent value="dark" className="space-y-4">
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium">Dark Space Themes</h4>
+                    <p className="text-xs text-muted-foreground">Deep cosmic themes - from dark matter to distant nebulae</p>
+                  </div>
+                  {renderThemeGrid(darkThemes)}
+                </TabsContent>
+                
+                <TabsContent value="colored" className="space-y-4">
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium">Cosmic Themes</h4>
+                    <p className="text-xs text-muted-foreground">Vibrant galactic themes with stellar color palettes</p>
+                  </div>
+                  {renderThemeGrid(coloredThemes)}
+                </TabsContent>
+                
+                <TabsContent value="system" className="space-y-4">
+                  <div className="space-y-2">
+                    <h4 className="text-sm font-medium">Cosmic Auto</h4>
+                    <p className="text-xs text-muted-foreground">Automatically adapts to your system's cosmic preference</p>
+                  </div>
+                  {renderThemeGrid(themes.filter(t => t.name === 'system'))}
+                </TabsContent>
+              </Tabs>
             </div>
 
             <Separator />

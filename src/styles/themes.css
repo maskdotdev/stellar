@@ -371,4 +371,349 @@
   --sidebar-accent-foreground: oklch(0.90 0.02 240);
   --sidebar-border: oklch(0.45 0.12 240 / 25%);
   --sidebar-ring: oklch(0.78 0.15 85 / 60%);
-} 
+}
+
+/* Nebula Theme - Spectacular Multi-Color Cosmic Nebula */
+.nebula {
+  /* Glowing nebula background with cosmic energy */
+  --background: oklch(0.08 0.06 310);
+  /* Brilliant electric white with cyan tint */
+  --foreground: oklch(0.98 0.02 200);
+  /* Vibrant nebula card backgrounds with multi-color glow */
+  --card: oklch(0.14 0.08 315);
+  --card-foreground: oklch(0.98 0.02 200);
+  /* Electric nebula popover backgrounds */
+  --popover: oklch(0.12 0.07 320);
+  --popover-foreground: oklch(0.98 0.02 200);
+  /* Electric magenta-pink primary with cyan undertones */
+  --primary: oklch(0.75 0.32 325);
+  --primary-foreground: oklch(0.08 0.06 310);
+  /* Bright cosmic secondary with electric blue */
+  --secondary: oklch(0.22 0.12 280);
+  --secondary-foreground: oklch(0.92 0.03 200);
+  /* Glowing nebula muted backgrounds */
+  --muted: oklch(0.18 0.09 300);
+  --muted-foreground: oklch(0.70 0.08 250);
+  /* Electric cosmic accent colors */
+  --accent: oklch(0.22 0.12 280);
+  --accent-foreground: oklch(0.92 0.03 200);
+  /* Brilliant orange supernova for destructive */
+  --destructive: oklch(0.72 0.30 20);
+  /* Electric glowing borders with multi-color shimmer */
+  --border: oklch(0.55 0.20 300 / 40%);
+  /* Input backgrounds with electric nebula glow */
+  --input: oklch(0.14 0.08 315 / 95%);
+  /* Brilliant electric magenta focus ring */
+  --ring: oklch(0.75 0.32 325 / 80%);
+  /* Chart colors with spectacular nebula palette */
+  --chart-1: oklch(0.75 0.32 325);
+  --chart-2: oklch(0.70 0.28 280);
+  --chart-3: oklch(0.80 0.25 350);
+  --chart-4: oklch(0.68 0.30 260);
+  --chart-5: oklch(0.78 0.26 340);
+  /* Sidebar with electric nebula theming */
+  --sidebar: oklch(0.12 0.07 320);
+  --sidebar-foreground: oklch(0.95 0.02 200);
+  --sidebar-primary: oklch(0.75 0.32 325);
+  --sidebar-primary-foreground: oklch(0.08 0.06 310);
+  --sidebar-accent: oklch(0.22 0.12 280);
+  --sidebar-accent-foreground: oklch(0.92 0.03 200);
+  --sidebar-border: oklch(0.55 0.20 300 / 35%);
+  --sidebar-ring: oklch(0.75 0.32 325 / 80%);
+}
+
+/* Starfield Theme - Brilliant Cosmic Starfield with Electric Stellar Energy */
+.starfield {
+  /* Deep cosmic starfield background with stellar energy */
+  --background: oklch(0.05 0.02 235);
+  /* Pure brilliant starlight white with electric blue shimmer */
+  --foreground: oklch(0.99 0.01 210);
+  /* Glowing stellar card backgrounds with cosmic luminosity */
+  --card: oklch(0.12 0.04 225);
+  --card-foreground: oklch(0.99 0.01 210);
+  /* Electric stellar popover backgrounds */
+  --popover: oklch(0.09 0.03 230);
+  --popover-foreground: oklch(0.99 0.01 210);
+  /* Brilliant electric stellar blue primary */
+  --primary: oklch(0.78 0.25 215);
+  --primary-foreground: oklch(0.05 0.02 235);
+  /* Bright cosmic secondary with stellar white energy */
+  --secondary: oklch(0.18 0.06 220);
+  --secondary-foreground: oklch(0.95 0.01 210);
+  /* Luminous stellar muted backgrounds */
+  --muted: oklch(0.15 0.05 225);
+  --muted-foreground: oklch(0.75 0.03 215);
+  /* Electric stellar accent colors */
+  --accent: oklch(0.18 0.06 220);
+  --accent-foreground: oklch(0.95 0.01 210);
+  /* Brilliant orange-red supergiant for destructive */
+  --destructive: oklch(0.75 0.28 25);
+  /* Electric stellar borders with brilliant star shimmer */
+  --border: oklch(0.60 0.15 215 / 45%);
+  /* Input backgrounds with stellar luminosity */
+  --input: oklch(0.12 0.04 225 / 98%);
+  /* Brilliant electric stellar focus ring */
+  --ring: oklch(0.78 0.25 215 / 85%);
+  /* Chart colors with spectacular stellar palette */
+  --chart-1: oklch(0.78 0.25 215);
+  --chart-2: oklch(0.82 0.20 200);
+  --chart-3: oklch(0.75 0.28 240);
+  --chart-4: oklch(0.80 0.22 190);
+  --chart-5: oklch(0.76 0.26 250);
+  /* Sidebar with brilliant starfield theming */
+  --sidebar: oklch(0.09 0.03 230);
+  --sidebar-foreground: oklch(0.97 0.01 210);
+  --sidebar-primary: oklch(0.78 0.25 215);
+  --sidebar-primary-foreground: oklch(0.05 0.02 235);
+  --sidebar-accent: oklch(0.18 0.06 220);
+  --sidebar-accent-foreground: oklch(0.95 0.01 210);
+  --sidebar-border: oklch(0.60 0.15 215 / 40%);
+  --sidebar-ring: oklch(0.78 0.25 215 / 85%);
+}
+
+/* Mint Chocolate - Refreshing mint with rich chocolate brown accents */
+.mint-chocolate {
+  /* Cool mint background with fresh energy */
+  --background: oklch(0.95 0.04 160);
+  /* Rich chocolate brown foreground */
+  --foreground: oklch(0.20 0.05 30);
+  /* Fresh mint cards */
+  --card: oklch(0.92 0.05 155);
+  --card-foreground: oklch(0.20 0.05 30);
+  /* Cool mint popover backgrounds */
+  --popover: oklch(0.93 0.045 158);
+  --popover-foreground: oklch(0.20 0.05 30);
+  /* Deep chocolate primary for richness */
+  --primary: oklch(0.30 0.08 25);
+  --primary-foreground: oklch(0.95 0.04 160);
+  /* Soft mint secondary */
+  --secondary: oklch(0.88 0.06 160);
+  --secondary-foreground: oklch(0.25 0.05 30);
+  /* Gentle mint muted tones */
+  --muted: oklch(0.90 0.05 162);
+  --muted-foreground: oklch(0.40 0.04 35);
+  /* Vibrant mint accents */
+  --accent: oklch(0.85 0.08 155);
+  --accent-foreground: oklch(0.25 0.05 30);
+  /* Warm red for destructive */
+  --destructive: oklch(0.60 0.20 15);
+  /* Mint-tinted borders */
+  --border: oklch(0.70 0.10 160 / 45%);
+  /* Fresh mint input backgrounds */
+  --input: oklch(0.90 0.05 158);
+  /* Chocolate focus ring */
+  --ring: oklch(0.30 0.08 25 / 60%);
+  /* Chart colors with mint-chocolate palette */
+  --chart-1: oklch(0.30 0.08 25);
+  --chart-2: oklch(0.65 0.12 155);
+  --chart-3: oklch(0.45 0.10 35);
+  --chart-4: oklch(0.70 0.15 150);
+  --chart-5: oklch(0.35 0.06 40);
+  /* Sidebar with mint-chocolate theming */
+  --sidebar: oklch(0.93 0.045 158);
+  --sidebar-foreground: oklch(0.25 0.05 30);
+  --sidebar-primary: oklch(0.30 0.08 25);
+  --sidebar-primary-foreground: oklch(0.95 0.04 160);
+  --sidebar-accent: oklch(0.88 0.06 160);
+  --sidebar-accent-foreground: oklch(0.25 0.05 30);
+  --sidebar-border: oklch(0.70 0.10 160 / 40%);
+  --sidebar-ring: oklch(0.30 0.08 25 / 60%);
+}
+
+/* Lavender Cream - Creamy lavender with golden yellow accents for warmth */
+.lavender-cream {
+  /* Soft creamy lavender background */
+  --background: oklch(0.94 0.03 310);
+  /* Deep plum foreground for readability */
+  --foreground: oklch(0.25 0.08 285);
+  /* Warm lavender cards */
+  --card: oklch(0.91 0.04 305);
+  --card-foreground: oklch(0.25 0.08 285);
+  /* Creamy lavender popover backgrounds */
+  --popover: oklch(0.92 0.035 308);
+  --popover-foreground: oklch(0.25 0.08 285);
+  /* Rich golden yellow primary for luxury feel */
+  --primary: oklch(0.75 0.15 80);
+  --primary-foreground: oklch(0.20 0.06 285);
+  /* Soft lavender secondary */
+  --secondary: oklch(0.86 0.05 310);
+  --secondary-foreground: oklch(0.30 0.08 285);
+  /* Gentle lavender muted tones */
+  --muted: oklch(0.88 0.04 312);
+  --muted-foreground: oklch(0.45 0.06 285);
+  /* Warm lavender accents */
+  --accent: oklch(0.83 0.06 308);
+  --accent-foreground: oklch(0.30 0.08 285);
+  /* Warm red for destructive */
+  --destructive: oklch(0.65 0.20 15);
+  /* Lavender-tinted borders */
+  --border: oklch(0.68 0.08 310 / 50%);
+  /* Creamy lavender input backgrounds */
+  --input: oklch(0.89 0.04 310);
+  /* Golden focus ring */
+  --ring: oklch(0.75 0.15 80 / 65%);
+  /* Chart colors with lavender-gold palette */
+  --chart-1: oklch(0.75 0.15 80);
+  --chart-2: oklch(0.60 0.12 310);
+  --chart-3: oklch(0.70 0.18 85);
+  --chart-4: oklch(0.55 0.10 295);
+  --chart-5: oklch(0.65 0.14 90);
+  /* Sidebar with lavender-cream theming */
+  --sidebar: oklch(0.92 0.035 308);
+  --sidebar-foreground: oklch(0.30 0.08 285);
+  --sidebar-primary: oklch(0.75 0.15 80);
+  --sidebar-primary-foreground: oklch(0.20 0.06 285);
+  --sidebar-accent: oklch(0.86 0.05 310);
+  --sidebar-accent-foreground: oklch(0.30 0.08 285);
+  --sidebar-border: oklch(0.68 0.08 310 / 45%);
+  --sidebar-ring: oklch(0.75 0.15 80 / 65%);
+}
+
+/* Ocean Foam - Unexpected seafoam with coral pink accents */
+.ocean-foam {
+  /* Fresh seafoam background with oceanic feel */
+  --background: oklch(0.94 0.04 175);
+  /* Deep teal foreground for ocean depth */
+  --foreground: oklch(0.22 0.08 185);
+  /* Bubbly seafoam cards */
+  --card: oklch(0.91 0.05 170);
+  --card-foreground: oklch(0.22 0.08 185);
+  /* Cool seafoam popover backgrounds */
+  --popover: oklch(0.92 0.045 173);
+  --popover-foreground: oklch(0.22 0.08 185);
+  /* Vibrant coral pink primary for tropical contrast */
+  --primary: oklch(0.70 0.18 15);
+  --primary-foreground: oklch(0.94 0.04 175);
+  /* Soft seafoam secondary */
+  --secondary: oklch(0.86 0.06 175);
+  --secondary-foreground: oklch(0.25 0.08 185);
+  /* Gentle ocean muted tones */
+  --muted: oklch(0.88 0.05 178);
+  --muted-foreground: oklch(0.42 0.06 185);
+  /* Aqua foam accents */
+  --accent: oklch(0.83 0.08 172);
+  --accent-foreground: oklch(0.25 0.08 185);
+  /* Warm coral for destructive */
+  --destructive: oklch(0.65 0.22 20);
+  /* Ocean-tinted borders */
+  --border: oklch(0.68 0.10 175 / 55%);
+  /* Fresh seafoam input backgrounds */
+  --input: oklch(0.89 0.05 175);
+  /* Coral focus ring */
+  --ring: oklch(0.70 0.18 15 / 70%);
+  /* Chart colors with ocean-coral palette */
+  --chart-1: oklch(0.70 0.18 15);
+  --chart-2: oklch(0.60 0.12 175);
+  --chart-3: oklch(0.75 0.20 10);
+  --chart-4: oklch(0.55 0.10 180);
+  --chart-5: oklch(0.65 0.16 25);
+  /* Sidebar with ocean-foam theming */
+  --sidebar: oklch(0.92 0.045 173);
+  --sidebar-foreground: oklch(0.25 0.08 185);
+  --sidebar-primary: oklch(0.70 0.18 15);
+  --sidebar-primary-foreground: oklch(0.94 0.04 175);
+  --sidebar-accent: oklch(0.86 0.06 175);
+  --sidebar-accent-foreground: oklch(0.25 0.08 185);
+  --sidebar-border: oklch(0.68 0.10 175 / 50%);
+  --sidebar-ring: oklch(0.70 0.18 15 / 70%);
+}
+
+/* Pulsar - Electric blue light theme with white energy bursts */
+.pulsar {
+  /* Brilliant white background with electric energy */
+  --background: oklch(0.99 0.005 240);
+  /* Deep electric blue foreground for contrast */
+  --foreground: oklch(0.20 0.15 240);
+  /* Bright electric cards with pulsar energy */
+  --card: oklch(0.97 0.01 240);
+  --card-foreground: oklch(0.20 0.15 240);
+  /* Electric white popover backgrounds */
+  --popover: oklch(0.98 0.008 240);
+  --popover-foreground: oklch(0.20 0.15 240);
+  /* Intense electric blue primary like a pulsar beam */
+  --primary: oklch(0.45 0.20 240);
+  --primary-foreground: oklch(0.99 0.005 240);
+  /* Soft electric secondary */
+  --secondary: oklch(0.94 0.03 240);
+  --secondary-foreground: oklch(0.25 0.15 240);
+  /* Electric white muted tones */
+  --muted: oklch(0.96 0.02 240);
+  --muted-foreground: oklch(0.40 0.12 240);
+  /* Bright electric accents */
+  --accent: oklch(0.92 0.04 240);
+  --accent-foreground: oklch(0.25 0.15 240);
+  /* Electric red for destructive */
+  --destructive: oklch(0.65 0.25 15);
+  /* Electric blue borders with pulsar shimmer */
+  --border: oklch(0.75 0.08 240 / 40%);
+  /* Bright electric input backgrounds */
+  --input: oklch(0.95 0.02 240);
+  /* Intense electric blue focus ring */
+  --ring: oklch(0.45 0.20 240 / 70%);
+  /* Chart colors with electric pulsar palette */
+  --chart-1: oklch(0.45 0.20 240);
+  --chart-2: oklch(0.65 0.15 220);
+  --chart-3: oklch(0.55 0.18 260);
+  --chart-4: oklch(0.70 0.12 200);
+  --chart-5: oklch(0.50 0.16 280);
+  /* Sidebar with electric pulsar theming */
+  --sidebar: oklch(0.98 0.008 240);
+  --sidebar-foreground: oklch(0.25 0.15 240);
+  --sidebar-primary: oklch(0.45 0.20 240);
+  --sidebar-primary-foreground: oklch(0.99 0.005 240);
+  --sidebar-accent: oklch(0.94 0.03 240);
+  --sidebar-accent-foreground: oklch(0.25 0.15 240);
+  --sidebar-border: oklch(0.75 0.08 240 / 35%);
+  --sidebar-ring: oklch(0.45 0.20 240 / 70%);
+}
+
+/* NASA - Technical space agency theme with blue and red accents */
+.nasa {
+  /* Clean technical white background like NASA mission control */
+  --background: oklch(0.98 0.005 220);
+  /* Deep technical blue foreground for precision */
+  --foreground: oklch(0.18 0.08 230);
+  /* Crisp white technical cards */
+  --card: oklch(0.96 0.01 220);
+  --card-foreground: oklch(0.18 0.08 230);
+  /* Clean technical popover backgrounds */
+  --popover: oklch(0.97 0.008 220);
+  --popover-foreground: oklch(0.18 0.08 230);
+  /* NASA signature blue primary */
+  --primary: oklch(0.45 0.15 230);
+  --primary-foreground: oklch(0.98 0.005 220);
+  /* Technical gray secondary */
+  --secondary: oklch(0.92 0.02 220);
+  --secondary-foreground: oklch(0.22 0.08 230);
+  /* Clean technical muted tones */
+  --muted: oklch(0.94 0.015 220);
+  --muted-foreground: oklch(0.38 0.06 230);
+  /* Precise technical accents */
+  --accent: oklch(0.90 0.03 220);
+  --accent-foreground: oklch(0.22 0.08 230);
+  /* NASA red for alerts and destructive actions */
+  --destructive: oklch(0.55 0.22 15);
+  /* Technical precision borders */
+  --border: oklch(0.75 0.04 220 / 35%);
+  /* Clean technical input backgrounds */
+  --input: oklch(0.93 0.015 220);
+  /* NASA blue focus ring */
+  --ring: oklch(0.45 0.15 230 / 60%);
+  /* Chart colors with NASA mission palette */
+  --chart-1: oklch(0.45 0.15 230);
+  --chart-2: oklch(0.55 0.22 15);
+  --chart-3: oklch(0.60 0.12 210);
+  --chart-4: oklch(0.65 0.10 250);
+  --chart-5: oklch(0.50 0.18 200);
+  /* Sidebar with NASA mission control theming */
+  --sidebar: oklch(0.97 0.008 220);
+  --sidebar-foreground: oklch(0.22 0.08 230);
+  --sidebar-primary: oklch(0.45 0.15 230);
+  --sidebar-primary-foreground: oklch(0.98 0.005 220);
+  --sidebar-accent: oklch(0.92 0.02 220);
+  --sidebar-accent-foreground: oklch(0.22 0.08 230);
+  --sidebar-border: oklch(0.75 0.04 220 / 30%);
+  --sidebar-ring: oklch(0.45 0.15 230 / 60%);
+}
+
+ 

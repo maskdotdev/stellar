@@ -1,6 +1,6 @@
 import * as React from "react"
 import { useTheme } from "@/components/theme-provider"
-import { Monitor, Moon, Sun, Palette, Sparkles, Zap } from "lucide-react"
+import { Monitor, Moon, Sun, Palette, Sparkles, Zap, Star, Waves, Leaf, Flower, Coffee, Rocket } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
@@ -27,49 +27,49 @@ export const themes = [
   },
   {
     name: "light",
-    label: "Solar",
+    label: "Solar Flare",
     icon: Sun,
     activeColor: "oklch(0.129 0.042 264.695)",
   },
   {
     name: "dark",
-    label: "Eclipse", 
+    label: "Dark Matter", 
     icon: Moon,
     activeColor: "oklch(0.984 0.003 247.858)",
   },
   {
     name: "system",
-    label: "Auto",
+    label: "Cosmic Auto",
     icon: Monitor,
     activeColor: "oklch(0.554 0.046 257.417)",
   },
   {
     name: "blue",
-    label: "Galaxy",
+    label: "Galaxy Blue",
     icon: Palette,
     activeColor: "oklch(0.5 0.2 240)",
   },
   {
     name: "green", 
-    label: "Terra",
+    label: "Exoplanet",
     icon: Palette,
     activeColor: "oklch(0.5 0.2 140)",
   },
   {
     name: "purple",
-    label: "Nebula", 
+    label: "Nebula Purple", 
     icon: Palette,
     activeColor: "oklch(0.5 0.2 280)",
   },
   {
     name: "orange",
-    label: "Solar Flare",
+    label: "Solar Corona",
     icon: Palette,
     activeColor: "oklch(0.6 0.2 50)",
   },
   {
     name: "rose",
-    label: "Nova",
+    label: "Supernova",
     icon: Palette,
     activeColor: "oklch(0.6 0.2 10)",
   },
@@ -81,9 +81,51 @@ export const themes = [
   },
   {
     name: "aurora",
-    label: "Aurora",
+    label: "Aurora Borealis",
     icon: Zap,
     activeColor: "oklch(0.78 0.15 85)",
+  },
+  {
+    name: "nebula",
+    label: "Cosmic Nebula",
+    icon: Sparkles,
+    activeColor: "oklch(0.68 0.28 330)",
+  },
+  {
+    name: "starfield",
+    label: "Starfield",
+    icon: Star,
+    activeColor: "oklch(0.72 0.20 220)",
+  },
+  {
+    name: "mint-chocolate",
+    label: "Asteroid Belt",
+    icon: Coffee,
+    activeColor: "oklch(0.30 0.08 25)",
+  },
+  {
+    name: "lavender-cream",
+    label: "Cosmic Dust",
+    icon: Flower,
+    activeColor: "oklch(0.75 0.15 80)",
+  },
+  {
+    name: "ocean-foam",
+    label: "Galactic Tide",
+    icon: Waves,
+    activeColor: "oklch(0.70 0.18 15)",
+  },
+  {
+    name: "pulsar",
+    label: "Pulsar",
+    icon: Zap,
+    activeColor: "oklch(0.45 0.20 240)",
+  },
+  {
+    name: "nasa",
+    label: "NASA",
+    icon: Rocket,
+    activeColor: "oklch(0.45 0.15 230)",
   },
 ] as const
 
