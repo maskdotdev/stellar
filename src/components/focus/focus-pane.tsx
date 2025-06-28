@@ -8,6 +8,7 @@ import { FileText, MessageCircle, Lightbulb, Split, Loader2, ArrowLeft } from "l
 import { useStudyStore } from "@/lib/study-store"
 import { LibraryService, type Document } from "@/lib/library-service"
 import { DocumentRenderer } from "@/components/library/document-renderer"
+import { TextSelectionPopover } from "./text-selection-popover"
 
 export function FocusPane() {
   const [splitView, setSplitView] = useState(false)
@@ -15,11 +16,17 @@ export function FocusPane() {
   const [currentDocument, setCurrentDocument] = useState<Document | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [notes, setNotes] = useState("")
+  const [existingNotes, setExistingNotes] = useState<Document[]>([])
   
   const { 
     setShowFloatingChat, 
+    setInitialChatText,
     currentDocument: currentDocumentId, 
-    setCurrentView 
+    setCurrentView,
+    setEditingNoteId,
+    documents,
+    addDocument,
+    updateDocument
   } = useStudyStore()
 
   const libraryService = LibraryService.getInstance()
@@ -29,6 +36,7 @@ export function FocusPane() {
     const loadDocument = async () => {
       if (!currentDocumentId) {
         setCurrentDocument(null)
+        setExistingNotes([])
         return
       }
 
@@ -36,6 +44,14 @@ export function FocusPane() {
         setIsLoading(true)
         const doc = await libraryService.getDocument(currentDocumentId)
         setCurrentDocument(doc)
+        
+        // Load existing notes from the same category
+        const notesInCategory = documents.filter(d => 
+          d.doc_type === "note" && 
+          d.category_id === doc?.category_id &&
+          d.id !== currentDocumentId
+        )
+        setExistingNotes(notesInCategory)
       } catch (error) {
         console.error('Failed to load document:', error)
       } finally {
@@ -44,7 +60,7 @@ export function FocusPane() {
     }
 
     loadDocument()
-  }, [currentDocumentId])
+  }, [currentDocumentId, documents])
 
   const handleTextSelection = (text: string) => {
     setSelectedText(text)
@@ -52,7 +68,128 @@ export function FocusPane() {
 
   const handleQuestionShortcut = () => {
     if (selectedText) {
+      // Create a contextual prompt with the selected text
+      const contextualPrompt = `I selected this text from the document "${currentDocument?.title}":
+
+"${selectedText}"
+
+Please help me understand this or answer questions about it.`
+      
+      setInitialChatText(contextualPrompt)
       setShowFloatingChat(true)
+      // Keep the selection visible for context
+    }
+  }
+
+  const handleCreateNewNote = async () => {
+    if (selectedText) {
+      try {
+        // Create a note with the selected text
+        const noteTitle = `Note from ${currentDocument?.title || 'Document'}`
+        const noteContent = `<h2>Source Document</h2>
+<p><a href="#" data-document-id="${currentDocument?.id || ''}" class="document-link" style="color: #3b82f6; text-decoration: underline; cursor: pointer;">${currentDocument?.title || 'Unknown Document'}</a></p>
+
+<h2>Selected Text</h2>
+<blockquote>
+<p>${selectedText}</p>
+</blockquote>
+
+<h2>My Notes</h2>
+<p>Add your thoughts here...</p>`
+
+        const newNote = await libraryService.createDocument({
+          title: noteTitle,
+          content: noteContent,
+          doc_type: "note",
+          tags: ["highlight", "note"],
+          status: "draft",
+          category_id: currentDocument?.category_id || undefined
+        })
+
+        // Add to the store
+        addDocument(newNote)
+
+        // Open the note for editing
+        setEditingNoteId(newNote.id)
+        setCurrentView("note-editor")
+        
+        // Clear the selection
+        setSelectedText("")
+      } catch (error) {
+        console.error('Failed to create note:', error)
+        // Fallback to local notes if creation fails
+        const newNote = `**Selected:** "${selectedText}"\n\n`
+        setNotes(prevNotes => prevNotes + newNote)
+        setSelectedText("")
+      }
+    }
+  }
+
+  const handleAddToExistingNote = async (noteId: string) => {
+    if (selectedText) {
+      try {
+        // Get the existing note
+        const existingNote = await libraryService.getDocument(noteId)
+        if (!existingNote) return
+
+        // Create the new content block to append
+        const timestamp = new Date().toLocaleDateString()
+        const selectedTextBlock = `
+<hr>
+<p><small><em>Added on ${timestamp} from <a href="#" data-document-id="${currentDocument?.id || ''}" class="document-link" style="color: #3b82f6; text-decoration: underline; cursor: pointer;">${currentDocument?.title || 'Unknown Document'}</a></em></small></p>
+<h3>Selected Text</h3>
+<blockquote>
+<p>${selectedText}</p>
+</blockquote>
+<h3>Notes</h3>
+<p>Add your thoughts here...</p>`
+
+        // Append to existing content
+        const updatedContent = existingNote.content + selectedTextBlock
+
+        // Update the note
+        const updatedNote = await libraryService.updateDocument(noteId, {
+          title: existingNote.title,
+          content: updatedContent,
+          file_path: existingNote.file_path,
+          doc_type: existingNote.doc_type,
+          tags: [...new Set([...existingNote.tags, "highlight"])], // Add highlight tag if not present
+          status: existingNote.status,
+          category_id: existingNote.category_id
+        })
+
+        // Update in the store
+        if (updatedNote) {
+          updateDocument(noteId, updatedNote)
+        }
+
+        // Open the note for editing
+        setEditingNoteId(noteId)
+        setCurrentView("note-editor")
+        
+        // Clear the selection
+        setSelectedText("")
+      } catch (error) {
+        console.error('Failed to add to existing note:', error)
+        // Fallback to local notes if update fails
+        const newNote = `**Selected:** "${selectedText}"\n\n`
+        setNotes(prevNotes => prevNotes + newNote)
+        setSelectedText("")
+      }
+    }
+  }
+
+  // Legacy handler for backward compatibility
+  const handleNoteShortcut = () => {
+    handleCreateNewNote()
+  }
+
+  const handleClosePopover = () => {
+    setSelectedText("")
+    // Clear the browser selection
+    const selection = window.getSelection()
+    if (selection) {
+      selection.removeAllRanges()
     }
   }
 
@@ -108,7 +245,7 @@ export function FocusPane() {
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col relative">
       {/* Toolbar */}
       <div className="flex items-center justify-between p-2 border-b">
         <div className="flex items-center space-x-2">
@@ -133,26 +270,6 @@ export function FocusPane() {
             onTextSelection={handleTextSelection}
             className="flex-1"
           />
-
-          {/* Selection Actions */}
-          {selectedText && (
-            <div className="p-3 border-t bg-muted/20">
-              <div className="flex items-center space-x-2">
-                <span className="text-sm text-muted-foreground">Selected:</span>
-                <span className="text-sm font-medium truncate max-w-xs">
-                  "{selectedText.substring(0, 50)}..."
-                </span>
-                <Button variant="outline" size="sm" onClick={handleQuestionShortcut}>
-                  <MessageCircle className="h-3 w-3 mr-1" />
-                  Ask (?)
-                </Button>
-                <Button variant="outline" size="sm">
-                  <Lightbulb className="h-3 w-3 mr-1" />
-                  Note
-                </Button>
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Split View - Notes */}
@@ -172,6 +289,17 @@ export function FocusPane() {
           </div>
         )}
       </div>
+
+      {/* Floating Selection Popover */}
+      <TextSelectionPopover
+        selectedText={selectedText}
+        onAsk={handleQuestionShortcut}
+        onNote={handleNoteShortcut}
+        onClose={handleClosePopover}
+        existingNotes={existingNotes}
+        onCreateNewNote={handleCreateNewNote}
+        onAddToExistingNote={handleAddToExistingNote}
+      />
     </div>
   )
 }
