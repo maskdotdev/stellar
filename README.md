@@ -36,36 +36,52 @@ pnpm tauri dev
 
 ### PDF Processing
 
-Stellar supports two PDF processing modes:
+Stellar supports multiple PDF processing modes to suit different needs:
 
 1. **Basic Mode**: Fast text extraction using `pdf-extract`
-2. **Enhanced Mode**: High-quality conversion using Marker with deep learning models
+2. **Enhanced Mode**: Improved text processing with better structure detection
+3. **MarkItDown Mode**: Microsoft's lightweight tool for balanced speed and quality
+4. **Marker Mode**: High-quality conversion using Marker with deep learning models
 
-To use enhanced PDF processing:
+#### Setup Processing Tools
 
-1. Start the Marker server:
+**For MarkItDown (Recommended for most users):**
 ```bash
+./scripts/setup_markitdown.sh
+```
+
+**For Marker (Best quality, requires more setup):**
+```bash
+./scripts/setup_marker.sh
 ./scripts/run_marker.sh
 ```
 
-2. The Marker API will be available at `http://localhost:8001`
-3. Enable "Use Marker" option when uploading PDFs in the application
+#### Processing Options
 
-### Marker Features
+When uploading PDFs in the application, you can choose from:
 
-- **High Accuracy**: 95.67% accuracy score vs 84-86% for alternatives
-- **Layout Detection**: Preserves document structure and formatting  
-- **Table Extraction**: Converts complex tables to proper markdown
-- **OCR Support**: Handles scanned documents
-- **LLM Enhancement**: Optional LLM post-processing for better quality
+- **Basic**: Fast text extraction with minimal processing
+- **Enhanced**: Improved structure detection, lists, and headings
+- **MarkItDown**: Microsoft's tool - good balance of speed and quality
+- **Marker**: Highest quality with 95.6% accuracy for complex documents
 
-### Performance Comparison
+#### Feature Comparison
 
-| Method     | Avg Time | Accuracy | Quality |
-|------------|----------|----------|---------|
-| Basic      | 0.1s     | ~70%     | Low     |
-| Marker     | 2.8s     | 95.6%    | High    |
-| Marker+LLM | 4.2s     | 97.8%    | Highest |
+| Method     | Speed | Accuracy | Tables | Images | Setup Required |
+|------------|-------|----------|--------|--------|----------------|
+| Basic      | ⚡⚡⚡  | ⭐⭐     | ❌     | ❌     | None           |
+| Enhanced   | ⚡⚡   | ⭐⭐⭐   | ⚠️     | ❌     | None           |
+| MarkItDown | ⚡⚡   | ⭐⭐⭐⭐ | ✅     | ⚠️     | Python + pip   |
+| Marker     | ⚡     | ⭐⭐⭐⭐⭐| ✅     | ✅     | Python + Server|
+
+#### Performance Comparison
+
+| Method     | Avg Time | Accuracy | Quality | Best For |
+|------------|----------|----------|---------|----------|
+| Basic      | 0.1s     | ~70%     | Low     | Simple text documents |
+| Enhanced   | 0.2s     | ~80%     | Medium  | Structured documents |
+| MarkItDown | 0.5s     | ~85%     | High    | General purpose |
+| Marker     | 2.8s     | 95.6%    | Highest | Academic papers, complex layouts |
 
 ## License
 
