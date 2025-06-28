@@ -3,7 +3,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { ProvidersSettings } from "./providers-settings"
-import { ModelsSettings } from "./models-settings"
+import { ModelsSettings } from "./models"
 import { ChatSettings } from "./chat-settings"
 import { AppearanceSettings } from "./appearance-settings"
 import { KeybindingsSettings } from "./keybindings-settings"
