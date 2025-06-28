@@ -1,9 +1,9 @@
 "use client"
 
-import { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { DocumentMention } from "@/components/library"
+import { MentionInput } from "@/components/ui/mention-input"
+import { createDocumentProvider, createUrlProvider } from "@/lib/mention-providers"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -24,7 +24,6 @@ import {
 import { useStudyStore } from "@/lib/study-store"
 import { useChat } from "@/hooks/use-chat"
 import { useAIStore } from "@/lib/ai-store"
-import { DocumentContextParser } from "@/lib/document-context"
 import { cn } from "@/lib/utils"
 
 interface FloatingChatProps {
@@ -37,27 +36,30 @@ export function FloatingChat({ onClose }: FloatingChatProps) {
   const [isMaximized, setIsMaximized] = useState(false)
   const scrollAreaRef = useRef<HTMLDivElement>(null)
   
-  const { setCurrentView, documents, setDocuments, setIsLoadingDocuments } = useStudyStore()
-  const documentParser = DocumentContextParser.getInstance()
+  // Create mention providers - memoized so they don't recreate on every render
+  const mentionProviders = useMemo(() => {
+    const providers = [
+      createDocumentProvider(), // @ for documents
+      createUrlProvider(),      // # for URLs
+    ]
+    return providers
+  }, [])
   
-  // Debug: Log documents when floating chat renders
-  console.log("🏠 FloatingChat - Documents from store:", documents.length, documents.map(doc => ({ id: doc.id, title: doc.title })))
+  const { setCurrentView, documents, setDocuments, setIsLoadingDocuments } = useStudyStore()
   
   // Load documents if not already loaded
   useEffect(() => {
     const loadDocuments = async () => {
       if (documents.length === 0) {
-        console.log("🔄 FloatingChat - Loading documents as none exist in store")
         try {
           setIsLoadingDocuments(true)
           const { LibraryService } = await import("@/lib/library-service")
           const libraryService = LibraryService.getInstance()
           await libraryService.initialize()
           const docs = await libraryService.getAllDocuments()
-          console.log("📚 FloatingChat - Loaded documents:", docs.length, docs.map(doc => ({ id: doc.id, title: doc.title })))
           setDocuments(docs)
         } catch (error) {
-          console.error("❌ FloatingChat - Failed to load documents:", error)
+          console.error("Failed to load documents:", error)
         } finally {
           setIsLoadingDocuments(false)
         }
@@ -79,7 +81,7 @@ export function FloatingChat({ onClose }: FloatingChatProps) {
     activeModel
   } = useChat({ autoCreateConversation: true })
 
-  const { conversations, activeConversationId, setActiveConversation } = useAIStore()
+  const { setActiveConversation } = useAIStore()
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -91,17 +93,36 @@ export function FloatingChat({ onClose }: FloatingChatProps) {
     }
   }, [messages, streamingMessage])
 
+  // Auto-focus input when chat opens or is restored from minimized
+  useEffect(() => {
+    if (!isMinimized) {
+      // Small delay to ensure the component is fully rendered
+      const timer = setTimeout(() => {
+        const input = document.querySelector('[data-radix-scroll-area-viewport] input, .relative input') as HTMLInputElement
+        input?.focus()
+      }, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [isMinimized])
+
+  // Handle escape key to close chat
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        onClose()
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown)
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [onClose])
+
   const handleSendMessage = async () => {
     if (!chatInput.trim() || !canSendMessage) return
     
     const message = chatInput
-    console.log("🚀 Sending message:", message)
-    
-    // Log document mentions before sending
-    if (message.includes('@')) {
-      const mentionedDocs = getMentionedDocuments()
-      console.log("📄 Message contains @ mentions:", mentionedDocs.map(doc => doc.title))
-    }
     
     setChatInput("")
     await sendMessage(message)
@@ -137,21 +158,14 @@ export function FloatingChat({ onClose }: FloatingChatProps) {
     clearError()
   }
 
-  // Check for document mentions in current input
-  const hasDocumentMentions = chatInput.includes('@')
-  console.log("🔍 Chat input changed:", chatInput)
-  console.log("📋 Has @ mentions:", hasDocumentMentions)
-  
   const getMentionedDocuments = () => {
     const mentioned = documents.filter(doc => {
       const mentionPattern = `@${doc.title}`
       const isIncluded = chatInput.includes(mentionPattern)
       if (isIncluded) {
-        console.log(`✅ Found mention for document: "${doc.title}" with pattern: "${mentionPattern}"`)
       }
       return isIncluded
     })
-    console.log("📄 Total mentioned documents:", mentioned.length)
     return mentioned
   }
   
@@ -325,7 +339,7 @@ export function FloatingChat({ onClose }: FloatingChatProps) {
                             <p className="text-sm mb-2">Ask {activeModel.name} anything about your documents</p>
                             {documents.length > 0 && (
                               <div className="text-xs text-muted-foreground/70">
-                                💡 Tip: Type <code className="bg-muted px-1 rounded">@</code> to reference specific documents
+                                💡 Tip: Type <code className="bg-muted px-1 rounded">@</code> for documents, <code className="bg-muted px-1 rounded">#</code> for URLs
                               </div>
                             )}
                           </div>
@@ -393,21 +407,21 @@ export function FloatingChat({ onClose }: FloatingChatProps) {
                           </div>
                         </div>
                       )}
-                      <div className="flex space-x-2">
-                        <DocumentMention
+                      <div className="w-full flex items-center space-x-2">
+                        <MentionInput
                           placeholder={documents.length > 0 
-                            ? `Ask ${activeModel.name} about your documents... Type @ to reference a document`
+                            ? `Ask ${activeModel.name} about your documents... Type @ for documents, # for URLs`
                             : `Ask ${activeModel.name} anything...`
                           }
                           value={chatInput}
-                          onChange={(value) => {
-                            console.log("📝 DocumentMention onChange:", value)
+                          onChange={(value: string) => {
                             setChatInput(value)
                           }}
                           onKeyDown={handleKeyPress}
-                          onSend={handleSendMessage}
                           disabled={!canSendMessage}
                           className="flex-1"
+                          providers={mentionProviders}
+                          maxResults={8}
                         />
                         <Tooltip>
                           <TooltipTrigger asChild>
@@ -416,6 +430,7 @@ export function FloatingChat({ onClose }: FloatingChatProps) {
                               disabled={!canSendMessage || !chatInput.trim()}
                               size="sm"
                               className="px-3"
+                              tabIndex={0}
                             >
                               {isLoading ? (
                                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" />

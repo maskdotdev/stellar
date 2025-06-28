@@ -8,7 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { 
   Search, Filter, Grid, List, FileText, BookOpen, Code, 
   Headphones, Calendar, Tag, Upload, Plus, Loader2, 
-  MoreVertical, Trash2, Edit
+  MoreVertical, Trash2, Edit, Check, X
 } from "lucide-react"
 import {
   AlertDialog,
@@ -42,6 +42,8 @@ export function Library() {
   const [isUploading, setIsUploading] = useState(false)
   const [deleteDocumentId, setDeleteDocumentId] = useState<string | null>(null)
   const [showUploadDialog, setShowUploadDialog] = useState(false)
+  const [editingTitleId, setEditingTitleId] = useState<string | null>(null)
+  const [editingTitle, setEditingTitle] = useState("")
   const { toast } = useToast()
   
   // Use persistent settings for layout preferences
@@ -58,7 +60,8 @@ export function Library() {
     setDocuments, 
     setIsLoadingDocuments,
     addDocument,
-    removeDocument
+    removeDocument,
+    updateDocument
   } = useStudyStore()
 
   const libraryService = LibraryService.getInstance()
@@ -144,6 +147,61 @@ export function Library() {
     // Navigate to note editor for new note creation
     setEditingNoteId(null) // null indicates new note
     setCurrentView("note-editor")
+  }
+
+  const handleStartEditTitle = (documentId: string, currentTitle: string) => {
+    setEditingTitleId(documentId)
+    setEditingTitle(currentTitle)
+  }
+
+  const handleSaveTitle = async (documentId: string) => {
+    if (!editingTitle.trim()) {
+      toast({
+        title: "Error",
+        description: "Title cannot be empty.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      const document = documents.find(doc => doc.id === documentId)
+      if (!document) return
+
+      const updatedDocument = await libraryService.updateDocument(documentId, {
+        title: editingTitle.trim(),
+        content: document.content,
+        file_path: document.file_path,
+        doc_type: document.doc_type,
+        tags: document.tags,
+        status: document.status
+      })
+
+      if (updatedDocument) {
+        // Update the document in the store
+        updateDocument(documentId, updatedDocument)
+        
+        toast({
+          title: "Success",
+          description: "Document title updated successfully.",
+        })
+      }
+    } catch (error) {
+      console.error('Failed to update document title:', error)
+      toast({
+        title: "Error",
+        description: "Failed to update document title. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setEditingTitleId(null)
+      setEditingTitle("")
+    }
+  }
+
+  const handleCancelEditTitle = () => {
+    setEditingTitleId(null)
+    setEditingTitle("")
   }
 
   if (isLoadingDocuments) {
@@ -254,7 +312,50 @@ export function Library() {
                       >
                         <Icon className="h-5 w-5 mt-0.5 text-muted-foreground" />
                         <div className="flex-1">
-                          <h3 className="font-medium">{item.title}</h3>
+                          {editingTitleId === item.id ? (
+                            <div className="flex items-center space-x-2">
+                              <Input
+                                value={editingTitle}
+                                onChange={(e) => setEditingTitle(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    handleSaveTitle(item.id)
+                                  } else if (e.key === 'Escape') {
+                                    handleCancelEditTitle()
+                                  }
+                                }}
+                                className="font-medium h-8"
+                                autoFocus
+                              />
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleSaveTitle(item.id)}
+                                className="h-8 w-8 p-0"
+                              >
+                                <Check className="h-4 w-4 text-green-600" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={handleCancelEditTitle}
+                                className="h-8 w-8 p-0"
+                              >
+                                <X className="h-4 w-4 text-red-600" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <h3 
+                              className="font-medium cursor-pointer hover:text-blue-600 transition-colors"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                handleStartEditTitle(item.id, item.title)
+                              }}
+                              title="Click to edit title"
+                            >
+                              {item.title}
+                            </h3>
+                          )}
                           <p className="text-sm text-muted-foreground mt-1">
                             {libraryService.getContentPreview(item.content)}
                           </p>
@@ -358,7 +459,50 @@ export function Library() {
                       onClick={() => handleItemClick(item)}
                     >
                       <Icon className="h-8 w-8 text-muted-foreground mb-3" />
-                      <h3 className="font-medium mb-2">{item.title}</h3>
+                      {editingTitleId === item.id ? (
+                        <div className="flex items-center space-x-1 mb-2" onClick={(e) => e.stopPropagation()}>
+                          <Input
+                            value={editingTitle}
+                            onChange={(e) => setEditingTitle(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                handleSaveTitle(item.id)
+                              } else if (e.key === 'Escape') {
+                                handleCancelEditTitle()
+                              }
+                            }}
+                            className="font-medium h-8 text-sm"
+                            autoFocus
+                          />
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleSaveTitle(item.id)}
+                            className="h-8 w-8 p-0"
+                          >
+                            <Check className="h-3 w-3 text-green-600" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={handleCancelEditTitle}
+                            className="h-8 w-8 p-0"
+                          >
+                            <X className="h-3 w-3 text-red-600" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <h3 
+                          className="font-medium mb-2 cursor-pointer hover:text-blue-600 transition-colors"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleStartEditTitle(item.id, item.title)
+                          }}
+                          title="Click to edit title"
+                        >
+                          {item.title}
+                        </h3>
+                      )}
                       <p className="text-sm text-muted-foreground mb-3 line-clamp-2">
                         {libraryService.getContentPreview(item.content, 100)}
                       </p>

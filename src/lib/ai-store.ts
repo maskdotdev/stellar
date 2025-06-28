@@ -2,6 +2,7 @@
 
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
+import { ModelsService } from "./models-service"
 
 export interface AIProvider {
   id: string
@@ -79,6 +80,16 @@ interface AIState {
   setActiveProvider: (providerId: string) => void
   setActiveModel: (modelId: string) => void
   
+  // New methods for models.dev integration
+  importModelsFromDev: () => Promise<void>
+  syncProvider: (providerId: string) => Promise<void>
+  
+  // 🔥 NEW: Advanced model features
+  getModelStatistics: () => Promise<any>
+  compareModels: (models: AIModel[], criteria: any) => any[]
+  findBestModel: (criteria: any) => Promise<AIModel | null>
+  getModelRecommendations: (task: string) => any[]
+  
   addConversation: (conversation: Omit<AIConversation, "id">) => void
   updateConversation: (id: string, updates: Partial<AIConversation>) => void
   removeConversation: (id: string) => void
@@ -94,6 +105,8 @@ interface AIState {
   getActiveProvider: () => AIProvider | null
   getActiveModel: () => AIModel | null
   getActiveConversation: () => AIConversation | null
+  getAvailableModels: () => AIModel[]
+  getModelsByCapability: (capability: string) => AIModel[]
 }
 
 export const useAIStore = create<AIState>()(
@@ -189,6 +202,70 @@ export const useAIStore = create<AIState>()(
       setActiveProvider: (providerId) => set({ activeProviderId: providerId }),
       setActiveModel: (modelId) => set({ activeModelId: modelId }),
       
+      // New methods for models.dev integration
+      importModelsFromDev: async () => {
+        set({ isLoading: true, error: null })
+        try {
+          const popularProviders = await ModelsService.getPopularProviders()
+          
+          set((state) => {
+            const existingProviderIds = new Set(state.providers.map(p => p.id))
+            const newProviders = popularProviders.filter(p => !existingProviderIds.has(p.id))
+            
+            // Update existing providers with new models while preserving user settings
+            const updatedProviders = state.providers.map(existingProvider => {
+              const matchingProvider = popularProviders.find(p => p.id === existingProvider.id)
+              if (matchingProvider) {
+                return {
+                  ...existingProvider,
+                  models: matchingProvider.models,
+                  name: matchingProvider.name, // Update name in case it changed
+                  baseUrl: matchingProvider.baseUrl // Update base URL in case it changed
+                }
+              }
+              return existingProvider
+            })
+            
+            return {
+              providers: [...updatedProviders, ...newProviders],
+              isLoading: false
+            }
+          })
+        } catch (error) {
+          set({ 
+            error: error instanceof Error ? error.message : "Failed to import models", 
+            isLoading: false 
+          })
+        }
+      },
+      
+      syncProvider: async (providerId: string) => {
+        set({ isLoading: true, error: null })
+        try {
+          const modelsData = await ModelsService.fetchModelsData()
+          const allProviders = ModelsService.transformToAIProviders(modelsData)
+          const providerData = allProviders.find(p => p.id === providerId)
+          
+          if (providerData) {
+            set((state) => ({
+              providers: state.providers.map(p => 
+                p.id === providerId 
+                  ? { ...p, models: providerData.models, name: providerData.name }
+                  : p
+              ),
+              isLoading: false
+            }))
+          } else {
+            throw new Error(`Provider ${providerId} not found`)
+          }
+        } catch (error) {
+          set({ 
+            error: error instanceof Error ? error.message : "Failed to sync provider", 
+            isLoading: false 
+          })
+        }
+      },
+      
       addConversation: (conversation) => set((state) => ({
         conversations: [...state.conversations, { ...conversation, id: crypto.randomUUID() }]
       })),
@@ -233,6 +310,82 @@ export const useAIStore = create<AIState>()(
       getActiveConversation: () => {
         const { conversations, activeConversationId } = get()
         return conversations.find(c => c.id === activeConversationId) || null
+      },
+      
+      getAvailableModels: () => {
+        const { providers } = get()
+        return providers
+          .filter(p => p.enabled)
+          .flatMap(p => p.models)
+      },
+      
+      getModelsByCapability: (capability: string) => {
+        const { providers } = get()
+        return providers
+          .filter(p => p.enabled)
+          .flatMap(p => p.models)
+          .filter(m => m.capabilities.includes(capability as any))
+      },
+      
+      // 🔥 NEW: Advanced model features
+      getModelStatistics: async () => {
+        set({ isLoading: true, error: null })
+        try {
+          const statistics = await ModelsService.getModelStatistics()
+          set({ isLoading: false })
+          return statistics
+        } catch (error) {
+          set({ 
+            error: error instanceof Error ? error.message : "Failed to get model statistics", 
+            isLoading: false 
+          })
+          return null
+        }
+      },
+      
+      compareModels: (models: AIModel[], criteria: any) => {
+        set({ isLoading: true, error: null })
+        try {
+          const comparisonResults = ModelsService.compareModels(models, criteria)
+          set({ isLoading: false })
+          return comparisonResults
+        } catch (error) {
+          set({ 
+            error: error instanceof Error ? error.message : "Failed to compare models", 
+            isLoading: false 
+          })
+          return []
+        }
+      },
+      
+      findBestModel: async (criteria: any) => {
+        set({ isLoading: true, error: null })
+        try {
+          const bestModel = await ModelsService.findBestModel(criteria)
+          set({ isLoading: false })
+          return bestModel
+        } catch (error) {
+          set({ 
+            error: error instanceof Error ? error.message : "Failed to find best model", 
+            isLoading: false 
+          })
+          return null
+        }
+      },
+      
+      getModelRecommendations: (task: string) => {
+        set({ isLoading: true, error: null })
+        try {
+          const recommendations = ModelsService.getModelRecommendations(task)
+          set({ isLoading: false })
+          return recommendations
+        } catch (error) {
+          set({ 
+            error: error instanceof Error ? error.message : "Failed to get model recommendations", 
+            isLoading: false 
+          })
+          return []
+        }
       }
     }),
     {
@@ -242,7 +395,7 @@ export const useAIStore = create<AIState>()(
         providers: state.providers.map(p => ({ ...p, apiKey: undefined })),
         activeProviderId: state.activeProviderId,
         activeModelId: state.activeModelId,
-                 conversations: state.settings.saveConversations ? state.conversations : [],
+        conversations: state.settings.saveConversations ? state.conversations : [],
         settings: state.settings
       })
     }

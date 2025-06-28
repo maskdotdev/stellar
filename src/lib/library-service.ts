@@ -27,6 +27,8 @@ export interface UploadPdfOptions {
   title?: string
   tags?: string[]
   useMarker?: boolean
+  useEnhanced?: boolean
+  useMarkItDown?: boolean
 }
 
 export interface UploadPdfFromUrlOptions {
@@ -34,6 +36,8 @@ export interface UploadPdfFromUrlOptions {
   title?: string
   tags?: string[]
   useMarker?: boolean
+  useEnhanced?: boolean
+  useMarkItDown?: boolean
 }
 
 export class LibraryService {
@@ -129,13 +133,44 @@ export class LibraryService {
         filePath: file,
         title: options.title || null,
         tags: options.tags || null,
-        useMarker: options.useMarker || false
+        useMarker: options.useMarker || false,
+        useEnhanced: options.useEnhanced || false,
+        useMarkitdown: options.useMarkItDown || false
       })
 
       console.log('PDF processed successfully:', document)
       return document
     } catch (error) {
       console.error('Failed to upload PDF:', error)
+      throw error
+    }
+  }
+
+  async uploadPdfFileWithOptions(file: File, options: UploadPdfOptions): Promise<Document | null> {
+    try {
+      console.log('Starting PDF upload process with pre-selected file:', file.name, 'options:', options)
+      
+      // Convert File to Uint8Array for Tauri
+      const arrayBuffer = await file.arrayBuffer()
+      const fileData = Array.from(new Uint8Array(arrayBuffer))
+      
+      console.log('Converted file to bytes, size:', fileData.length)
+      
+      // Process the PDF with the new command that accepts file data
+      const document = await invoke<Document>('upload_and_process_pdf_from_data', {
+        fileData: fileData,
+        fileName: file.name,
+        title: options.title || null,
+        tags: options.tags || null,
+        useMarker: options.useMarker || false,
+        useEnhanced: options.useEnhanced || false,
+        useMarkitdown: options.useMarkItDown || false
+      })
+
+      console.log('PDF processed successfully:', document)
+      return document
+    } catch (error) {
+      console.error('Failed to upload PDF file:', error)
       throw error
     }
   }
@@ -149,7 +184,9 @@ export class LibraryService {
         url: options.url,
         title: options.title || null,
         tags: options.tags || null,
-        useMarker: options.useMarker || false
+        useMarker: options.useMarker || false,
+        useEnhanced: options.useEnhanced || false,
+        useMarkitdown: options.useMarkItDown || false
       })
 
       console.log('PDF from URL processed successfully:', document)
