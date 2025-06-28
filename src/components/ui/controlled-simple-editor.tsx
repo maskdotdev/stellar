@@ -199,13 +199,24 @@ export function ControlledSimpleEditor({
     "main" | "highlighter" | "link"
   >("main")
   const toolbarRef = React.useRef<HTMLDivElement>(null)
+  
+  // Track if the content change is coming from the editor itself to avoid loops
+  const isInternalUpdate = React.useRef(false)
+  const lastExternalContent = React.useRef(content)
 
   const editor = useEditor({
     immediatelyRender: false,
     editable,
-    content,
+    content: content || "<p></p>", // Provide default empty paragraph to prevent issues
     onUpdate: ({ editor }) => {
-      onChange?.(editor.getHTML())
+      // Mark this as an internal update to prevent the effect from re-setting content
+      isInternalUpdate.current = true
+      const newContent = editor.getHTML()
+      onChange?.(newContent)
+      // Reset the flag after a microtask to allow the effect to run for external changes
+      Promise.resolve().then(() => {
+        isInternalUpdate.current = false
+      })
     },
     onCreate: ({ editor }) => {
       // Auto-focus the editor when it's created (especially for new notes)
@@ -261,12 +272,41 @@ export function ControlledSimpleEditor({
     }
   }, [isMobile, mobileView])
 
-  // Update editor content when content prop changes
+  // Update editor content when content prop changes (only for external changes)
   React.useEffect(() => {
-    if (editor && content !== editor.getHTML()) {
-      editor.commands.setContent(content)
+    if (editor && !isInternalUpdate.current && content !== lastExternalContent.current) {
+      // Only update if the content is genuinely different and not from internal editor changes
+      const currentEditorContent = editor.getHTML()
+      
+      // Normalize both contents for comparison to avoid false positives
+      const normalizeContent = (html: string) => html.replace(/\s+/g, ' ').trim()
+      const normalizedNewContent = normalizeContent(content || "")
+      const normalizedCurrentContent = normalizeContent(currentEditorContent)
+      
+      if (normalizedNewContent !== normalizedCurrentContent) {
+        // Store cursor position to restore after content update
+        const { from, to } = editor.state.selection
+        editor.commands.setContent(content || "<p></p>", false) // false = don't emit update
+        
+        // Try to restore cursor position if the document is long enough
+        try {
+          if (from <= editor.state.doc.content.size) {
+            editor.commands.setTextSelection({ from: Math.min(from, editor.state.doc.content.size), to: Math.min(to, editor.state.doc.content.size) })
+          }
+        } catch (e) {
+          // If restoring cursor position fails, just focus the end
+          editor.commands.focus('end')
+        }
+      }
+      
+      lastExternalContent.current = content
     }
   }, [editor, content])
+
+  // Initialize lastExternalContent on first mount
+  React.useEffect(() => {
+    lastExternalContent.current = content
+  }, []) // Empty dependency array = only run on mount
 
   // Auto-focus when transitioning to a new note
   React.useEffect(() => {
