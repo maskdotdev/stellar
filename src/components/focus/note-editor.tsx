@@ -41,7 +41,7 @@ export function NoteEditor({ documentId, onBack, categories = [], currentCategor
   )
   
   const { toast } = useToast()
-  const { addDocument, updateDocument, setEditingNoteId } = useStudyStore()
+  const { addDocument, updateDocument, setEditingNoteId, setCurrentDocument, setCurrentView } = useStudyStore()
   const libraryService = LibraryService.getInstance()
 
   // Load existing document if editing
@@ -94,6 +94,44 @@ export function NoteEditor({ documentId, onBack, categories = [], currentCategor
 
     return () => clearTimeout(timeoutId)
   }, [title, content, tags])
+
+  // Handle document link clicks
+  useEffect(() => {
+    const handleDocumentLinkClick = (event: MouseEvent) => {
+      const target = event.target as HTMLElement
+      if (target.classList.contains('document-link') || target.closest('.document-link')) {
+        event.preventDefault()
+        event.stopPropagation()
+        
+        const linkElement = target.classList.contains('document-link') ? target : target.closest('.document-link')
+        const documentId = linkElement?.getAttribute('data-document-id')
+        
+        if (documentId && documentId.trim() !== '') {
+          // Navigate to the source document
+          setCurrentDocument(documentId)
+          setCurrentView("focus")
+          
+          toast({
+            title: "Opening Document",
+            description: "Navigating to the source document...",
+          })
+        } else {
+          toast({
+            title: "Document Not Found",
+            description: "The linked document could not be found.",
+            variant: "destructive",
+          })
+        }
+      }
+    }
+
+    // Add event listener to the browser document
+    window.document.addEventListener('click', handleDocumentLinkClick)
+
+    return () => {
+      window.document.removeEventListener('click', handleDocumentLinkClick)
+    }
+  }, [setCurrentDocument, setCurrentView, toast])
 
   const handleSave = async (silent = false) => {
     if (!title.trim() || !content.trim()) {
