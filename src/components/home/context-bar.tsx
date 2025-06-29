@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/breadcrumb"
 import { Pin, Share, Download, Tag } from "lucide-react"
 import { useStudyStore } from "@/lib/study-store"
+import { SessionIndicator } from "@/components/session"
 
 export function ContextBar() {
   const { 
@@ -92,6 +93,11 @@ export function ContextBar() {
           { id: "workspace", name: "Workspace", isClickable: false, onClick: () => {} }
         ]
       
+      case "sessions":
+        return [
+          { id: "sessions", name: "Study Sessions", isClickable: false, onClick: () => {} }
+        ]
+      
       case "note-editor":
         return [
           { id: "library", name: "Library", isClickable: true, onClick: () => setCurrentView("library") },
@@ -132,6 +138,9 @@ export function ContextBar() {
 
       {/* Tags and Actions */}
       <div className="flex items-center space-x-2">
+        {/* Session Indicator */}
+        <SessionIndicator />
+        
         {/* Current Tags */}
         {currentTags && currentTags.length > 0 && (
           <div className="flex items-center space-x-1">

@@ -12,6 +12,7 @@ import { Workspace } from "@/components/home/workspace"
 import { History } from "@/components/history"
 import { Settings } from "@/components/settings"
 import { ActionsDashboard } from "@/components/home/actions-dashboard"
+import { SessionsManagement } from "@/components/session"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -176,13 +177,11 @@ export function App() {
     currentView,
     focusMode,
     showCommandPalette,
-    showInteractionDrawer,
     showFloatingChat,
     initialChatText,
     editingNoteId,
     keybindings,
     setShowCommandPalette,
-    setShowInteractionDrawer,
     setShowFloatingChat,
     setInitialChatText,
     setFocusMode,
@@ -353,6 +352,8 @@ export function App() {
         return <History />
       case "analytics":
         return <ActionsDashboard />
+      case "sessions":
+        return <SessionsManagement />
       case "settings":
         return <Settings />
       case "note-editor":
