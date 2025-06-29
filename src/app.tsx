@@ -13,10 +13,52 @@ import { History } from "@/components/history"
 import { Settings } from "@/components/settings"
 import { ActionsDashboard } from "@/components/home/actions-dashboard"
 import { SessionsManagement } from "@/components/session"
-import { ThemeProvider } from "@/components/theme-provider"
+import { ThemeProvider, useTheme } from "@/components/theme-provider"
+import { ThemeManager } from "@/lib/theme-config"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { useStudyStore } from "@/lib/study-store"
+import { HotkeyProvider, HotkeyOverlay, useHotkeyContext } from "@/components/hotkey"
+import { DebugHotkeyTest } from "@/components/hotkey/dev"
+
+// Component to show when hotkey leader mode is active
+const HotkeyModeIndicator: React.FC = () => {
+  const { mode, currentBuffer, requireConfirmation } = useHotkeyContext();
+  
+  if (mode !== 'leader' && mode !== 'active') {
+    return null;
+  }
+  
+  const getMessage = () => {
+    if (mode === 'leader') {
+      return (
+        <>
+          Hotkey Mode Active • Type letters to {requireConfirmation ? 'focus' : 'activate'} elements
+          {currentBuffer && (
+            <> • <kbd className="px-1 py-0.5 bg-yellow-600/50 rounded text-xs font-mono">{currentBuffer}</kbd></>
+          )}
+        </>
+      );
+    } else if (mode === 'active') {
+      const actionText = requireConfirmation ? 'press Enter to activate' : 'exact match auto-activates';
+      return (
+        <>
+          Typing: <kbd className="px-1 py-0.5 bg-yellow-600/50 rounded text-xs font-mono">{currentBuffer}</kbd> • Continue typing or {actionText}
+        </>
+      );
+    }
+  };
+  
+  return (
+    <div className="fixed top-4 left-1/2 transform -translate-x-1/2 px-3 py-1 bg-yellow-500/90 text-yellow-950 text-sm rounded-full shadow-lg backdrop-blur z-50 animate-in fade-in duration-200">
+      <div className="flex items-center gap-2">
+        <div className="w-2 h-2 bg-yellow-700 rounded-full animate-pulse" />
+        {getMessage()}
+      </div>
+    </div>
+  );
+};
+
 import { MessageCircle } from "lucide-react"
 
 // Helper function to check if user is actively editing
@@ -193,6 +235,8 @@ export function App() {
     goBack,
     canGoBack,
   } = useStudyStore()
+  
+  const { theme, setTheme } = useTheme()
 
   // Dynamic keyboard shortcuts using store keybindings
   useEffect(() => {
@@ -263,6 +307,9 @@ export function App() {
             case "flashcards":
               console.log("Create flashcards")
               break
+            case "toggle-dark-mode":
+              ThemeManager.toggleDarkMode(theme, setTheme)
+              break
               
             // Settings
             case "settings-providers":
@@ -284,6 +331,11 @@ export function App() {
             case "settings-keybindings":
               setSettingsTab("keybindings")
               setCurrentView("settings")
+              break
+              
+            // Development
+            case "debug-hotkeys":
+              setCurrentView("debug-hotkeys")
               break
               
             // System
@@ -339,7 +391,9 @@ export function App() {
     setEditingNoteId,
     setSettingsTab,
     goBack,
-    canGoBack
+    canGoBack,
+    theme,
+    setTheme
   ])
 
   const renderCurrentView = () => {
@@ -356,6 +410,8 @@ export function App() {
         return <SessionsManagement />
       case "settings":
         return <Settings />
+      case "debug-hotkeys":
+        return <DebugHotkeyTest />
       case "note-editor":
         return (
           <NoteEditor 
@@ -375,55 +431,63 @@ export function App() {
     <ThemeProvider
       defaultTheme="dark-teal"
     >
-      <TooltipProvider delayDuration={200}>
-        <div className="h-screen bg-background text-foreground overflow-hidden spotlight-bg">
-        {/* Main Layout Grid */}
-        <div className="h-full grid grid-cols-[48px_1fr] grid-rows-[auto_1fr_auto] spotlight-content">
-          {/* Slim Nav Rail */}
-          <div className="row-span-3 border-r border-border">
-            <SlimNavRail />
+      <HotkeyProvider leaderKey=" " requireConfirmation={false} bufferTimeout={1500}>
+        <TooltipProvider delayDuration={100}>
+          <div className="h-screen bg-background text-foreground overflow-hidden spotlight-bg">
+          {/* Main Layout Grid */}
+          <div className="h-full grid grid-cols-[48px_1fr] grid-rows-[auto_1fr_auto] spotlight-content">
+            {/* Slim Nav Rail */}
+            <div className="row-span-3 border-r border-border">
+                            <SlimNavRail />
+            </div>
+
+            {/* Context Bar */}
+            {!focusMode && (
+              <div className="border-b border-border">
+                <ContextBar />
+              </div>
+            )}
+
+            {/* Focus Pane */}
+            <div className="overflow-hidden min-h-0 h-full">{currentView === "focus" ? <FocusPane /> : renderCurrentView()}</div>
+
           </div>
 
-          {/* Context Bar */}
-          {!focusMode && (
-            <div className="border-b border-border">
-              <ContextBar />
+          {/* Command Palette Overlay */}
+          {showCommandPalette && <CommandPalette />}
+
+          {/* Floating Chat */}
+          {showFloatingChat && <FloatingChat onClose={() => {
+            setShowFloatingChat(false)
+            setInitialChatText(null)
+          }} initialText={initialChatText || undefined} />}
+
+          {/* Floating Chat Trigger */}
+          {!showFloatingChat && (
+            <button
+              onClick={() => setShowFloatingChat(true)}
+              className="fixed bottom-6 right-6 w-14 h-14 bg-primary text-primary-foreground rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-105 flex items-center justify-center z-40"
+            >
+              <MessageCircle className="h-6 w-6" />
+            </button>
+          )}
+
+          {/* Focus Mode Indicator */}
+          {focusMode && (
+            <div className="fixed top-4 right-4 px-3 py-1 bg-primary text-primary-foreground text-sm rounded-full">
+              Focus Mode • {keybindings.find(kb => kb.id === "focus")?.currentKeys || "⌘."}
             </div>
           )}
 
-          {/* Focus Pane */}
-          <div className="overflow-hidden min-h-0 h-full">{currentView === "focus" ? <FocusPane /> : renderCurrentView()}</div>
+          {/* Hotkey Leader Mode Indicator */}
+          <HotkeyModeIndicator />
 
-        </div>
-
-        {/* Command Palette Overlay */}
-        {showCommandPalette && <CommandPalette />}
-
-        {/* Floating Chat */}
-        {showFloatingChat && <FloatingChat onClose={() => {
-          setShowFloatingChat(false)
-          setInitialChatText(null)
-        }} initialText={initialChatText || undefined} />}
-
-        {/* Floating Chat Trigger */}
-        {!showFloatingChat && (
-          <button
-            onClick={() => setShowFloatingChat(true)}
-            className="fixed bottom-6 right-6 w-14 h-14 bg-primary text-primary-foreground rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-105 flex items-center justify-center z-40"
-          >
-            <MessageCircle className="h-6 w-6" />
-          </button>
-        )}
-
-        {/* Focus Mode Indicator */}
-        {focusMode && (
-          <div className="fixed top-4 right-4 px-3 py-1 bg-primary text-primary-foreground text-sm rounded-full">
-            Focus Mode • {keybindings.find(kb => kb.id === "focus")?.currentKeys || "⌘."}
+          {/* Hotkey Overlay */}
+          <HotkeyOverlay />
           </div>
-        )}
-        </div>
-        <Toaster />
-      </TooltipProvider>
+          <Toaster />
+        </TooltipProvider>
+      </HotkeyProvider>
     </ThemeProvider>
   )
 }
