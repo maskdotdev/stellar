@@ -177,6 +177,7 @@ interface ActionsState {
   startNewSession: (title: string, sessionType?: string) => Promise<StudySession>
   getCurrentSession: () => Promise<StudySession | null>
   endCurrentSession: () => Promise<boolean>
+  getStudySessions: (limit?: number, offset?: number) => Promise<StudySession[]>
   setCurrentSession: (sessionId: string) => void
   clearCurrentSession: () => void
   
@@ -307,6 +308,16 @@ export const useActionsStore = create<ActionsState>()(
         } catch (error) {
           console.error('Failed to end current session:', error)
           return false
+        }
+      },
+      
+      getStudySessions: async (limit: number = 50, offset: number = 0) => {
+        try {
+          const sessions = await invoke<StudySession[]>('get_study_sessions', { limit, offset })
+          return sessions
+        } catch (error) {
+          console.error('Failed to get study sessions:', error)
+          return []
         }
       },
       

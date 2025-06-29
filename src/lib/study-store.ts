@@ -14,7 +14,7 @@ export interface Keybinding {
 }
 
 interface NavigationState {
-  view: "focus" | "library" | "graph" | "workspace" | "history" | "analytics" | "settings" | "note-editor"
+  view: "focus" | "library" | "graph" | "workspace" | "history" | "analytics" | "sessions" | "settings" | "note-editor"
   focusMode?: boolean
   currentDocument?: string | null
   editingNoteId?: string | null
@@ -50,7 +50,7 @@ const defaultKeybindings: Keybinding[] = [
 ]
 
 interface StudyState {
-  currentView: "focus" | "library" | "graph" | "workspace" | "history" | "analytics" | "settings" | "note-editor"
+  currentView: "focus" | "library" | "graph" | "workspace" | "history" | "analytics" | "sessions" | "settings" | "note-editor"
   focusMode: boolean
   showCommandPalette: boolean
   showInteractionDrawer: boolean
