@@ -51,7 +51,20 @@ pub fn run() {
             update_category,
             delete_category,
             get_documents_by_category,
-            get_uncategorized_documents
+            get_uncategorized_documents,
+            // Student Pro - Actions & Sessions commands
+            create_study_session,
+            get_active_session,
+            end_study_session,
+            get_study_session,
+            get_study_sessions,
+            record_user_action,
+            get_actions_by_session,
+            get_actions_by_document,
+            get_recent_actions,
+            get_action_statistics,
+            start_new_session,
+            record_simple_action
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

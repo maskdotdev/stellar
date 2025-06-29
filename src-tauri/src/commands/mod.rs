@@ -1,10 +1,12 @@
 pub mod ai;
 pub mod database;
 pub mod pdf;
+pub mod actions;
 
 pub use ai::*;
 pub use database::*;
 pub use pdf::*;
+pub use actions::*;
 
 // Re-export the simple commands here
 #[tauri::command]
