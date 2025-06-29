@@ -14,8 +14,7 @@
       {
         "title": "stellar",
         "width": 1200,
-        "height": 800,
-        "titleBarStyle": "transparent"
+        "height": 800
       }
     ],
     "security": {
