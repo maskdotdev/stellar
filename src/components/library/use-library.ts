@@ -25,12 +25,33 @@ export function useLibrary() {
   
   // Actions tracking
   const actionsService = ActionsService.getInstance()
-  const { currentSessionId } = useActionsStore()
+  const { currentSessionId, recordAction } = useActionsStore()
   
   // Use persistent settings for layout preferences
   const viewMode = useSimpleSettingsStore((state) => state.libraryViewMode)
   const setLibraryViewMode = useSimpleSettingsStore((state) => state.setLibraryViewMode)
-  const addSearchHistory = useSimpleSettingsStore((state) => state.addSearchHistory)
+  const addSearchHistoryOriginal = useSimpleSettingsStore((state) => state.addSearchHistory)
+  
+  // Wrapper function that adds action tracking to search
+  const addSearchHistory = async (query: string) => {
+    // Add search action tracking
+    try {
+      await recordAction(ActionType.SEARCH_QUERY, {
+        query,
+        scope: currentCategory ? 'documents' : 'categories',
+        context: currentCategory || 'categories',
+        resultCount: currentCategory ? filteredDocuments.length : filteredCategories.length
+      }, {
+        sessionId: currentSessionId || undefined,
+        categoryIds: currentCategory ? [currentCategory] : undefined
+      })
+    } catch (error) {
+      console.error('Failed to track search action:', error)
+    }
+    
+    // Call original function
+    addSearchHistoryOriginal(query)
+  }
   
   const { 
     setCurrentView, 
