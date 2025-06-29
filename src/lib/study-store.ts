@@ -14,7 +14,7 @@ export interface Keybinding {
 }
 
 interface NavigationState {
-  view: "focus" | "library" | "graph" | "workspace" | "history" | "analytics" | "sessions" | "settings" | "note-editor"
+  view: "focus" | "library" | "graph" | "workspace" | "history" | "analytics" | "sessions" | "settings" | "note-editor" | "debug-hotkeys"
   focusMode?: boolean
   currentDocument?: string | null
   editingNoteId?: string | null
@@ -35,6 +35,7 @@ const defaultKeybindings: Keybinding[] = [
   { id: "focus", action: "Focus Mode", category: "Quick Actions", defaultKeys: "⌘.", currentKeys: "⌘.", description: "Enter focus mode" },
   { id: "chat", action: "Ask AI", category: "Quick Actions", defaultKeys: "⇧Space", currentKeys: "⇧Space", description: "Open AI chat" },
   { id: "flashcards", action: "Create Flashcards", category: "Quick Actions", defaultKeys: "⌘F", currentKeys: "⌘F", description: "Create flashcards from content" },
+  { id: "toggle-dark-mode", action: "Toggle Dark Mode", category: "Quick Actions", defaultKeys: "⌘D", currentKeys: "⌘D", description: "Toggle between light and dark mode" },
   
   // Settings
   { id: "settings-providers", action: "AI Providers Settings", category: "Settings", defaultKeys: "⌘,P", currentKeys: "⌘,P", description: "Configure AI providers" },
@@ -44,13 +45,14 @@ const defaultKeybindings: Keybinding[] = [
   { id: "settings-keybindings", action: "Keybindings Settings", category: "Settings", defaultKeys: "⌘,K", currentKeys: "⌘,K", description: "Configure keybindings" },
   
   // System
-  { id: "command-palette", action: "Command Palette", category: "System", defaultKeys: "⌘K", currentKeys: "⌘K", description: "Open command palette" },
+  { id: "command-palette", action: "Command Palette", category: "System", defaultKeys: "⌘K", currentKeys: "⌘K", description: "Open command palette (also works with /)" },
+  { id: "debug-hotkeys", action: "Debug Hotkeys", category: "Development", defaultKeys: "⌘⇧D", currentKeys: "⌘⇧D", description: "Open hotkey debugging page" },
   { id: "escape", action: "Close/Cancel", category: "System", defaultKeys: "Escape", currentKeys: "Escape", description: "Close dialogs or cancel actions" },
   { id: "back", action: "Go Back", category: "Navigation", defaultKeys: "B", currentKeys: "B", description: "Navigate to previous page" },
 ]
 
 interface StudyState {
-  currentView: "focus" | "library" | "graph" | "workspace" | "history" | "analytics" | "sessions" | "settings" | "note-editor"
+  currentView: "focus" | "library" | "graph" | "workspace" | "history" | "analytics" | "sessions" | "settings" | "note-editor" | "debug-hotkeys"
   focusMode: boolean
   showCommandPalette: boolean
   showInteractionDrawer: boolean
