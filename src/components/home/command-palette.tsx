@@ -1,5 +1,6 @@
 "use client"
 
+import React, { useEffect, useState } from "react"
 import {
   CommandDialog,
   CommandInput,
@@ -10,338 +11,257 @@ import {
   CommandShortcut,
   CommandSeparator,
 } from "@/components/ui/command"
-import { FileText, Plus, Import, Network, Zap, BookOpen, MessageCircle, Clock, Settings, Bot, Palette, MessageSquare, Cpu, Keyboard, Sun, Moon } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Search, Settings, Palette, Moon, Sun, Home, Library, History, Focus, FileText, Network, Calendar, BarChart3, HelpCircle, Keyboard, Download, Plus, Upload, File, FolderOpen, Trash2, Edit, Copy, Bug } from "lucide-react"
 import { useStudyStore } from "@/lib/study-store"
 import { useTheme } from "@/components/theme-provider"
-import { themes } from "@/components/theme-switcher"
+import { themes, ThemeManager } from "@/lib/theme-config"
 
-// Helper to get keybinding by id
-const getKeybindingShortcut = (keybindings: any[], id: string): string => {
-  const binding = keybindings.find(kb => kb.id === id)
-  return binding?.currentKeys || ""
+interface Command {
+  id: string
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+  shortcut?: string
+  group?: string
 }
 
-const recentFiles = [
-  "Attention Is All You Need",
-  "BERT: Pre-training of Deep Bidirectional Transformers", 
-  "GPT-3: Language Models are Few-Shot Learners",
-  "ResNet: Deep Residual Learning for Image Recognition",
-  "Transformer Architecture Deep Dive",
-]
-
 export function CommandPalette() {
-  const { 
-    showCommandPalette, 
-    setShowCommandPalette, 
-    setCurrentView, 
-    setEditingNoteId,
-    setFocusMode,
-    setShowFloatingChat,
-    setSettingsTab,
-    keybindings
-  } = useStudyStore()
-  
+  const [search, setSearch] = useState("")
+  const { currentView, setCurrentView, keybindings, showCommandPalette, setShowCommandPalette } = useStudyStore()
   const { theme, setTheme } = useTheme()
 
-  // Dynamic actions based on keybindings
-  const quickActions = [
-    { id: "import", label: "Import PDF", icon: Import, shortcut: getKeybindingShortcut(keybindings, "import") },
-    { id: "new-note", label: "New Note", icon: Plus, shortcut: getKeybindingShortcut(keybindings, "new-note") },
-    { id: "graph", label: "Open Graph View", icon: Network, shortcut: getKeybindingShortcut(keybindings, "graph") },
-    { id: "flashcards", label: "Create Flashcards", icon: Zap, shortcut: getKeybindingShortcut(keybindings, "flashcards") },
-    { id: "focus", label: "Focus Mode", icon: BookOpen, shortcut: getKeybindingShortcut(keybindings, "focus") },
-    { id: "chat", label: "Ask AI", icon: MessageCircle, shortcut: getKeybindingShortcut(keybindings, "chat") },
-    { id: "toggle-theme", label: "Toggle Theme", icon: theme?.startsWith("dark-") || theme === "dark" ? Sun : Moon, shortcut: getKeybindingShortcut(keybindings, "toggle-theme") },
+  // Helper to get keybinding by id
+  const getKeybindingShortcut = (keybindings: any[], id: string): string => {
+    const binding = keybindings.find(kb => kb.id === id)
+    return binding?.currentKeys || ""
+  }
+
+  // Get current theme display info
+  const { baseTheme, isDark } = ThemeManager.getThemeDisplayInfo(theme)
+
+  // Navigation commands
+  const navigationCommands: Command[] = [
+    { id: "focus", label: "Focus Pane", icon: Focus, shortcut: getKeybindingShortcut(keybindings, "focus") },
+    { id: "library", label: "Library", icon: Library, shortcut: getKeybindingShortcut(keybindings, "library") },
+    { id: "workspace", label: "Workspace", icon: FileText, shortcut: getKeybindingShortcut(keybindings, "workspace") },
+    { id: "graph", label: "Graph View", icon: Network, shortcut: getKeybindingShortcut(keybindings, "graph") },
+    { id: "history", label: "History", icon: History, shortcut: getKeybindingShortcut(keybindings, "history") },
+    { id: "sessions", label: "Sessions", icon: Calendar, shortcut: "⌘7" },
+    { id: "analytics", label: "Analytics", icon: BarChart3, shortcut: "⌘6" },
+    { id: "settings", label: "Settings", icon: Settings, shortcut: getKeybindingShortcut(keybindings, "settings") },
+    ...(process.env.NODE_ENV === 'development' ? [
+      { id: "debug-hotkeys", label: "Debug Hotkeys", icon: Bug, shortcut: getKeybindingShortcut(keybindings, "debug-hotkeys") }
+    ] : []),
   ]
 
-  const settingsActions = [
-    { id: "settings-providers", label: "AI Providers Settings", icon: Bot, shortcut: getKeybindingShortcut(keybindings, "settings-providers") },
-    { id: "settings-models", label: "Models Settings", icon: Cpu, shortcut: getKeybindingShortcut(keybindings, "settings-models") },
-    { id: "settings-chat", label: "Chat Settings", icon: MessageSquare, shortcut: getKeybindingShortcut(keybindings, "settings-chat") },
+  // Quick actions
+  const actionCommands: Command[] = [
+    { id: "toggle-dark-mode", label: "Toggle Dark Mode", icon: isDark ? Sun : Moon, shortcut: getKeybindingShortcut(keybindings, "toggle-dark-mode") },
+    { id: "command-palette", label: "Command Palette", icon: Search, shortcut: getKeybindingShortcut(keybindings, "command-palette") },
+    { id: "new-document", label: "New Document", icon: Plus, shortcut: getKeybindingShortcut(keybindings, "new-document") },
+    { id: "upload-pdf", label: "Upload PDF", icon: Upload, shortcut: getKeybindingShortcut(keybindings, "upload-pdf") },
+    { id: "open-file", label: "Open File", icon: File, shortcut: getKeybindingShortcut(keybindings, "open-file") },
+    { id: "open-folder", label: "Open Folder", icon: FolderOpen, shortcut: getKeybindingShortcut(keybindings, "open-folder") },
+  ]
+
+  // Settings commands  
+  const settingsCommands: Command[] = [
     { id: "settings-theme", label: "Theme Settings", icon: Palette, shortcut: getKeybindingShortcut(keybindings, "settings-theme") },
-    { id: "settings-keybindings", label: "Keybindings Settings", icon: Keyboard, shortcut: getKeybindingShortcut(keybindings, "settings-keybindings") },
+    { id: "settings-keybindings", label: "Keybindings", icon: Keyboard, shortcut: getKeybindingShortcut(keybindings, "settings-keybindings") },
+    { id: "settings-help", label: "Help & Support", icon: HelpCircle, shortcut: getKeybindingShortcut(keybindings, "settings-help") },
+    { id: "settings-export", label: "Export Data", icon: Download, shortcut: getKeybindingShortcut(keybindings, "settings-export") },
   ]
 
-  const navigationActions = [
-    { id: "library", label: "Library", shortcut: getKeybindingShortcut(keybindings, "library") },
-    { id: "graph", label: "Graph View", shortcut: getKeybindingShortcut(keybindings, "graph") },
-    { id: "workspace", label: "Workspace", shortcut: getKeybindingShortcut(keybindings, "workspace") },
-    { id: "history", label: "History", shortcut: getKeybindingShortcut(keybindings, "history") },
-  ]
+  // All commands
+  const allCommands = [...navigationCommands, ...actionCommands, ...settingsCommands]
 
-  // Get current base theme for comparison
-  const getBaseTheme = (fullTheme: string): string => {
-    if (fullTheme?.startsWith("dark-")) {
-      return fullTheme.slice(5)
-    }
-    if (fullTheme?.startsWith("light-")) {
-      return fullTheme.slice(6)
-    }
-    if (fullTheme === "light") return "default"
-    if (fullTheme === "dark") return "default"
-    return fullTheme || "teal"
-  }
+  // Filter commands based on search
+  const filteredCommands = search 
+    ? allCommands.filter(command => 
+        command.label.toLowerCase().includes(search.toLowerCase())
+      )
+    : allCommands
 
-  // Check if current theme is dark
-  const isDarkTheme = (fullTheme: string): boolean => {
-    return fullTheme?.startsWith("dark-") || 
-           fullTheme === "dark" || 
-           ["space", "aurora", "starfield"].includes(fullTheme)
-  }
+  const runCommand = React.useCallback((command: Command) => {
+    setShowCommandPalette(false)
+    setSearch("")
 
-  // Toggle between light and dark variants of current theme
-  const toggleCurrentTheme = () => {
-    const baseTheme = getBaseTheme(theme)
-    const isCurrentlyDark = isDarkTheme(theme)
-    
-    // Theme mapping for light/dark variants
-    const themeVariantMap: Record<string, { light: string; dark: string }> = {
-      default: { light: "light", dark: "dark" },
-      teal: { light: "light-teal", dark: "dark-teal" },
-      rose: { light: "rose", dark: "dark-rose" },
-      "solar-flare": { light: "solar-flare", dark: "dark-solar-flare" },
-      space: { light: "light-space", dark: "space" },
-      aurora: { light: "light-aurora", dark: "aurora" },
-      starfield: { light: "light-starfield", dark: "starfield" },
-      cosmos: { light: "cosmos", dark: "dark-cosmos" },
-      nebula: { light: "nebula", dark: "dark-nebula" },
-      "starry-night": { light: "starry-night", dark: "dark-starry-night" },
-      infinity: { light: "infinity", dark: "dark-infinity" },
-      pluto: { light: "pluto", dark: "dark-pluto" },
-      "t3-chat": { light: "t3-chat", dark: "dark-t3-chat" }
-    }
-    
-    const variants = themeVariantMap[baseTheme]
-    if (variants) {
-      const newTheme = isCurrentlyDark ? variants.light : variants.dark
-      setTheme(newTheme as any)
-    }
-  }
-
-  const currentBaseTheme = getBaseTheme(theme)
-
-  const handleSelect = (value: string) => {
-    // Handle quick actions
-    const action = quickActions.find(a => a.id === value)
-    if (action) {
-      switch (action.id) {
-        case "graph":
-          setCurrentView("graph")
-          break
-        case "library":
-          setCurrentView("library")
-          break
-        case "workspace":
-          setCurrentView("workspace")
-          break
-        case "history":
-          setCurrentView("history")
-          break
-        case "focus":
-          setFocusMode(true)
-          setCurrentView("focus")
-          break
-        case "import":
-          // Simulate file import
-          console.log("Import file")
-          break
-        case "new-note":
-          setEditingNoteId(null) // null indicates new note
-          setCurrentView("note-editor")
-          break
-        case "flashcards":
-          console.log("Create flashcards")
-          break
-        case "chat":
-          setShowFloatingChat(true)
-          break
-        case "toggle-theme":
-          toggleCurrentTheme()
-          break
-      }
+    // Handle navigation commands
+    if (navigationCommands.some(nav => nav.id === command.id)) {
+      setCurrentView(command.id as any)
+      return
     }
 
-    // Handle settings actions
-    const settingsAction = settingsActions.find(a => a.id === value)
-    if (settingsAction) {
-      switch (settingsAction.id) {
-        case "settings-providers":
-          setSettingsTab("providers")
-          setCurrentView("settings")
-          break
-        case "settings-models":
-          setSettingsTab("models")
-          setCurrentView("settings")
-          break
-        case "settings-chat":
-          setSettingsTab("chat")
-          setCurrentView("settings")
-          break
-        case "settings-theme":
-          setSettingsTab("appearance")
-          setCurrentView("settings")
-          break
-        case "settings-keybindings":
-          setSettingsTab("keybindings")
-          setCurrentView("settings")
-          break
-      }
+    // Handle action commands
+    switch (command.id) {
+      case "toggle-dark-mode":
+        ThemeManager.toggleDarkMode(theme, setTheme)
+        break
+      case "command-palette":
+        setShowCommandPalette(true)
+        break
+      case "new-document":
+        // Handle new document
+        break
+      case "upload-pdf":
+        // Handle PDF upload
+        break
+      case "open-file":
+        // Handle open file
+        break
+      case "open-folder":
+        // Handle open folder
+        break
     }
 
-    // Handle navigation actions
-    const navAction = navigationActions.find(a => a.id === value)
-    if (navAction) {
-      setCurrentView(navAction.id as any)
+    // Handle settings commands
+    switch (command.id) {
+      case "settings-theme":
+        setCurrentView("settings")
+        // Could add specific settings panel navigation here
+        break
+      case "settings-keybindings":
+        setCurrentView("settings")
+        break
+      case "settings-help":
+        setCurrentView("settings")
+        break
+      case "settings-export":
+        // Handle export
+        break
     }
 
     // Handle theme changes (base themes only)
-    const selectedTheme = themes.find(t => `theme-${t.name}` === value)
+    const selectedTheme = themes.find(t => `theme-${t.name}` === command.id)
     if (selectedTheme) {
-      // Apply the current dark/light preference to the new theme
-      const isCurrentlyDark = isDarkTheme(theme)
-      
-      // Skip system theme for this logic
-      if (selectedTheme.name === 'system') {
-        setTheme('system' as any)
-      } else {
-        // Apply current light/dark preference to new theme
-        const themeVariantMap: Record<string, { light: string; dark: string }> = {
-          default: { light: "light", dark: "dark" },
-          teal: { light: "light-teal", dark: "dark-teal" },
-          rose: { light: "rose", dark: "dark-rose" },
-          "solar-flare": { light: "solar-flare", dark: "dark-solar-flare" },
-          space: { light: "light-space", dark: "space" },
-          aurora: { light: "light-aurora", dark: "aurora" },
-          starfield: { light: "light-starfield", dark: "starfield" },
-          cosmos: { light: "cosmos", dark: "dark-cosmos" },
-          nebula: { light: "nebula", dark: "dark-nebula" },
-          "starry-night": { light: "starry-night", dark: "dark-starry-night" },
-          infinity: { light: "infinity", dark: "dark-infinity" },
-          pluto: { light: "pluto", dark: "dark-pluto" },
-          "t3-chat": { light: "t3-chat", dark: "dark-t3-chat" }
-        }
-        
-        const variants = themeVariantMap[selectedTheme.name]
-        if (variants) {
-          const newTheme = isCurrentlyDark ? variants.dark : variants.light
-          setTheme(newTheme as any)
-        } else {
-          setTheme(selectedTheme.name as any)
-        }
-      }
+      ThemeManager.applyThemeWithPreference(selectedTheme.name, theme, setTheme)
     }
-
-    // Handle file selections
-    if (recentFiles.includes(value)) {
-      setCurrentView("focus")
-      console.log("Open file:", value)
-    }
-
-    setShowCommandPalette(false)
-  }
+  }, [setCurrentView, theme, setTheme, setShowCommandPalette])
 
   return (
-    <CommandDialog 
-      open={showCommandPalette} 
-      onOpenChange={setShowCommandPalette}
-      title="Command Palette"
-      description="Search for commands, files, and actions..."
-    >
-      <CommandInput placeholder="Search or type a command..." />
-      <CommandList>
-        <CommandEmpty>No results found.</CommandEmpty>
-        
-        <CommandGroup heading="Quick Actions">
-          {quickActions.map((action) => (
-            <CommandItem 
-              key={action.id} 
-              value={action.id}
-              onSelect={handleSelect}
-            >
-              <action.icon className="mr-2 h-4 w-4" />
-              <span>{action.label}</span>
-              <CommandShortcut>{action.shortcut}</CommandShortcut>
-            </CommandItem>
-          ))}
-        </CommandGroup>
-        
-        <CommandSeparator />
-        
-        <CommandGroup heading="Themes">
-          {themes.map((themeOption) => {
-            const ThemeIcon = themeOption.icon
-            const isActive = currentBaseTheme === themeOption.name
-            return (
-              <CommandItem 
-                key={`theme-${themeOption.name}`} 
-                value={`theme-${themeOption.name}`}
-                onSelect={handleSelect}
-              >
-                <ThemeIcon className="mr-2 h-4 w-4" />
-                <div className="flex flex-col">
-                  <span>{themeOption.label}</span>
-                  <span className="text-xs text-muted-foreground">{themeOption.description}</span>
-                </div>
-                {isActive && (
-                  <div 
-                    className="ml-auto h-2 w-2 rounded-full"
-                    style={{ backgroundColor: themeOption.activeColor }}
-                  />
-                )}
-              </CommandItem>
-            )
-          })}
-        </CommandGroup>
-        
-        <CommandSeparator />
-        
-        <CommandGroup heading="Settings">
-          {settingsActions.map((action) => (
-            <CommandItem 
-              key={action.id} 
-              value={action.id}
-              onSelect={handleSelect}
-            >
-              <action.icon className="mr-2 h-4 w-4" />
-              <span>{action.label}</span>
-              <CommandShortcut>{action.shortcut}</CommandShortcut>
-            </CommandItem>
-          ))}
-        </CommandGroup>
-        
-        <CommandSeparator />
-        
-        <CommandGroup heading="Navigation">
-          {navigationActions.map((action) => (
-            <CommandItem 
-              key={action.id} 
-              value={action.id}
-              onSelect={handleSelect}
-            >
-              <span>{action.label}</span>
-              <CommandShortcut>{action.shortcut}</CommandShortcut>
-            </CommandItem>
-          ))}
-        </CommandGroup>
-        
-        <CommandSeparator />
-        
-        <CommandGroup heading="Recent Files">
-          {recentFiles.map((file) => (
-            <CommandItem 
-              key={file}
-              value={file}
-              onSelect={handleSelect}
-            >
-              <FileText className="mr-2 h-4 w-4" />
-              <span>{file}</span>
-              <CommandShortcut>
-                <Clock className="h-3 w-3" />
-              </CommandShortcut>
-            </CommandItem>
-          ))}
-        </CommandGroup>
-      </CommandList>
-    </CommandDialog>
+    <>
+      <Button
+        variant="outline"
+        className="relative w-full justify-start text-sm text-muted-foreground sm:pr-12 md:w-40 lg:w-64"
+        onClick={() => setShowCommandPalette(true)}
+      >
+        <Search className="mr-2 h-4 w-4" />
+        Search...
+        <kbd className="pointer-events-none absolute right-1.5 top-1.5 hidden h-5 select-none items-center gap-1 rounded border bg-muted px-1.5 font-mono text-[10px] font-medium opacity-100 sm:flex">
+          <span className="text-xs">⌘</span>K
+        </kbd>
+      </Button>
+      <CommandDialog open={showCommandPalette} onOpenChange={setShowCommandPalette}>
+        <CommandInput 
+          placeholder="Type a command or search..." 
+          value={search}
+          onValueChange={setSearch}
+        />
+        <CommandList>
+          <CommandEmpty>No results found.</CommandEmpty>
+          
+          <CommandGroup heading="Navigation">
+            {navigationCommands.filter(cmd => 
+              !search || cmd.label.toLowerCase().includes(search.toLowerCase())
+            ).map((command) => {
+              const Icon = command.icon
+              const isActive = currentView === command.id
+              return (
+                <CommandItem
+                  key={command.id}
+                  value={command.id}
+                  onSelect={() => runCommand(command)}
+                >
+                  <Icon className="mr-2 h-4 w-4" />
+                  <div className="flex flex-col">
+                    <span>{command.label}</span>
+                  </div>
+                  {command.shortcut && (
+                    <div className="ml-auto text-xs text-muted-foreground">
+                      {command.shortcut}
+                    </div>
+                  )}
+                  {isActive && (
+                    <div className="ml-2 h-2 w-2 rounded-full bg-primary" />
+                  )}
+                </CommandItem>
+              )
+            })}
+          </CommandGroup>
+
+          <CommandGroup heading="Themes">
+            {themes.map((themeOption) => {
+              const ThemeIcon = themeOption.icon
+              const isActive = baseTheme === themeOption.name
+              return (
+                <CommandItem
+                  key={`theme-${themeOption.name}`}
+                  value={`theme-${themeOption.name}`}
+                  onSelect={() => runCommand({ id: `theme-${themeOption.name}`, label: themeOption.label, icon: ThemeIcon })}
+                >
+                  <ThemeIcon className="mr-2 h-4 w-4" />
+                  <div className="flex flex-col">
+                    <span>{themeOption.label}</span>
+                    <span className="text-xs text-muted-foreground">{themeOption.description}</span>
+                  </div>
+                  {isActive && (
+                    <div 
+                      className="ml-auto h-2 w-2 rounded-full" 
+                      style={{ backgroundColor: themeOption.activeColor }}
+                    />
+                  )}
+                </CommandItem>
+              )
+            })}
+          </CommandGroup>
+
+          <CommandGroup heading="Actions">
+            {actionCommands.filter(cmd => 
+              !search || cmd.label.toLowerCase().includes(search.toLowerCase())
+            ).map((command) => {
+              const Icon = command.icon
+              return (
+                <CommandItem
+                  key={command.id}
+                  value={command.id}
+                  onSelect={() => runCommand(command)}
+                >
+                  <Icon className="mr-2 h-4 w-4" />
+                  <span>{command.label}</span>
+                  {command.shortcut && (
+                    <div className="ml-auto text-xs text-muted-foreground">
+                      {command.shortcut}
+                    </div>
+                  )}
+                </CommandItem>
+              )
+            })}
+          </CommandGroup>
+
+          <CommandGroup heading="Settings">
+            {settingsCommands.filter(cmd => 
+              !search || cmd.label.toLowerCase().includes(search.toLowerCase())
+            ).map((command) => {
+              const Icon = command.icon
+              return (
+                <CommandItem
+                  key={command.id}
+                  value={command.id}
+                  onSelect={() => runCommand(command)}
+                >
+                  <Icon className="mr-2 h-4 w-4" />
+                  <span>{command.label}</span>
+                  {command.shortcut && (
+                    <div className="ml-auto text-xs text-muted-foreground">
+                      {command.shortcut}
+                    </div>
+                  )}
+                </CommandItem>
+              )
+            })}
+          </CommandGroup>
+        </CommandList>
+      </CommandDialog>
+    </>
   )
 }
