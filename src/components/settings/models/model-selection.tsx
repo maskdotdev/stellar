@@ -15,11 +15,7 @@ import { Button } from "@/components/ui/button"
 import { Check, ChevronsUpDown } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-interface ModelSelectionProps {
-  showEnabledOnly?: boolean
-}
-
-export function ModelSelection({ showEnabledOnly = false }: ModelSelectionProps) {
+export function ModelSelection() {
   const {
     providers,
     activeProviderId,
@@ -36,8 +32,8 @@ export function ModelSelection({ showEnabledOnly = false }: ModelSelectionProps)
   const activeProvider = getActiveProvider()
   const activeModel = getActiveModel()
 
-  // Filter providers based on enabled status
-  const filteredProviders = providers.filter(p => showEnabledOnly ? p.enabled : true)
+  // Show all providers in the model selection
+  const filteredProviders = providers
 
   return (
     <div className="space-y-4">
@@ -132,7 +128,7 @@ export function ModelSelection({ showEnabledOnly = false }: ModelSelectionProps)
                         <span>{model.name}</span>
                         {model.capabilities.map(cap => (
                           <span key={cap} className="ml-1">
-                            {getCapabilityIcon(cap)}
+                            {getCapabilityIcon(cap, "sm")}
                           </span>
                         ))}
                       </div>
@@ -174,7 +170,7 @@ export function ModelSelection({ showEnabledOnly = false }: ModelSelectionProps)
               <div className="flex flex-wrap gap-1 mt-1">
                 {activeModel.capabilities.map((cap) => (
                   <Badge key={cap} variant="secondary" className="text-xs flex items-center gap-1">
-                    {getCapabilityIcon(cap)}
+                    {getCapabilityIcon(cap, "sm")}
                     {cap}
                   </Badge>
                 ))}

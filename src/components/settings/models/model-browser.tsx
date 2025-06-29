@@ -21,188 +21,30 @@ import {
   MessageSquare,
   Star,
   Eye,
-  Brain,
   Code,
+  Brain,
   FileText,
-  Image,
+  Sparkles,
+  Type,
+  Expand,
+  DollarSign,
 } from "lucide-react";
 import { useAIStore } from "@/lib/ai-store";
 import { useToast } from "@/hooks/use-toast";
-import { getFilteredModels, filterProviders } from "./utils";
+import { getFilteredModels, filterProviders, getCapabilityIcon, getCapabilityTooltip } from "./utils";
 import { ProviderLogo } from "./provider-logos";
 import { cn } from "@/lib/utils";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 
-// Provider brand colors
-const getProviderBrandColor = (providerId: string, providerName: string) => {
-  const id = providerId.toLowerCase();
-  const name = providerName.toLowerCase();
 
-  // OpenAI - Dark green/black
-  if (id.includes("openai") || name.includes("openai")) {
-    return "bg-gray-900";
-  }
 
-  // Anthropic - Orange/coral
-  if (
-    id.includes("anthropic") ||
-    name.includes("anthropic") ||
-    name.includes("claude")
-  ) {
-    return "bg-orange-600";
-  }
-
-  // Google - Blue (Google brand blue)
-  if (
-    id.includes("google") ||
-    name.includes("google") ||
-    name.includes("gemini")
-  ) {
-    return "bg-blue-600";
-  }
-
-  // Meta - Blue (Facebook blue)
-  if (id.includes("meta") || name.includes("meta") || name.includes("llama")) {
-    return "bg-blue-700";
-  }
-
-  // Microsoft/Azure - Blue (Microsoft blue)
-  if (
-    id.includes("azure") ||
-    name.includes("azure") ||
-    id.includes("microsoft") ||
-    name.includes("microsoft")
-  ) {
-    return "bg-blue-500";
-  }
-
-  // Mistral - Orange (Mistral brand color)
-  if (id.includes("mistral") || name.includes("mistral")) {
-    return "bg-orange-500";
-  }
-
-  // HuggingFace - Yellow
-  if (id.includes("huggingface") || name.includes("hugging")) {
-    return "bg-yellow-500";
-  }
-
-  // Cohere - Purple/blue
-  if (id.includes("cohere") || name.includes("cohere")) {
-    return "bg-indigo-600";
-  }
-
-  // Amazon/AWS - Orange
-  if (
-    id.includes("aws") ||
-    name.includes("aws") ||
-    id.includes("amazon") ||
-    name.includes("amazon")
-  ) {
-    return "bg-orange-600";
-  }
-
-  // Ollama - Green
-  if (id.includes("ollama") || name.includes("ollama")) {
-    return "bg-green-600";
-  }
-
-  // Groq - Purple/pink
-  if (id.includes("groq") || name.includes("groq")) {
-    return "bg-purple-600";
-  }
-
-  // X/Grok - Black (X brand color)
-  if (
-    id.includes("grok") ||
-    name.includes("grok") ||
-    id.includes("xai") ||
-    name.includes("x.ai")
-  ) {
-    return "bg-gray-900";
-  }
-
-  // Vercel - Black
-  if (id.includes("vercel") || name.includes("vercel")) {
-    return "bg-gray-900";
-  }
-
-  // GitHub - Dark gray/black
-  if (
-    id.includes("github") ||
-    name.includes("github") ||
-    name.includes("copilot")
-  ) {
-    return "bg-gray-800";
-  }
-
-  // Stability AI - Purple
-  if (id.includes("stability") || name.includes("stability")) {
-    return "bg-purple-700";
-  }
-
-  // Together - Blue
-  if (id.includes("together") || name.includes("together")) {
-    return "bg-blue-600";
-  }
-
-  // Replicate - Black
-  if (id.includes("replicate") || name.includes("replicate")) {
-    return "bg-gray-900";
-  }
-
-  // Perplexity - Blue/teal
-  if (id.includes("perplexity") || name.includes("perplexity")) {
-    return "bg-teal-600";
-  }
-
-  // Default fallback - neutral gray
-  return "bg-gray-600";
-};
-
-const getCapabilityIcon = (capability: string) => {
-  switch (capability) {
-    case "vision":
-      return <Eye className="h-5 w-5 text-green-400" />;
-    case "code":
-      return <Code className="h-5 w-5 text-purple-400" />;
-    case "reasoning":
-      return <Brain className="h-5 w-5 text-pink-400" />;
-    case "text":
-      return <FileText className="h-5 w-5 text-blue-400" />;
-    case "image":
-      return <Image className="h-5 w-5 text-orange-400" />;
-    default:
-      return <FileText className="h-5 w-5 text-blue-400" />;
-  }
-};
-
-const getCapabilityTooltip = (capability: string) => {
-  switch (capability) {
-    case "vision":
-      return "Can analyze and understand images";
-    case "code":
-      return "Specialized for code generation and analysis";
-    case "reasoning":
-      return "Advanced reasoning and problem-solving";
-    case "text":
-      return "Text generation and understanding";
-    case "image":
-      return "Image generation capabilities";
-    default:
-      return "Text processing capabilities";
-  }
-};
 
 const formatModelNumber = (index: number) => {
   return `#${String(index + 1).padStart(3, "0")}`;
 };
 
-interface ModelBrowserProps {
-  showEnabledOnly?: boolean
-}
-
-export function ModelBrowser({ showEnabledOnly = false }: ModelBrowserProps) {
+export function ModelBrowser() {
   const {
     providers,
     setActiveProvider,
@@ -216,6 +58,7 @@ export function ModelBrowser({ showEnabledOnly = false }: ModelBrowserProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCapability, setSelectedCapability] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("name");
+  const [showEnabledOnly, setShowEnabledOnly] = useState(false);
 
   const { toast } = useToast();
 
@@ -278,44 +121,101 @@ export function ModelBrowser({ showEnabledOnly = false }: ModelBrowserProps) {
   return (
     <div className="space-y-6">
       {/* Search and Filter Controls */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center rounded-lg">
-        <div className="flex-1">
-          <div className="relative">
-            <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search models... "
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 bg-card border-2 border-muted"
-            />
+      <div className="space-y-3 rounded-lg">
+        {/* Search input and selects in same row */}
+        <div className="flex flex-col gap-4 md:flex-row md:items-center">
+          <div className="flex-1">
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search models... "
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-8 bg-card border-2 border-muted"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2 items-center">
+            <Select
+              value={selectedCapability}
+              onValueChange={setSelectedCapability}
+            >
+              <SelectTrigger className="w-[140px] bg-card border-2 border-muted">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    All Types
+                  </div>
+                </SelectItem>
+                <SelectItem value="text">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-4 w-4" />
+                    Text Only
+                  </div>
+                </SelectItem>
+                <SelectItem value="vision">
+                  <div className="flex items-center gap-2">
+                    <Eye className="h-4 w-4" />
+                    Vision
+                  </div>
+                </SelectItem>
+                <SelectItem value="code">
+                  <div className="flex items-center gap-2">
+                    <Code className="h-4 w-4" />
+                    Code
+                  </div>
+                </SelectItem>
+                <SelectItem value="reasoning">
+                  <div className="flex items-center gap-2">
+                    <Brain className="h-4 w-4" />
+                    Reasoning
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+            <Select value={sortBy} onValueChange={setSortBy}>
+              <SelectTrigger className="w-[120px] bg-card border-2 border-muted">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="name">
+                  <div className="flex items-center gap-2">
+                    <Type className="h-4 w-4" />
+                    Name
+                  </div>
+                </SelectItem>
+                <SelectItem value="contextWindow">
+                  <div className="flex items-center gap-2">
+                    <Expand className="h-4 w-4" />
+                    Context Size
+                  </div>
+                </SelectItem>
+                <SelectItem value="cost">
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="h-4 w-4" />
+                    Cost
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </div>
-        <div className="flex gap-2 items-center">
-          <Select
-            value={selectedCapability}
-            onValueChange={setSelectedCapability}
-          >
-            <SelectTrigger className="w-[140px] bg-card border-2 border-muted">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">🌟 All Types</SelectItem>
-              <SelectItem value="text">💬 Text Only</SelectItem>
-              <SelectItem value="vision">👁️ Vision</SelectItem>
-              <SelectItem value="code">💻 Code</SelectItem>
-              <SelectItem value="reasoning">🧠 Reasoning</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select value={sortBy} onValueChange={setSortBy}>
-            <SelectTrigger className="w-[120px] bg-card border-2 border-muted">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="name">📝 Name</SelectItem>
-              <SelectItem value="contextWindow">📏 Context Size</SelectItem>
-              <SelectItem value="cost">💰 Cost</SelectItem>
-            </SelectContent>
-          </Select>
+        
+        {/* Switch pushed to the right */}
+        <div className="flex justify-end">
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="enabled-providers-only"
+              checked={showEnabledOnly}
+              onCheckedChange={setShowEnabledOnly}
+            />
+            <Label htmlFor="enabled-providers-only" className="text-sm font-medium">
+              Show enabled providers only
+            </Label>
+          </div>
         </div>
       </div>
 
@@ -350,10 +250,6 @@ export function ModelBrowser({ showEnabledOnly = false }: ModelBrowserProps) {
             const isActive =
               activeProviderId === model.providerId &&
               activeModelId === model.id;
-            const brandColor = getProviderBrandColor(
-              model.providerId,
-              model.providerName
-            );
 
             return (
               <Card
@@ -371,14 +267,14 @@ export function ModelBrowser({ showEnabledOnly = false }: ModelBrowserProps) {
                   {!model.providerEnabled ? (
                     <Badge
                       variant="destructive"
-                      className="text-xs font-mono bg-red-100 text-red-700 "
+                      className="text-xs font-mono bg-rose-100/80 text-rose-500"
                     >
                       Disabled
                     </Badge>
                   ) : (
                     <Badge
                       variant="secondary"
-                      className="text-xs font-mono bg-green-100 text-green-700"
+                      className="text-xs font-mono bg-green-100/80 text-green-500"
                     >
                       Enabled
                     </Badge>

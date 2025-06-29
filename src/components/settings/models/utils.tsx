@@ -1,15 +1,42 @@
 import React from "react"
-import { Eye, Code, Brain } from "lucide-react"
+import { Eye, Code, Brain, Image, FileText } from "lucide-react"
 
-export const getCapabilityIcon = (capability: string) => {
+export const getCapabilityIcon = (capability: string, size: "sm" | "md" = "md") => {
+  const iconSize = size === "sm" ? "h-3 w-3" : "h-5 w-5";
+  const containerStyle = size === "sm" ? "rounded p-0.5" : "rounded-md p-1";
+  
   switch (capability) {
-    case "text": return <span className="text-blue-500">T</span>
-    case "vision": return <Eye className="h-3 w-3 text-green-500" />
-    case "code": return <Code className="h-3 w-3 text-purple-500" />
-    case "reasoning": return <Brain className="h-3 w-3 text-orange-500" />
-    default: return null
+    case "vision":
+      return <span className={`${containerStyle} bg-green-100/80 text-green-500`}><Eye className={iconSize} /></span>;
+    case "code":
+      return <span className={`${containerStyle} bg-purple-100/80 text-purple-500`}><Code className={iconSize} /></span>;
+    case "reasoning":
+      return <span className={`${containerStyle} bg-pink-100/80 text-pink-500`}><Brain className={iconSize} /></span>;
+    case "text":
+      return <span className={`${containerStyle} bg-blue-100/80 text-blue-500`}><FileText className={iconSize} /></span>;
+    case "image":
+      return <span className={`${containerStyle} bg-orange-100/80 text-orange-500`}><Image className={iconSize} /></span>;
+    default:
+      return <span className={`${containerStyle} bg-blue-100/80 text-blue-500`}><FileText className={iconSize} /></span>;
   }
-}
+};
+
+export const getCapabilityTooltip = (capability: string) => {
+  switch (capability) {
+    case "vision":
+      return "Can analyze and understand images";
+    case "code":
+      return "Specialized for code generation and analysis";
+    case "reasoning":
+      return "Advanced reasoning and problem-solving";
+    case "text":
+      return "Text generation and understanding";
+    case "image":
+      return "Image generation capabilities";
+    default:
+      return "Text processing capabilities";
+  }
+};
 
 export const getFilteredModels = (provider: any, searchQuery: string, selectedCapability: string, sortBy: string) => {
   return provider.models.filter((model: any) => {

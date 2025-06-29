@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { RefreshCw, Download, Search, FileDown, Globe } from "lucide-react"
+import { RefreshCw, Download, Search, FileDown, Globe, Database } from "lucide-react"
 import { useAIStore } from "@/lib/ai-store"
 import { useToast } from "@/hooks/use-toast"
 import { getCapabilityIcon } from "./utils"
@@ -188,7 +188,16 @@ export function CatalogManagement() {
             </div>
           </div>
           
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
+            <Button 
+              variant="default" 
+              size="sm"
+              onClick={() => handleBuildCatalog(false)}
+              disabled={isLoading || catalogState.isBuilding}
+            >
+              <Database className="h-3 w-3 mr-1" />
+              Build Catalog
+            </Button>
             <Button 
               variant="outline" 
               size="sm"
@@ -327,7 +336,7 @@ export function CatalogManagement() {
                           <div className="flex gap-1">
                             {model.capabilities.map((cap: any) => (
                               <span key={cap}>
-                                {getCapabilityIcon(cap)}
+                                {getCapabilityIcon(cap, "sm")}
                               </span>
                             ))}
                           </div>
