@@ -4,7 +4,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { useState } from "react"
 import { Keyboard, Edit3, RotateCcw } from "lucide-react"
@@ -61,7 +60,35 @@ export function KeybindingsSettings() {
       }
     }
     
-    setEditingKeys(keys.join(""))
+    setEditingKeys(keys.join("+"))
+  }
+
+  // Helper function to format keybinding display with plus signs
+  const formatKeybinding = (keys: string): string => {
+    // If it already has plus signs, return as is
+    if (keys.includes('+')) return keys
+    
+    // Split common modifier combinations and add plus signs
+    const modifiers = ['⌘', 'Ctrl', 'Alt', '⇧']
+    let result = keys
+    
+    // Add plus signs between modifiers and the main key
+    modifiers.forEach(modifier => {
+      if (result.includes(modifier) && result.length > modifier.length) {
+        const index = result.indexOf(modifier)
+        const afterModifier = result.substring(index + modifier.length)
+        if (afterModifier && !afterModifier.startsWith('+')) {
+          result = result.substring(0, index + modifier.length) + '+' + afterModifier
+        }
+      }
+    })
+    
+    // Handle comma-separated combinations like "⌘,P"
+    if (result.includes(',')) {
+      result = result.replace(',', '+')
+    }
+    
+    return result
   }
 
   return (
@@ -135,7 +162,7 @@ export function KeybindingsSettings() {
                             variant="secondary" 
                             className="font-mono min-w-[60px] justify-center"
                           >
-                            {keybinding.currentKeys}
+                            {formatKeybinding(keybinding.currentKeys)}
                           </Badge>
                           <Button
                             size="sm"

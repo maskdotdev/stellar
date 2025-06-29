@@ -5,70 +5,23 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator"
 import { ThemeSwitcher, themes } from "@/components/theme-switcher"
 import { useTheme } from "@/components/theme-provider"
+import { ThemeManager } from "@/lib/theme-config"
 import { useState, useEffect } from "react"
 
 export function AppearanceSettings() {
   const { theme, setTheme } = useTheme()
   const [darkMode, setDarkMode] = useState(false)
 
-  // Extract base theme name (remove dark-/light- prefix if present)
-  const getBaseTheme = (fullTheme: string): string => {
-    if (fullTheme?.startsWith("dark-")) {
-      return fullTheme.slice(5)
-    }
-    if (fullTheme?.startsWith("light-")) {
-      return fullTheme.slice(6)
-    }
-    if (fullTheme === "light") return "default"
-    if (fullTheme === "dark") return "default"
-    return fullTheme || "teal"
-  }
-
-  // Check if current theme is dark variant
-  const isDarkTheme = (fullTheme: string): boolean => {
-    return fullTheme?.startsWith("dark-") || 
-           fullTheme === "dark" || 
-           fullTheme === "system" ||
-           // These themes are inherently dark (default to dark variant)
-           ["space", "aurora", "starfield"].includes(fullTheme)
-  }
-
-  const baseTheme = getBaseTheme(theme)
+  const { baseTheme, isDark } = ThemeManager.getThemeDisplayInfo(theme)
 
   // Update dark mode state when theme changes
   useEffect(() => {
-    setDarkMode(isDarkTheme(theme))
-  }, [theme])
+    setDarkMode(isDark)
+  }, [isDark])
 
   const handleDarkModeToggle = (checked: boolean) => {
     setDarkMode(checked)
-    
-    if (baseTheme === "system") {
-      // Keep system theme as is
-      return
-    }
-    
-    // Theme mapping for light/dark variants
-    const themeVariants: Record<string, { light: string; dark: string }> = {
-      default: { light: "light", dark: "dark" },
-      teal: { light: "light-teal", dark: "dark-teal" },
-      rose: { light: "rose", dark: "dark-rose" },
-      "solar-flare": { light: "solar-flare", dark: "dark-solar-flare" },
-      space: { light: "light-space", dark: "space" },
-      aurora: { light: "light-aurora", dark: "aurora" },
-      starfield: { light: "light-starfield", dark: "starfield" },
-      cosmos: { light: "cosmos", dark: "dark-cosmos" },
-      nebula: { light: "nebula", dark: "dark-nebula" },
-      "starry-night": { light: "starry-night", dark: "dark-starry-night" },
-      infinity: { light: "infinity", dark: "dark-infinity" },
-      pluto: { light: "pluto", dark: "dark-pluto" },
-      "t3-chat": { light: "t3-chat", dark: "dark-t3-chat" }
-    }
-
-    const variants = themeVariants[baseTheme]
-    if (variants) {
-      setTheme((checked ? variants.dark : variants.light) as any)
-    }
+    ThemeManager.setDarkModeState(theme, setTheme, checked)
   }
 
   const renderThemeGrid = () => (
@@ -81,36 +34,7 @@ export function AppearanceSettings() {
           <button
             key={themeOption.name}
             onClick={() => {
-              // If switching to system, just set it
-              if (themeOption.name === 'system') {
-                setTheme('system' as any)
-                return
-              }
-
-              // For other themes, respect current dark mode preference
-              const themeVariants: Record<string, { light: string; dark: string }> = {
-                default: { light: "light", dark: "dark" },
-                teal: { light: "light-teal", dark: "dark-teal" },
-                rose: { light: "rose", dark: "dark-rose" },
-                "solar-flare": { light: "solar-flare", dark: "dark-solar-flare" },
-                space: { light: "light-space", dark: "space" },
-                aurora: { light: "light-aurora", dark: "aurora" },
-                starfield: { light: "light-starfield", dark: "starfield" },
-                cosmos: { light: "cosmos", dark: "dark-cosmos" },
-                nebula: { light: "nebula", dark: "dark-nebula" },
-                "starry-night": { light: "starry-night", dark: "dark-starry-night" },
-                infinity: { light: "infinity", dark: "dark-infinity" },
-                pluto: { light: "pluto", dark: "dark-pluto" },
-                "t3-chat": { light: "t3-chat", dark: "dark-t3-chat" }
-              }
-
-              const variants = themeVariants[themeOption.name]
-              if (variants) {
-                const targetTheme = darkMode ? variants.dark : variants.light
-                setTheme(targetTheme as any)
-              } else {
-                setTheme(themeOption.name as any)
-              }
+              ThemeManager.applyThemeWithPreference(themeOption.name, theme, setTheme)
             }}
             className={`
               p-4 rounded-lg border transition-all hover:scale-105
