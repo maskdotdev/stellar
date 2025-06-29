@@ -44,6 +44,10 @@ export function ProvidersSettings() {
           const apiKey = await aiService.getApiKey(provider.id)
           if (apiKey) {
             updateProvider(provider.id, { apiKey: "••••••••" })
+            setActualApiKeys(prev => ({
+              ...prev,
+              [provider.id]: apiKey
+            }))
           }
         } catch (error) {
           console.error(`Failed to check API key for ${provider.name}:`, error)
@@ -300,11 +304,7 @@ export function ProvidersSettings() {
                   <Input
                     type={showApiKeys[provider.id] ? "text" : "password"}
                     placeholder={provider.apiKey ? "API key saved" : "Enter API key"}
-                    value={
-                      showApiKeys[provider.id] 
-                        ? actualApiKeys[provider.id] || ""
-                        : provider.apiKey || ""
-                    }
+                    value={actualApiKeys[provider.id] ?? ""}
                     onChange={(e) => {
                       setActualApiKeys(prev => ({
                         ...prev,
@@ -312,8 +312,17 @@ export function ProvidersSettings() {
                       }))
                     }}
                     onBlur={(e) => {
-                      if (e.target.value !== (provider.apiKey === "••••••••" ? actualApiKeys[provider.id] : provider.apiKey)) {
-                        handleUpdateApiKey(provider.id, e.target.value)
+                      const currentApiKey = e.target.value.trim()
+                      if (currentApiKey && currentApiKey !== provider.apiKey) {
+                        handleUpdateApiKey(provider.id, currentApiKey)
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        const currentApiKey = e.currentTarget.value.trim()
+                        if (currentApiKey && currentApiKey !== provider.apiKey) {
+                          handleUpdateApiKey(provider.id, currentApiKey)
+                        }
                       }
                     }}
                     disabled={loadingApiKeys[provider.id]}
@@ -324,7 +333,7 @@ export function ProvidersSettings() {
                         variant="outline"
                         size="sm"
                         onClick={() => toggleApiKeyVisibility(provider.id)}
-                        disabled={loadingApiKeys[provider.id] || !provider.apiKey}
+                        disabled={loadingApiKeys[provider.id]}
                       >
                         {loadingApiKeys[provider.id] ? (
                           <div className="w-4 h-4 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
@@ -339,8 +348,6 @@ export function ProvidersSettings() {
                       <p>
                         {loadingApiKeys[provider.id]
                           ? "Loading..."
-                          : !provider.apiKey
-                          ? "No API key saved"
                           : showApiKeys[provider.id]
                           ? "Hide API key"
                           : "Show API key"

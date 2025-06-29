@@ -9,6 +9,7 @@ import { useStudyStore } from "@/lib/study-store"
 import { LibraryService, type Document } from "@/lib/library-service"
 import { DocumentRenderer } from "@/components/library/document-renderer"
 import { TextSelectionPopover } from "./text-selection-popover"
+import { useActionsStore, ActionsService, ActionType } from "@/lib/actions-service"
 
 export function FocusPane() {
   const [splitView, setSplitView] = useState(false)
@@ -30,6 +31,10 @@ export function FocusPane() {
   } = useStudyStore()
 
   const libraryService = LibraryService.getInstance()
+  
+  // Actions tracking
+  const actionsService = ActionsService.getInstance()
+  const { currentSessionId } = useActionsStore()
 
   // Load current document
   useEffect(() => {
@@ -62,7 +67,30 @@ export function FocusPane() {
     loadDocument()
   }, [currentDocumentId, documents])
 
-  const handleTextSelection = (text: string) => {
+  const handleTextSelection = async (text: string) => {
+    // Record document highlight action
+    if (text.trim() && currentDocument) {
+      await actionsService.recordActionWithAutoContext(
+        ActionType.DOCUMENT_HIGHLIGHT,
+        {
+          documentId: currentDocument.id,
+          documentTitle: currentDocument.title,
+          documentType: currentDocument.doc_type,
+          categoryId: currentDocument.category_id || undefined
+        },
+        {
+          sessionId: currentSessionId || 'default-session',
+          documentIds: [currentDocument.id],
+          categoryIds: currentDocument.category_id ? [currentDocument.category_id] : undefined,
+          metadata: {
+            studyContext: {
+              focusMode: true
+            }
+          }
+        }
+      )
+    }
+    
     setSelectedText(text)
   }
 
@@ -161,11 +189,14 @@ Please help me understand this or answer questions about it.`
         // Update in the store
         if (updatedNote) {
           updateDocument(noteId, updatedNote)
+          
+          // Wait a moment to ensure database update is complete
+          await new Promise(resolve => setTimeout(resolve, 100))
+          
+          // Open the note for editing
+          setEditingNoteId(noteId)
+          setCurrentView("note-editor")
         }
-
-        // Open the note for editing
-        setEditingNoteId(noteId)
-        setCurrentView("note-editor")
         
         // Clear the selection
         setSelectedText("")

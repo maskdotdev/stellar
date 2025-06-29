@@ -188,3 +188,11 @@
 [data-description] {
   color: var(--color-foreground) !important;
 }
+
+/* Native Title Bar Theme Integration */
+@layer base {
+  /* Set the window background to match the current theme */
+  .titlebar {
+    background-color: hsl(var(--background));
+  }
+}

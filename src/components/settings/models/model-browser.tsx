@@ -198,7 +198,11 @@ const formatModelNumber = (index: number) => {
   return `#${String(index + 1).padStart(3, "0")}`;
 };
 
-export function ModelBrowser() {
+interface ModelBrowserProps {
+  showEnabledOnly?: boolean
+}
+
+export function ModelBrowser({ showEnabledOnly = false }: ModelBrowserProps) {
   const {
     providers,
     setActiveProvider,
@@ -212,7 +216,6 @@ export function ModelBrowser() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCapability, setSelectedCapability] = useState<string>("all");
   const [sortBy, setSortBy] = useState<string>("name");
-  const [showOnlyEnabled, setShowOnlyEnabled] = useState(false);
 
   const { toast } = useToast();
 
@@ -250,7 +253,7 @@ export function ModelBrowser() {
     providers,
     searchQuery,
     selectedCapability,
-    showOnlyEnabled
+    showEnabledOnly
   );
 
   // Flatten all models for grid display with provider context
@@ -268,14 +271,14 @@ export function ModelBrowser() {
     )
     .filter((model) => {
       // Additional filter for enabled models only
-      if (showOnlyEnabled && !model.providerEnabled) return false;
+      if (showEnabledOnly && !model.providerEnabled) return false;
       return true;
     });
 
   return (
     <div className="space-y-6">
       {/* Search and Filter Controls */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center bg-card p-4 rounded-lg">
+      <div className="flex flex-col gap-4 md:flex-row md:items-center rounded-lg">
         <div className="flex-1">
           <div className="relative">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -313,21 +316,11 @@ export function ModelBrowser() {
               <SelectItem value="cost">💰 Cost</SelectItem>
             </SelectContent>
           </Select>
-          <div className="flex items-center space-x-2">
-            <Switch
-              id="enabled-only"
-              checked={showOnlyEnabled}
-              onCheckedChange={setShowOnlyEnabled}
-            />
-            <Label htmlFor="enabled-only" className="text-xs">
-              Enabled only
-            </Label>
-          </div>
         </div>
       </div>
 
       {/* Provider Sync Controls */}
-      <div className="flex flex-wrap gap-2">
+      {/* <div className="flex flex-wrap gap-2">
         {providers.map((provider) => (
           <Button
             key={provider.id}
@@ -348,11 +341,11 @@ export function ModelBrowser() {
             {provider.enabled && <Zap className="h-3 w-3 ml-1" />}
           </Button>
         ))}
-      </div>
+      </div> */}
 
       {/* Model Grid - Pokedex Style */}
       <ScrollArea className="h-[700px]">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-1">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 p-1 pr-3">
           {allModels.map((model: any, index: number) => {
             const isActive =
               activeProviderId === model.providerId &&
@@ -371,14 +364,14 @@ export function ModelBrowser() {
                 )}
               >
                 {/* Model Number Badge */}
-                <div className="absolute top-2 left-2 z-10">
+                <div className="absolute top-2 left-2 z-10 flex gap-2">
                   <Badge variant="secondary" className="text-xs font-mono">
                     {formatModelNumber(index)}
                   </Badge>
                   {!model.providerEnabled ? (
                     <Badge
                       variant="destructive"
-                      className="text-xs font-mono bg-red-100 text-red-700"
+                      className="text-xs font-mono bg-red-100 text-red-700 "
                     >
                       Disabled
                     </Badge>
@@ -400,7 +393,7 @@ export function ModelBrowser() {
                 )}
 
                 {/* Model Brand Background */}
-                <div className={cn("h-20 relative", brandColor)}>
+                {/* <div className={cn("h-20 relative", brandColor)}>
                   <div className="absolute inset-0 bg-black/20"></div>
                   <div className="absolute bottom-2 left-2 text-white text-xs font-medium flex items-center gap-1">
                     <ProviderLogo
@@ -411,14 +404,25 @@ export function ModelBrowser() {
                     />
                     {model.providerName}
                   </div>
-                </div>
+                </div> */}
 
                 <CardContent className="p-4">
                   {/* Model Name */}
                   <h3
-                    className="font-bold text-sm mb-2 line-clamp-1"
+                    className="font-bold text-sm mb-2 "
                     title={model.name}
                   >
+                    <div className="flex items-center gap-1">
+                    <ProviderLogo
+                      providerId={model.providerId}
+                      providerName={model.providerName}
+                      size={14}
+                      className="text-white"
+                    />
+                    <span className="text-xs font-mono">
+                      {model.providerName}
+                    </span>
+                    </div>
                     {model.name}
                   </h3>
 

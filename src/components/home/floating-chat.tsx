@@ -24,6 +24,7 @@ import {
 import { useStudyStore } from "@/lib/study-store"
 import { useChat } from "@/hooks/use-chat"
 import { useAIStore } from "@/lib/ai-store"
+import { useActionsStore, ActionsService, ActionType } from "@/lib/actions-service"
 import { cn } from "@/lib/utils"
 
 interface FloatingChatProps {
@@ -47,6 +48,10 @@ export function FloatingChat({ onClose, initialText }: FloatingChatProps) {
   }, [])
   
   const { setCurrentView, documents, setDocuments, setIsLoadingDocuments } = useStudyStore()
+  
+  // Actions tracking
+  const actionsService = ActionsService.getInstance()
+  const { currentSessionId } = useActionsStore()
   
   // Load documents if not already loaded
   useEffect(() => {
@@ -79,7 +84,8 @@ export function FloatingChat({ onClose, initialText }: FloatingChatProps) {
     clearError,
     canSendMessage,
     activeProvider,
-    activeModel
+    activeModel,
+    conversationId
   } = useChat({ autoCreateConversation: true })
 
   const { setActiveConversation } = useAIStore()
@@ -131,6 +137,25 @@ export function FloatingChat({ onClose, initialText }: FloatingChatProps) {
     if (!chatInput.trim() || !canSendMessage) return
     
     const message = chatInput
+    const mentionedDocs = getMentionedDocuments()
+    
+    // Record chat message action
+    await actionsService.recordActionWithAutoContext(
+      ActionType.CHAT_MESSAGE,
+      {
+        conversationId: conversationId || 'new-conversation',
+        messageCount: messages.length + 1,
+        documentsReferenced: mentionedDocs.map(doc => doc.id),
+        categoriesReferenced: mentionedDocs.map(doc => doc.category_id).filter(Boolean),
+        aiModel: activeModel?.name,
+        provider: activeProvider?.name
+      },
+      {
+        sessionId: currentSessionId || 'default-session',
+        documentIds: mentionedDocs.map(doc => doc.id),
+        categoryIds: mentionedDocs.map(doc => doc.category_id).filter(Boolean) as string[]
+      }
+    )
     
     setChatInput("")
     await sendMessage(message)

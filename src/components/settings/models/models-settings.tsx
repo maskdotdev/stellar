@@ -2,13 +2,16 @@
 
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { RefreshCw, Download, Database } from "lucide-react"
+import { Switch } from "@/components/ui/switch"
+import { Label } from "@/components/ui/label"
+import { RefreshCw, Download, Database, Settings } from "lucide-react"
 import { useAIStore } from "@/lib/ai-store"
 import { useToast } from "@/hooks/use-toast"
 import { ModelSelection } from "./model-selection"
 import { ModelBrowser } from "./model-browser"
 import { CatalogManagement } from "./catalog-management"
 import { Statistics } from "./statistics"
+import { useState } from "react"
 
 export function ModelsSettings() {
   const {
@@ -20,6 +23,7 @@ export function ModelsSettings() {
   } = useAIStore()
 
   const { toast } = useToast()
+  const [showEnabledOnly, setShowEnabledOnly] = useState(false)
 
   const handleImportModels = async () => {
     try {
@@ -67,25 +71,38 @@ export function ModelsSettings() {
             Choose your active AI model and manage the complete models catalog
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleImportModels}
-            disabled={isLoading}
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Import Popular
-          </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => handleBuildCatalog(false)}
-            disabled={isLoading || catalogState.isBuilding}
-          >
-            <Database className="h-4 w-4 mr-2" />
-            Build Catalog
-          </Button>
+        <div className="flex items-center gap-4">
+          <div className="flex items-center space-x-2">
+            <Switch
+              id="enabled-providers-only"
+              checked={showEnabledOnly}
+              onCheckedChange={setShowEnabledOnly}
+            />
+            <Label htmlFor="enabled-providers-only" className="text-sm font-medium">
+              Show enabled providers only
+            </Label>
+          </div>
+          
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleImportModels}
+              disabled={isLoading}
+            >
+              <Download className="h-4 w-4 mr-2" />
+              Import Popular
+            </Button>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => handleBuildCatalog(false)}
+              disabled={isLoading || catalogState.isBuilding}
+            >
+              <Database className="h-4 w-4 mr-2" />
+              Build Catalog
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -104,11 +121,11 @@ export function ModelsSettings() {
         </TabsList>
 
         <TabsContent value="selection" className="space-y-4">
-          <ModelSelection />
+          <ModelSelection showEnabledOnly={showEnabledOnly} />
         </TabsContent>
 
         <TabsContent value="browse" className="space-y-4">
-          <ModelBrowser />
+          <ModelBrowser showEnabledOnly={showEnabledOnly} />
         </TabsContent>
 
         <TabsContent value="catalog" className="space-y-4">

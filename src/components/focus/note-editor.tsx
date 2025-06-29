@@ -41,7 +41,7 @@ export function NoteEditor({ documentId, onBack, categories = [], currentCategor
   )
   
   const { toast } = useToast()
-  const { addDocument, updateDocument, setEditingNoteId, setCurrentDocument, setCurrentView } = useStudyStore()
+  const { addDocument, updateDocument, setEditingNoteId, setCurrentDocument, setCurrentView, documents } = useStudyStore()
   const libraryService = LibraryService.getInstance()
 
   // Load existing document if editing
@@ -61,7 +61,28 @@ export function NoteEditor({ documentId, onBack, categories = [], currentCategor
 
       try {
         setIsLoading(true)
-        const doc = await libraryService.getDocument(documentId)
+        
+        // First, try to get from store (for recent updates)
+        const storeDocument = documents.find(doc => doc.id === documentId)
+        
+        let doc: Document | null = null
+        
+        if (storeDocument) {
+          // Use store data if available (likely more recent)
+          doc = storeDocument
+        } else {
+          // Fallback to database with retry logic for race conditions
+          let retries = 3
+          while (retries > 0 && !doc) {
+            doc = await libraryService.getDocument(documentId)
+            if (!doc && retries > 1) {
+              // Wait a bit and retry (handles race conditions)
+              await new Promise(resolve => setTimeout(resolve, 150))
+            }
+            retries--
+          }
+        }
+        
         if (doc) {
           setDocument(doc)
           setTitle(doc.title)
@@ -82,7 +103,24 @@ export function NoteEditor({ documentId, onBack, categories = [], currentCategor
     }
 
     loadDocument()
-  }, [documentId])
+  }, [documentId, currentCategoryId, toast])
+
+  // Watch for document updates in the store (e.g., when content is added from PDF viewer)
+  useEffect(() => {
+    if (documentId && document) {
+      const storeDocument = documents.find(doc => doc.id === documentId)
+      
+      // If store document has newer content than current state, update it
+      if (storeDocument && storeDocument.updated_at !== document.updated_at) {
+        console.log('Note editor: Detected document update in store, reloading content')
+        setDocument(storeDocument)
+        setTitle(storeDocument.title)
+        setContent(storeDocument.content)
+        setTags(storeDocument.tags)
+        setSelectedCategoryId(storeDocument.category_id || undefined)
+      }
+    }
+  }, [documentId, document, documents]) // Re-run when documents array changes
 
   // Auto-save functionality
   useEffect(() => {
@@ -350,7 +388,7 @@ export function NoteEditor({ documentId, onBack, categories = [], currentCategor
       </div>
 
       {/* Editor */}
-      <div className="flex-1 p-4">
+      <div className="flex-1 p-4 max-h-[calc(100vh-10rem)] overflow-y-auto">
         <ControlledSimpleEditor
           content={content}
           onChange={setContent}

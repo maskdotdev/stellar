@@ -3,6 +3,7 @@ import { useToast } from "@/hooks/use-toast"
 import { useStudyStore } from "@/lib/study-store"
 import { useSimpleSettingsStore } from "@/lib/simple-settings-store"
 import { LibraryService, type Document, type Category, type CreateCategoryRequest } from "@/lib/library-service"
+import { useActionsStore, ActionsService, ActionType } from "@/lib/actions-service"
 
 export function useLibrary() {
   const [searchQuery, setSearchQuery] = useState("")
@@ -21,6 +22,10 @@ export function useLibrary() {
   const [editingTitle, setEditingTitle] = useState("")
   
   const { toast } = useToast()
+  
+  // Actions tracking
+  const actionsService = ActionsService.getInstance()
+  const { currentSessionId } = useActionsStore()
   
   // Use persistent settings for layout preferences
   const viewMode = useSimpleSettingsStore((state) => state.libraryViewMode)
@@ -142,7 +147,23 @@ export function useLibrary() {
     navigateBackToCategories()
   }
 
-  const handleItemClick = (item: Document) => {
+  const handleItemClick = async (item: Document) => {
+    // Record document view action
+    await actionsService.recordActionWithAutoContext(
+      item.doc_type === "note" ? ActionType.NOTE_EDIT : ActionType.DOCUMENT_VIEW,
+      {
+        documentId: item.id,
+        documentTitle: item.title,
+        documentType: item.doc_type,
+        categoryId: item.category_id || undefined
+      },
+      {
+        sessionId: currentSessionId || 'default-session',
+        documentIds: [item.id],
+        categoryIds: item.category_id ? [item.category_id] : undefined
+      }
+    )
+
     if (item.doc_type === "note") {
       setEditingNoteId(item.id)
       setCurrentView("note-editor")
@@ -164,6 +185,23 @@ export function useLibrary() {
 
     try {
       const newCategory = await libraryService.createCategory(categoryForm)
+      
+      // Record category creation action
+      await actionsService.recordActionWithAutoContext(
+        ActionType.CATEGORY_CREATE,
+        {
+          categoryId: newCategory.id,
+          categoryName: newCategory.name,
+          documentCount: 0,
+          color: newCategory.color,
+          icon: newCategory.icon
+        },
+        {
+          sessionId: currentSessionId || 'default-session',
+          categoryIds: [newCategory.id]
+        }
+      )
+      
       addCategory(newCategory)
       setShowCategoryDialog(false)
       setCategoryForm({ name: "", description: "", color: "#3b82f6", icon: "folder" })
@@ -228,7 +266,23 @@ export function useLibrary() {
     }
   }
 
-  const handleUploadSuccess = (document: Document) => {
+  const handleUploadSuccess = async (document: Document) => {
+    // Record document upload action
+    await actionsService.recordActionWithAutoContext(
+      ActionType.DOCUMENT_UPLOAD,
+      {
+        documentId: document.id,
+        documentTitle: document.title,
+        documentType: document.doc_type,
+        categoryId: document.category_id || undefined
+      },
+      {
+        sessionId: currentSessionId || 'default-session',
+        documentIds: [document.id],
+        categoryIds: document.category_id ? [document.category_id] : undefined
+      }
+    )
+    
     // If document has a category and we're viewing that category, add it to the list
     if (document.category_id === currentCategory) {
       addDocument(document)

@@ -13,6 +13,15 @@ export interface Keybinding {
   description: string
 }
 
+interface NavigationState {
+  view: "focus" | "library" | "graph" | "workspace" | "history" | "analytics" | "settings" | "note-editor"
+  focusMode?: boolean
+  currentDocument?: string | null
+  editingNoteId?: string | null
+  currentCategory?: string | null
+  settingsTab?: "providers" | "models" | "chat" | "appearance" | "keybindings"
+}
+
 const defaultKeybindings: Keybinding[] = [
   // Navigation
   { id: "library", action: "Open Library", category: "Navigation", defaultKeys: "⌘1", currentKeys: "⌘1", description: "Navigate to library view" },
@@ -37,10 +46,11 @@ const defaultKeybindings: Keybinding[] = [
   // System
   { id: "command-palette", action: "Command Palette", category: "System", defaultKeys: "⌘K", currentKeys: "⌘K", description: "Open command palette" },
   { id: "escape", action: "Close/Cancel", category: "System", defaultKeys: "Escape", currentKeys: "Escape", description: "Close dialogs or cancel actions" },
+  { id: "back", action: "Go Back", category: "Navigation", defaultKeys: "B", currentKeys: "B", description: "Navigate to previous page" },
 ]
 
 interface StudyState {
-  currentView: "focus" | "library" | "graph" | "workspace" | "history" | "settings" | "note-editor"
+  currentView: "focus" | "library" | "graph" | "workspace" | "history" | "analytics" | "settings" | "note-editor"
   focusMode: boolean
   showCommandPalette: boolean
   showInteractionDrawer: boolean
@@ -53,6 +63,9 @@ interface StudyState {
   isLoadingDocuments: boolean
   settingsTab: "providers" | "models" | "chat" | "appearance" | "keybindings"
   keybindings: Keybinding[]
+  
+  // Navigation history
+  navigationHistory: NavigationState[]
   
   // Category-related state
   categories: Category[]
@@ -78,6 +91,10 @@ interface StudyState {
   updateKeybinding: (id: string, newKeys: string) => void
   resetKeybinding: (id: string) => void
   resetAllKeybindings: () => void
+  
+  // Navigation history methods
+  goBack: () => void
+  canGoBack: () => boolean
 
   // Category-related methods
   setCategories: (categories: Category[]) => void
@@ -93,7 +110,7 @@ interface StudyState {
 
 export const useStudyStore = create<StudyState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       currentView: "focus",
       focusMode: false,
       showCommandPalette: false,
@@ -108,13 +125,36 @@ export const useStudyStore = create<StudyState>()(
       settingsTab: "providers",
       keybindings: defaultKeybindings,
       
+      // Navigation history
+      navigationHistory: [],
+      
       // Category-related state
       categories: [],
       isLoadingCategories: false,
       currentCategory: null,
       libraryBreadcrumbs: [{ id: null, name: "Categories" }],
 
-      setCurrentView: (view) => set({ currentView: view }),
+      setCurrentView: (view) => set((state) => {
+        // Save current state to history before changing view
+        const currentState: NavigationState = {
+          view: state.currentView,
+          focusMode: state.focusMode,
+          currentDocument: state.currentDocument,
+          editingNoteId: state.editingNoteId,
+          currentCategory: state.currentCategory,
+          settingsTab: state.settingsTab,
+        }
+        
+        // Add to history if it's different from the current view
+        const newHistory = state.currentView !== view 
+          ? [...state.navigationHistory, currentState].slice(-10) // Keep last 10 states
+          : state.navigationHistory
+        
+        return {
+          currentView: view,
+          navigationHistory: newHistory
+        }
+      }),
       setEditingNoteId: (noteId) => set({ editingNoteId: noteId }),
       setFocusMode: (enabled) => set({ focusMode: enabled }),
       setShowCommandPalette: (show) => set({ showCommandPalette: show }),
@@ -146,6 +186,29 @@ export const useStudyStore = create<StudyState>()(
       resetAllKeybindings: () => set((state) => ({
         keybindings: state.keybindings.map(kb => ({ ...kb, currentKeys: kb.defaultKeys }))
       })),
+
+      // Navigation history methods
+      goBack: () => set((state) => {
+        if (state.navigationHistory.length === 0) return state
+        
+        const previousState = state.navigationHistory[state.navigationHistory.length - 1]
+        const newHistory = state.navigationHistory.slice(0, -1)
+        
+        return {
+          ...state,
+          currentView: previousState.view,
+          focusMode: previousState.focusMode ?? state.focusMode,
+          currentDocument: previousState.currentDocument ?? state.currentDocument,
+          editingNoteId: previousState.editingNoteId ?? state.editingNoteId,
+          currentCategory: previousState.currentCategory ?? state.currentCategory,
+          settingsTab: previousState.settingsTab ?? state.settingsTab,
+          navigationHistory: newHistory,
+        }
+      }),
+      canGoBack: () => {
+        const state = get()
+        return state.navigationHistory.length > 0
+      },
 
       // Category-related methods
       setCategories: (categories) => set({ categories }),

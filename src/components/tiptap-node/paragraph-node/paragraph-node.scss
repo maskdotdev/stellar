@@ -29,7 +29,7 @@
   .tiptap.ProseMirror {
     white-space: pre-wrap;
     outline: none;
-    caret-color: var(--tt-cursor-color);
+    caret-color: var(--primary);
   
     // Paragraph spacing
     p:not(:first-child) {
@@ -42,8 +42,8 @@
     // Selection styles
     &:not(.readonly):not(.ProseMirror-hideselection) {
       ::selection {
-        background-color: var(--primary-foreground);
-        color: var(--primary);
+        background-color: var(--primary);
+        color: var(--primary-foreground);
       }
   
       .selection::selection {
@@ -53,8 +53,8 @@
   
     .selection {
       display: inline;
-      background-color: var(--primary-foreground/0.4);
-      color: var(--primary);
+      background-color: var(--primary);
+      color: var(--primary-foreground);
     }
   
     .ProseMirror-hideselection {

@@ -13,8 +13,9 @@
     "windows": [
       {
         "title": "stellar",
-        "width": 800,
-        "height": 600
+        "width": 1200,
+        "height": 800,
+        "titleBarStyle": "transparent"
       }
     ],
     "security": {

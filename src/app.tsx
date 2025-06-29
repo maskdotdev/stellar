@@ -11,6 +11,7 @@ import { Library } from "@/components/library"
 import { Workspace } from "@/components/home/workspace"
 import { History } from "@/components/history"
 import { Settings } from "@/components/settings"
+import { ActionsDashboard } from "@/components/home/actions-dashboard"
 import { ThemeProvider } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
@@ -190,6 +191,8 @@ export function App() {
     setSettingsTab,
     categories,
     currentCategory,
+    goBack,
+    canGoBack,
   } = useStudyStore()
 
   // Dynamic keyboard shortcuts using store keybindings
@@ -292,6 +295,11 @@ export function App() {
               setShowCommandPalette(false)
               setShowFloatingChat(false)
               break
+            case "back":
+              if (canGoBack()) {
+                goBack()
+              }
+              break
           }
           
           return // Stop processing if we found a match
@@ -302,6 +310,14 @@ export function App() {
       if (e.key === "/" && !e.metaKey && !e.ctrlKey && !isTyping) {
         e.preventDefault()
         setShowCommandPalette(true)
+      }
+      
+      // Back navigation with "b" key (only if not typing)
+      if (e.key === "b" && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey && !isTyping) {
+        e.preventDefault()
+        if (canGoBack()) {
+          goBack()
+        }
       }
       
       // Tab to toggle context bar (only if not typing) 
@@ -322,7 +338,9 @@ export function App() {
     setFocusMode, 
     setCurrentView, 
     setEditingNoteId,
-    setSettingsTab
+    setSettingsTab,
+    goBack,
+    canGoBack
   ])
 
   const renderCurrentView = () => {
@@ -333,6 +351,8 @@ export function App() {
         return <Workspace />
       case "history":
         return <History />
+      case "analytics":
+        return <ActionsDashboard />
       case "settings":
         return <Settings />
       case "note-editor":

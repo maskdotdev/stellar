@@ -29,7 +29,6 @@ export function LibraryHeader({
   viewMode,
   setLibraryViewMode,
   onBackToCategories,
-  onNavigateToCategory,
   onShowCategoryDialog,
   onShowUploadDialog,
   onCreateNote,

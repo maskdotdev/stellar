@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge"
 import { Loader2, FileText, Calendar, Tag, Edit, Trash2, Check, X, Upload, Plus } from "lucide-react"
 import { type Document } from "@/lib/library-service"
 import { typeIcons } from "./library-constants"
+import { useEffect, useRef } from "react"
 
 interface DocumentViewProps {
   documents: Document[]
@@ -40,6 +41,42 @@ export function DocumentView({
   onUploadPdf,
   setEditingTitle,
 }: DocumentViewProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // Keyboard navigation for numbered shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle if we're not in an input field
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return
+      }
+
+      // Handle number keys 1-9 and 0
+      const key = e.key
+      if (/^[1-9]$/.test(key)) {
+        const index = parseInt(key) - 1
+        if (index < filteredDocuments.length) {
+          e.preventDefault()
+          onItemClick(filteredDocuments[index])
+        }
+      } else if (key === '0') {
+        // 0 key for the 10th item (index 9)
+        if (filteredDocuments.length > 9) {
+          e.preventDefault()
+          onItemClick(filteredDocuments[9])
+        }
+      }
+    }
+
+    // Add event listener to document
+    document.addEventListener('keydown', handleKeyDown)
+    
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [filteredDocuments, onItemClick])
+
   if (isLoadingDocuments) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -80,14 +117,24 @@ export function DocumentView({
 
   if (viewMode === "list") {
     return (
-      <div className="space-y-2">
-        {filteredDocuments.map((item) => {
+      <div ref={containerRef} className="space-y-2">
+        {filteredDocuments.map((item, index) => {
           const Icon = typeIcons[item.doc_type as keyof typeof typeIcons] || FileText
+          const displayNumber = index + 1
+          const shouldShowNumber = displayNumber <= 10
+          
           return (
             <div
               key={item.id}
-              className="p-4 border rounded-lg hover:bg-muted/50 transition-colors"
+              className="p-4 border rounded-lg hover:bg-muted/50 transition-colors relative"
             >
+              {/* Number overlay for list view */}
+              {shouldShowNumber && (
+                <div className="absolute -top-2 -left-2 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-bold z-10 shadow-md">
+                  {displayNumber === 10 ? '0' : displayNumber}
+                </div>
+              )}
+              
               <div className="flex items-start justify-between">
                 <div 
                   className="flex items-start space-x-3 flex-1 cursor-pointer"
@@ -202,14 +249,24 @@ export function DocumentView({
 
   // Grid view
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-      {filteredDocuments.map((item) => {
+    <div ref={containerRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+      {filteredDocuments.map((item, index) => {
         const Icon = typeIcons[item.doc_type as keyof typeof typeIcons] || FileText
+        const displayNumber = index + 1
+        const shouldShowNumber = displayNumber <= 10
+        
         return (
           <div
             key={item.id}
             className="p-4 border rounded-lg hover:bg-muted/50 transition-colors relative group"
           >
+            {/* Number overlay for grid view */}
+            {shouldShowNumber && (
+              <div className="absolute -top-2 -left-2 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-bold z-10 shadow-md">
+                {displayNumber === 10 ? '0' : displayNumber}
+              </div>
+            )}
+            
             {/* Document Actions for Grid View */}
             <div 
               className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1"

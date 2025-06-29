@@ -3,6 +3,7 @@ import { Badge } from "@/components/ui/badge"
 import { FolderPlus, Edit, Trash2, GraduationCap } from "lucide-react"
 import { type Category } from "@/lib/library-service"
 import { DynamicIcon } from "./dynamic-icon"
+import { useEffect, useRef } from "react"
 
 interface CategoryViewProps {
   categories: Category[]
@@ -23,6 +24,52 @@ export function CategoryView({
   onDeleteCategory,
   onCreateCategory,
 }: CategoryViewProps) {
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // Keyboard navigation for numbered shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Only handle if we're not in an input field
+      const target = e.target as HTMLElement
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return
+      }
+
+      // Handle number keys 1-9 and 0
+      const key = e.key
+      if (/^[1-9]$/.test(key)) {
+        const index = parseInt(key) - 1
+        const allCategories = [
+          { id: "uncategorized", name: "No Category" } as Category,
+          ...filteredCategories
+        ]
+        
+        if (index < allCategories.length) {
+          e.preventDefault()
+          onCategoryClick(allCategories[index])
+        }
+      } else if (key === '0') {
+        // 0 key for the 10th item (index 9)
+        const allCategories = [
+          { id: "uncategorized", name: "No Category" } as Category,
+          ...filteredCategories
+        ]
+        
+        if (allCategories.length > 9) {
+          e.preventDefault()
+          onCategoryClick(allCategories[9])
+        }
+      }
+    }
+
+    // Add event listener to document
+    document.addEventListener('keydown', handleKeyDown)
+    
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [filteredCategories, onCategoryClick])
+
   if (filteredCategories.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-12 text-center">
@@ -46,13 +93,23 @@ export function CategoryView({
     )
   }
 
+  const allCategories = [
+    { id: "uncategorized", name: "No Category" } as Category,
+    ...filteredCategories
+  ]
+
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+    <div ref={containerRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
       {/* No Category Option */}
       <div
         className="p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer relative group border-dashed"
         onClick={() => onCategoryClick({ id: "uncategorized", name: "No Category" } as Category)}
       >
+        {/* Number overlay */}
+        <div className="absolute -top-2 -left-2 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-bold z-10 shadow-md">
+          1
+        </div>
+        
         <div className="flex items-start space-x-3">
           <div className="p-3 rounded-lg flex-shrink-0 bg-gray-100 dark:bg-gray-800">
             <GraduationCap className="h-6 w-6 text-gray-500" />
@@ -71,13 +128,24 @@ export function CategoryView({
         </div>
       </div>
 
-      {filteredCategories.map((category) => {
+      {filteredCategories.map((category, index) => {
+        const displayNumber = index + 2 // +2 because "No Category" takes 1
+        // Only show numbers for first 9 items (including "No Category", so 10 total)
+        const shouldShowNumber = displayNumber <= 10
+        
         return (
           <div
             key={category.id}
             className="p-4 border rounded-lg hover:bg-muted/50 transition-colors cursor-pointer relative group"
             onClick={() => onCategoryClick(category)}
           >
+            {/* Number overlay */}
+            {shouldShowNumber && (
+              <div className="absolute -top-2 -left-2 w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs font-bold z-10 shadow-md">
+                {displayNumber === 10 ? '0' : displayNumber}
+              </div>
+            )}
+            
             {/* Category Actions */}
             <div 
               className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1"

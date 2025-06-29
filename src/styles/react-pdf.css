@@ -1,3 +1,5 @@
+@import './themes.css';
+
 /* React PDF Styles */
 .react-pdf__Document {
   display: flex;
@@ -13,7 +15,6 @@
 
 .react-pdf__Page__canvas {
   display: block;
-  user-select: none;
 }
 
 .react-pdf__Page__annotations {
@@ -28,7 +29,7 @@
   top: 0;
   left: 0;
   z-index: 2;
-  opacity: 0.2;
+  opacity: 0.5;
   line-height: 1;
 }
 
@@ -38,6 +39,15 @@
   white-space: pre;
   cursor: text;
   transform-origin: 0% 0%;
+}
+
+/* Debug selection highlighting */
+.react-pdf__Page__textContent span::-moz-selection {
+  background: var(--primary);
+}
+
+.react-pdf__Page__textContent span::selection {
+  background: var(--primary);
 }
 
 /* Loading and error states */
@@ -50,7 +60,7 @@
   color: #6b7280;
 }
 
-/* Dark mode support */
+/* Dark theme PDF iframe styling */
 @media (prefers-color-scheme: dark) {
   .react-pdf__Page {
     filter: invert(1) hue-rotate(180deg);
@@ -59,4 +69,32 @@
   .react-pdf__Page img {
     filter: invert(1) hue-rotate(180deg);
   }
+
+  .pdf-iframe {
+    /* More aggressive brightening for dark mode */
+    filter: brightness(1.5) contrast(0.85) saturate(0.9);
+    /* Alternative: Full inversion for true dark mode
+    filter: invert(1) hue-rotate(180deg) brightness(1.2); */
+  }
+}
+
+/* Theme-aware styling using CSS custom properties */
+:root {
+  --pdf-iframe-filter-light: brightness(1.4) contrast(0.9) saturate(0.9);
+  --pdf-iframe-filter-dark: brightness(1.5) contrast(0.85) saturate(0.9);
+}
+
+[data-theme="dark"] .pdf-iframe,
+.dark .pdf-iframe {
+  filter: var(--pdf-iframe-filter-dark);
+}
+
+[data-theme="light"] .pdf-iframe,
+.light .pdf-iframe {
+  filter: var(--pdf-iframe-filter-light);
+}
+
+/* Fallback for browsers that don't support CSS custom properties */
+.pdf-iframe {
+  filter: brightness(1.4) contrast(0.9) saturate(0.9);
 } 

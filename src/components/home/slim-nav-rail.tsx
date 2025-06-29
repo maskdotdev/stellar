@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Library, Network, FileText, History, Settings, BookOpen, Sun, Moon } from "lucide-react"
+import { Library, Network, FileText, History, Settings, BookOpen, Sun, Moon, BarChart3 } from "lucide-react"
 import { useStudyStore } from "@/lib/study-store"
 import { useTheme } from "@/components/theme-provider"
 
@@ -24,6 +24,7 @@ export function SlimNavRail() {
     { id: "graph", icon: Network, label: "Graph", shortcut: getKeybindingShortcut("graph") },
     { id: "workspace", icon: FileText, label: "Workspace", shortcut: getKeybindingShortcut("workspace") },
     { id: "history", icon: History, label: "History", shortcut: getKeybindingShortcut("history") },
+    { id: "analytics", icon: BarChart3, label: "Analytics", shortcut: "⌘6" },
     { id: "settings", icon: Settings, label: "Settings", shortcut: "⌘5" }, // This one doesn't exist in keybindings yet
   ]
 

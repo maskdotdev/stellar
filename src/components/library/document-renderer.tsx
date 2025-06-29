@@ -1,24 +1,16 @@
 "use client"
 
-import React, { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { FileText, Eye, Code, Loader2 } from 'lucide-react'
+import { FileText, Eye, Code, Loader2, Globe } from 'lucide-react'
 import { PdfViewer } from './pdf-viewer'
 import { type Document } from '@/lib/library-service'
 import { LibraryService } from '@/lib/library-service'
 import { cn } from '@/lib/utils'
 
-// Import Tauri's convertFileSrc function for proper file path handling
-let convertFileSrc: ((filePath: string, protocol?: string) => string) | null = null
-try {
-  // Dynamically import to avoid issues in non-Tauri environments
-  convertFileSrc = require('@tauri-apps/api/core').convertFileSrc
-} catch (error) {
-  console.warn('Tauri convertFileSrc not available, using fallback file path handling')
-}
 
 interface DocumentRendererProps {
   document: Document
@@ -26,15 +18,14 @@ interface DocumentRendererProps {
   onTextSelection?: (text: string) => void
 }
 
-type ViewMode = 'markdown' | 'pdf'
+type ViewMode = 'markdown' | 'pdf' | 'iframe'
 
 export function DocumentRenderer({ 
   document, 
   className,
   onTextSelection 
 }: DocumentRendererProps) {
-  const [viewMode, setViewMode] = useState<ViewMode>('markdown')
-  const [selectedText, setSelectedText] = useState('')
+  const [viewMode, setViewMode] = useState<ViewMode>('pdf')
   const [pdfFilePath, setPdfFilePath] = useState<string | null>(null)
   const [isPdfLoading, setIsPdfLoading] = useState(false)
   const [pdfError, setPdfError] = useState<string | null>(null)
@@ -88,10 +79,20 @@ export function DocumentRenderer({
     const selection = window.getSelection()
     if (selection && selection.toString().trim()) {
       const text = selection.toString()
-      setSelectedText(text)
       onTextSelection?.(text)
     }
   }, [onTextSelection])
+
+  // Memoize the callback functions to prevent PdfViewer rerenders
+  const onLoadSuccess = useCallback((numPages: any) => {
+    console.log('PDF loaded with', numPages, 'pages')
+  }, [])
+
+  const onLoadError = useCallback((error: Error) => {
+    console.error('PDF load error:', error)
+    console.error('Failed to load PDF from path:', pdfFilePath)
+    setPdfError('Failed to load PDF file')
+  }, [pdfFilePath])
 
   // Render markdown content as HTML
   const renderMarkdownContent = (content: string) => {
@@ -127,7 +128,8 @@ export function DocumentRenderer({
     </ScrollArea>
   )
 
-  const PdfView = () => {
+  // Memoize PdfView to prevent unnecessary rerenders
+  const PdfView = useMemo(() => {
     if (!hasPdfFile || !document.file_path) {
       return (
         <div className="flex flex-col items-center justify-center h-full p-8">
@@ -176,15 +178,73 @@ export function DocumentRenderer({
       <PdfViewer
         filePath={pdfFilePath}
         className="h-full"
-        onLoadSuccess={(numPages) => {
-          console.log('PDF loaded with', numPages, 'pages')
-        }}
-        onLoadError={(error) => {
-          console.error('PDF load error:', error)
-          console.error('Failed to load PDF from path:', pdfFilePath)
-          setPdfError('Failed to load PDF file')
-        }}
+        onLoadSuccess={onLoadSuccess}
+        onLoadError={onLoadError}
+        onTextSelection={handleTextSelection}
       />
+    )
+  }, [hasPdfFile, document.file_path, isPdfLoading, pdfError, pdfFilePath, onLoadSuccess, onLoadError, handleTextSelection])
+
+  const IframeView = () => {
+    if (!hasPdfFile || !document.file_path) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full p-8">
+          <FileText className="h-16 w-16 text-muted-foreground mb-4" />
+          <h3 className="text-lg font-medium mb-2">PDF file not available</h3>
+          <p className="text-muted-foreground text-center">
+            The original PDF file for this document is not available.
+            You can view the extracted text content in the Markdown tab.
+          </p>
+        </div>
+      )
+    }
+
+    if (isPdfLoading) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full p-8">
+          <Loader2 className="h-8 w-8 animate-spin mb-4" />
+          <h3 className="text-lg font-medium mb-2">Loading PDF...</h3>
+          <p className="text-muted-foreground text-center">
+            Please wait while we prepare the PDF for viewing.
+          </p>
+        </div>
+      )
+    }
+
+    if (pdfError || !pdfFilePath) {
+      return (
+        <div className="flex flex-col items-center justify-center h-full p-8">
+          <FileText className="h-16 w-16 text-muted-foreground mb-4" />
+          <h3 className="text-lg font-medium mb-2">PDF file not available</h3>
+          <p className="text-muted-foreground text-center mb-4">
+            {pdfError || 'The PDF file could not be loaded.'}
+            <br />
+            You can view the extracted text content in the Markdown tab.
+          </p>
+          <Button variant="outline" onClick={() => {
+            setViewMode('markdown')
+          }}>
+            View Text Content
+          </Button>
+        </div>
+      )
+    }
+
+    return (
+      <div className="h-full w-full bg-background">
+        <iframe
+          src={pdfFilePath}
+          className="w-full h-full border-0 pdf-iframe"
+          title={`PDF Viewer - ${document.title}`}
+          onLoad={() => {
+            console.log('Iframe PDF loaded:', pdfFilePath)
+          }}
+          onError={(error) => {
+            console.error('Iframe PDF load error:', error)
+            setPdfError('Failed to load PDF in iframe')
+          }}
+        />
+      </div>
     )
   }
 
@@ -208,7 +268,7 @@ export function DocumentRenderer({
       {hasPdfFile ? (
         <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as ViewMode)} className="flex flex-col h-full">
           <div className="border-b">
-            <TabsList className="grid w-full grid-cols-2 h-10">
+            <TabsList className="grid w-full grid-cols-3 h-10">
               <TabsTrigger value="markdown" className="flex items-center gap-2">
                 <Code className="h-4 w-4" />
                 Markdown
@@ -216,6 +276,10 @@ export function DocumentRenderer({
               <TabsTrigger value="pdf" className="flex items-center gap-2">
                 <Eye className="h-4 w-4" />
                 PDF
+              </TabsTrigger>
+              <TabsTrigger value="iframe" className="flex items-center gap-2">
+                <Globe className="h-4 w-4" />
+                Browser
               </TabsTrigger>
             </TabsList>
           </div>
@@ -225,7 +289,11 @@ export function DocumentRenderer({
           </TabsContent>
 
           <TabsContent value="pdf" className="flex-1 h-0 m-0">
-            <PdfView />
+            {PdfView}
+          </TabsContent>
+
+          <TabsContent value="iframe" className="flex-1 h-0 m-0">
+            <IframeView />
           </TabsContent>
         </Tabs>
       ) : (
@@ -233,21 +301,7 @@ export function DocumentRenderer({
         <MarkdownView />
       )}
 
-      {/* Selection Actions */}
-      {selectedText && (
-        <div className="p-3 border-t bg-muted/20">
-          <div className="flex items-center space-x-2">
-            <span className="text-sm text-muted-foreground">Selected:</span>
-            <span className="text-sm font-medium truncate max-w-xs">
-              "{selectedText.substring(0, 50)}..."
-            </span>
-            <Button variant="outline" size="sm">
-              <Eye className="h-3 w-3 mr-1" />
-              Ask (?)
-            </Button>
-          </div>
-        </div>
-      )}
+
     </div>
   )
 } 
