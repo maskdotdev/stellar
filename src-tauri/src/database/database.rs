@@ -10,6 +10,23 @@ impl Database {
     pub async fn new(database_url: &str) -> Result<Self, sqlx::Error> {
         let pool = SqlitePool::connect(database_url).await?;
         
+        // Check if content_hash column exists, add if missing (for existing databases)
+        let add_content_hash_result = sqlx::query(
+            "ALTER TABLE documents ADD COLUMN content_hash TEXT"
+        ).execute(&pool).await;
+        
+        match add_content_hash_result {
+            Ok(_) => println!("✅ Added content_hash column to documents table"),
+            Err(e) => {
+                // Column might already exist, check the error
+                if e.to_string().contains("duplicate column") {
+                    println!("ℹ️ content_hash column already exists in documents table");
+                } else {
+                    eprintln!("⚠️ Failed to add content_hash column: {}", e);
+                }
+            }
+        }
+        
         // Create tables if they don't exist
         
         // Categories table

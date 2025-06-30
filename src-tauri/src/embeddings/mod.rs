@@ -1,6 +1,6 @@
 pub mod types;
 pub mod chunking;
-// pub mod local; // Temporarily disabled due to API changes
+pub mod local; // Re-enable local embeddings for rust-bert fallback
 pub mod cloud;
 pub mod vector;
 
@@ -28,6 +28,8 @@ pub enum EmbeddingProvider {
     LocalModel,
     #[serde(rename = "ollama")]
     Ollama,
+    #[serde(rename = "rust-bert")]
+    RustBert, // Fallback provider
 }
 
 #[async_trait]
@@ -39,20 +41,41 @@ pub trait EmbeddingGenerator: Send + Sync {
 pub fn create_embedding_generator(config: &EmbeddingConfig) -> Result<Box<dyn EmbeddingGenerator>, Box<dyn std::error::Error>> {
     match config.provider {
         EmbeddingProvider::OpenAI => {
-            Ok(Box::new(cloud::OpenAIEmbeddings::new(
-                config.api_key.as_ref().unwrap().clone(),
-                config.model.clone(),
-            )?))
+            match config.api_key.as_ref() {
+                Some(api_key) => {
+                    Ok(Box::new(cloud::OpenAIEmbeddings::new(
+                        api_key.clone(),
+                        config.model.clone(),
+                    )?))
+                }
+                None => {
+                    eprintln!("OpenAI API key not provided, falling back to rust-bert");
+                    Ok(Box::new(local::RustBertEmbeddings::new()?))
+                }
+            }
         }
         EmbeddingProvider::LocalModel => {
-            Err("Local models temporarily disabled".into())
-            // Ok(Box::new(local::LocalEmbeddings::new(&config.model)?))
+            match local::LocalEmbeddings::new(&config.model) {
+                Ok(embeddings) => Ok(Box::new(embeddings)),
+                Err(e) => {
+                    eprintln!("Failed to load local model '{}': {}, falling back to rust-bert", config.model, e);
+                    Ok(Box::new(local::RustBertEmbeddings::new()?))
+                }
+            }
         }
         EmbeddingProvider::Ollama => {
-            Ok(Box::new(cloud::OllamaEmbeddings::new(
-                config.base_url.as_ref().unwrap_or(&"http://localhost:11434".to_string()).clone(),
-                config.model.clone(),
-            )?))
+            let base_url = config.base_url.as_ref().unwrap_or(&"http://localhost:11434".to_string()).clone();
+            match cloud::OllamaEmbeddings::new(base_url, config.model.clone()) {
+                Ok(embeddings) => Ok(Box::new(embeddings)),
+                Err(e) => {
+                    eprintln!("Failed to connect to Ollama at {}: {}, falling back to rust-bert", 
+                             config.base_url.as_ref().unwrap_or(&"http://localhost:11434".to_string()), e);
+                    Ok(Box::new(local::RustBertEmbeddings::new()?))
+                }
+            }
+        }
+        EmbeddingProvider::RustBert => {
+            Ok(Box::new(local::RustBertEmbeddings::new()?))
         }
     }
 } 

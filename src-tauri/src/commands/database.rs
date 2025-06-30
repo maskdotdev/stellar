@@ -4,8 +4,7 @@ use tauri::State;
 use tokio::sync::Mutex;
 use std::sync::Arc;
 
-// Database state type
-type DatabaseState = Arc<Mutex<Option<Database>>>;
+pub type DatabaseState = Arc<Mutex<Option<Database>>>;
 
 #[tauri::command]
 pub async fn init_database(state: State<'_, DatabaseState>) -> Result<(), String> {

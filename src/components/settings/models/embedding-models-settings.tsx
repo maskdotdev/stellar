@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Settings, TestTube, CheckCircle, XCircle, RefreshCw, Zap, Eye, EyeOff, Bug } from "lucide-react"
+import { Settings, TestTube, CheckCircle, XCircle, RefreshCw, Zap, Eye, EyeOff, Bug, AlertCircle } from "lucide-react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
@@ -378,10 +378,37 @@ export function EmbeddingModelsSettings() {
               </div>
               <div className="space-y-2">
                 <p className="text-sm font-medium">Provider</p>
-                <Badge variant="outline">{stats.provider}</Badge>
-                <p className="text-xs text-muted-foreground">Current embedding service</p>
+                <div className="flex items-center space-x-2">
+                  <Badge variant={stats.provider === 'rust-bert' ? 'secondary' : 'outline'}>
+                    {stats.provider}
+                  </Badge>
+                  {stats.provider === 'rust-bert' && (
+                    <span className="text-xs text-yellow-600">⚠️ Fallback</span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {stats.provider === 'rust-bert' 
+                    ? 'Using basic fallback embeddings' 
+                    : 'Current embedding service'
+                  }
+                </p>
               </div>
             </div>
+
+            {stats.provider === 'rust-bert' && (
+              <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                <div className="flex items-start space-x-2">
+                  <AlertCircle className="w-4 h-4 text-yellow-600 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium text-yellow-800">Using Fallback Provider</p>
+                    <p className="text-xs text-yellow-700 mt-1">
+                      The system is using a basic fallback for embeddings. 
+                      For better semantic search quality, consider setting up Ollama or providing an OpenAI API key.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
           </CardContent>
         </Card>
       )}

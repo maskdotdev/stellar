@@ -14,7 +14,9 @@ import {
   CheckCircle, 
   RefreshCw,
   Bug,
-  Info
+  Info,
+  SkipForward,
+  Folder
 } from "lucide-react"
 import { EmbeddingService } from "@/lib/embedding-service"
 import { useToast } from "@/hooks/use-toast"
@@ -43,6 +45,15 @@ export function EmbeddingDebug() {
   const [databaseInfo, setDatabaseInfo] = useState<DatabaseInfo | null>(null)
   const [selectedDocument, setSelectedDocument] = useState<string | null>(null)
   const [documentDetails, setDocumentDetails] = useState<any>(null)
+  const [embeddedDocs, setEmbeddedDocs] = useState<EmbeddedDocument[]>([])
+  const [isReprocessing, setIsReprocessing] = useState(false)
+  const [reprocessResult, setReprocessResult] = useState<{
+    processed: number
+    failed: number
+    total_documents: number
+    errors: string[]
+    skipped: number
+  } | null>(null)
 
   const loadDebugInfo = async () => {
     setLoading(true)
@@ -85,6 +96,35 @@ export function EmbeddingDebug() {
         description: "Failed to load document details",
         variant: "destructive",
       })
+    }
+  }
+
+  const handleBulkReprocess = async () => {
+    if (isReprocessing) return
+    
+    setIsReprocessing(true)
+    setReprocessResult(null)
+    
+    try {
+      const result = await embeddingService.bulkReprocessDocuments()
+      setReprocessResult(result)
+      
+      // Refresh the debug info after reprocessing
+      await loadDebugInfo()
+      
+      toast({
+        title: "Success",
+        description: `Successfully processed ${result.processed} documents for embeddings`,
+      })
+    } catch (error) {
+      console.error("Failed to bulk reprocess documents:", error)
+      toast({
+        title: "Error",
+        description: "Failed to reprocess documents. Check console for details.",
+        variant: "destructive"
+      })
+    } finally {
+      setIsReprocessing(false)
     }
   }
 
@@ -280,6 +320,92 @@ export function EmbeddingDebug() {
           </CardContent>
         </Card>
       )}
+
+      {/* Bulk Reprocessing Section */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <RefreshCw className="w-4 h-4" />
+            <span>Bulk Operations</span>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
+            <h4 className="font-medium text-blue-800 mb-2">Reprocess All Documents</h4>
+            <p className="text-sm text-blue-700 mb-3">
+              This will process all documents in your library for embeddings. Use this if you have documents that weren't automatically processed.
+            </p>
+            <Button 
+              onClick={handleBulkReprocess}
+              disabled={isReprocessing || debugInfo?.status !== 'initialized'}
+              className="w-full"
+            >
+              {isReprocessing ? (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                  Processing...
+                </>
+              ) : (
+                <>
+                  <RefreshCw className="w-4 h-4 mr-2" />
+                  Reprocess All Documents
+                </>
+              )}
+            </Button>
+          </div>
+
+          {reprocessResult && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <CheckCircle className="w-4 h-4 text-green-500" />
+                  <span>Reprocessing Complete</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {reprocessResult.processed > 0 && (
+                    <div className="flex items-center space-x-2">
+                      <CheckCircle className="w-4 h-4 text-green-500" />
+                      <span>✅ Successfully processed: <strong>{reprocessResult.processed}</strong> documents</span>
+                    </div>
+                  )}
+                  
+                  {reprocessResult.skipped > 0 && (
+                    <div className="flex items-center space-x-2">
+                      <SkipForward className="w-4 h-4 text-blue-500" />
+                      <span>⏭️ Skipped: <strong>{reprocessResult.skipped}</strong> documents (already had embeddings)</span>
+                    </div>
+                  )}
+                  
+                  <div className="flex items-center space-x-2">
+                    <Folder className="w-4 h-4 text-muted-foreground" />
+                    <span>📁 Total documents: <strong>{reprocessResult.total_documents}</strong></span>
+                  </div>
+                  
+                  {reprocessResult.failed > 0 && (
+                    <div className="flex items-center space-x-2">
+                      <AlertCircle className="w-4 h-4 text-red-500" />
+                      <span>❌ Failed: <strong>{reprocessResult.failed}</strong> documents</span>
+                    </div>
+                  )}
+                  
+                  {reprocessResult.errors.length > 0 && (
+                    <div className="space-y-2">
+                      <p className="font-medium text-red-600">Errors:</p>
+                      <div className="bg-red-50 p-3 rounded text-sm space-y-1">
+                        {reprocessResult.errors.map((error, index) => (
+                          <div key={index} className="text-red-700">• {error}</div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 } 

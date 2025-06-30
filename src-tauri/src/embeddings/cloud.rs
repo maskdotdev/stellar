@@ -118,6 +118,7 @@ impl EmbeddingGenerator for OllamaEmbeddings {
         // Common for many models, should be configurable based on model
         match self.model.as_str() {
             "all-minilm" => 384,
+            "mxbai-embed-large" => 1024,
             "nomic-embed-text" => 768,
             _ => 384, // Default
         }

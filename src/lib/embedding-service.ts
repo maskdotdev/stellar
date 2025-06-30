@@ -52,11 +52,11 @@ export class EmbeddingService {
    */
   async initialize(config?: EmbeddingConfig): Promise<boolean> {
     try {
-      // Default configuration - can be overridden by user settings
+      // Default configuration - use Ollama with the correct URL and model
       const defaultConfig: EmbeddingConfig = {
         provider: 'ollama',
-        model: 'all-minilm',
-        baseUrl: 'http://localhost:11434'
+        model: 'mxbai-embed-large', // Use the model that exists
+        baseUrl: 'http://localhost:11434' // Correct Ollama URL
       };
 
       const finalConfig = { ...defaultConfig, ...config };
@@ -74,16 +74,39 @@ export class EmbeddingService {
         baseUrl: finalConfig.baseUrl,
       });
       
+      if (this.initialized) {
+        console.log("✅ Embedding service initialized successfully");
+      }
+      
       return this.initialized;
     } catch (error) {
       console.warn("Failed to initialize new embedding service:", error);
       
-      // Try the legacy initialization for backward compatibility
+      // Try the legacy initialization for backward compatibility with correct Ollama settings
       try {
-        const chromaUrl = config?.baseUrl || "http://localhost:8000";
-        this.initialized = await invoke<boolean>("init_embedding_service", {
-          chromaUrl
+        const result = await invoke<any>("init_embedding_service", {
+          chromaUrl: "http://localhost:11434" // Use Ollama URL, not ChromaDB
         });
+        
+        this.initialized = result.success || false;
+        
+        if (this.initialized) {
+          console.log(`✅ Embedding service initialized with ${result.provider}`);
+          if (result.model) {
+            console.log(`🤖 Using model: ${result.model}`);
+          }
+          if (result.base_url) {
+            console.log(`🌐 Base URL: ${result.base_url}`);
+          }
+          if (result.fallback_used) {
+            console.warn("⚠️ Using fallback embedding provider:", result.provider);
+            console.warn("💡 Consider setting up Ollama for better embeddings: https://ollama.ai");
+          }
+          if (result.last_error) {
+            console.warn("Previous errors:", result.last_error);
+          }
+        }
+        
         return this.initialized;
       } catch (legacyError) {
         console.error("Both new and legacy embedding initialization failed:", legacyError);
@@ -301,6 +324,58 @@ export class EmbeddingService {
       return await invoke<any>("debug_embedding_service")
     } catch (error) {
       console.error("Failed to debug embedding service:", error)
+      throw error
+    }
+  }
+
+  /**
+   * Bulk reprocess all existing documents for embeddings
+   */
+  async bulkReprocessDocuments(): Promise<{
+    processed: number
+    failed: number
+    skipped: number
+    total_documents: number
+    errors: string[]
+  }> {
+    try {
+      const result = await invoke<{
+        processed: number
+        failed: number
+        skipped: number
+        total_documents: number
+        errors: string[]
+      }>("bulk_reprocess_documents_for_embeddings")
+      
+      console.log(`✅ Bulk reprocessing completed: ${result.processed}/${result.total_documents} documents processed`)
+      if (result.skipped > 0) {
+        console.log(`⏭️ Skipped ${result.skipped} documents (already had embeddings)`)
+      }
+      if (result.errors.length > 0) {
+        console.warn("⚠️ Some documents failed to process:", result.errors)
+      }
+      
+      return result
+    } catch (error) {
+      console.error("Failed to bulk reprocess documents:", error)
+      throw error
+    }
+  }
+
+  /**
+   * Copy embeddings from one document to another (for duplicates)
+   */
+  async copyDocumentEmbeddings(sourceDocumentId: string, targetDocumentId: string): Promise<boolean> {
+    try {
+      const result = await invoke<boolean>("copy_document_embeddings", {
+        sourceDocumentId,
+        targetDocumentId
+      })
+      
+      console.log(`📋 Successfully copied embeddings from ${sourceDocumentId} to ${targetDocumentId}`)
+      return result
+    } catch (error) {
+      console.error("Failed to copy document embeddings:", error)
       throw error
     }
   }

@@ -7,6 +7,7 @@ pub struct Document {
     pub id: String,
     pub title: String,
     pub content: String,
+    pub content_hash: Option<String>, // SHA-256 hash of content for duplicate detection
     pub file_path: Option<String>,
     pub doc_type: String, // "pdf", "markdown", "note", etc.
     pub tags: Vec<String>,
@@ -32,6 +33,7 @@ pub struct Category {
 pub struct CreateDocumentRequest {
     pub title: String,
     pub content: String,
+    pub content_hash: Option<String>, // SHA-256 hash for duplicate detection
     pub file_path: Option<String>,
     pub doc_type: String,
     pub tags: Vec<String>,

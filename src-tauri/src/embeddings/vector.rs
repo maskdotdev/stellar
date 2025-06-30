@@ -1,7 +1,6 @@
 use super::{EmbeddingGenerator, EmbeddingConfig, create_embedding_generator, DocumentChunk, EmbeddingSearchResult};
 use rusqlite::{Connection, Result as SqliteResult, params};
 use serde::{Deserialize, Serialize};
-use std::path::Path;
 use std::collections::HashMap;
 use sqlite_vec::sqlite3_vec_init;
 

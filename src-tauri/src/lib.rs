@@ -82,6 +82,8 @@ pub fn run() {
             list_embedded_documents,
             get_document_embedding_info,
             get_embedding_database_info,
+            bulk_reprocess_documents_for_embeddings,
+            copy_document_embeddings,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

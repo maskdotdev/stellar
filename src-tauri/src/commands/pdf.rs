@@ -104,10 +104,26 @@ pub async fn upload_and_process_pdf(
     
     println!("DEBUG: Extracted metadata: {:?}", metadata);
     
-    // Create document request with stored filename
+    // Check for duplicate content before processing
+    let duplicate_check = database.check_for_duplicate(&content).await
+        .map_err(|e| format!("Failed to check for duplicates: {}", e))?;
+    
+    if let Some(ref existing_doc) = duplicate_check {
+        println!("🔍 Duplicate content detected! Existing document: {} ({})", existing_doc.title, existing_doc.id);
+        
+        // For now, we'll still create the new document but won't process embeddings
+        // In the future, we could ask the user what to do
+    }
+    
+    // Clean up temporary processing file
+    let _ = std::fs::remove_file(&stored_path);
+    
+    let doc_title = title.unwrap_or(metadata.title);
+    
     let request = CreateDocumentRequest {
-        title: title.unwrap_or(metadata.title),
-        content,
+        title: doc_title,
+        content: content.clone(),
+        content_hash: None, // Will be calculated automatically
         file_path: Some(stored_filename), // Store the unique filename
         doc_type: "pdf".to_string(),
         tags: tags.unwrap_or_default(),
@@ -123,46 +139,96 @@ pub async fn upload_and_process_pdf(
     
     println!("DEBUG: Document saved to database: {}", document.id);
     
-    // Process embeddings if service is available
+    // Process embeddings if service is available and not a duplicate
     let mut vector_guard = vector_state.lock().await;
     if let Some(vector_service) = vector_guard.as_mut() {
-        // Simple chunking - split by paragraphs
-        let chunks: Vec<crate::embeddings::DocumentChunk> = document.content
-            .split("\n\n")
-            .enumerate()
-            .filter(|(_, chunk_content)| !chunk_content.trim().is_empty())
-            .map(|(i, chunk_content)| {
-                let mut metadata = std::collections::HashMap::new();
-                metadata.insert("title".to_string(), document.title.clone());
-                metadata.insert("doc_type".to_string(), document.doc_type.clone());
-                metadata.insert("chunk_index".to_string(), i.to_string());
-                
-                if let Some(path) = &document.file_path {
-                    metadata.insert("file_path".to_string(), path.clone());
+        // Check if we found a duplicate earlier
+        if let Some(ref existing_doc) = duplicate_check {
+            println!("🔄 Attempting to reuse embeddings from existing document: {}", existing_doc.id);
+            
+            // Check if the existing document has embeddings
+            let has_embeddings = {
+                match vector_service.get_document_embedding_info(&existing_doc.id) {
+                    Ok(embedding_info) => {
+                        let chunks_count: i64 = embedding_info.get("total_chunks")
+                            .and_then(|v| v.as_i64())
+                            .unwrap_or(0);
+                        
+                        if chunks_count > 0 {
+                            println!("♻️ Found {} existing chunks, skipping embedding generation for duplicate", chunks_count);
+                            true
+                        } else {
+                            println!("⚠️ Existing document has no embeddings, processing new ones");
+                            false
+                        }
+                    }
+                    Err(_) => {
+                        println!("⚠️ Could not check existing embeddings, processing new ones");
+                        false
+                    }
                 }
-                
-                crate::embeddings::DocumentChunk {
-                    id: format!("{}_{}", document.id, i),
-                    document_id: document.id.clone(),
-                    content: chunk_content.to_string(),
-                    chunk_index: i,
-                    metadata,
-                    created_at: chrono::Utc::now(),
-                }
-            })
-            .collect();
-
-        if !chunks.is_empty() {
-            match vector_service.add_document_chunks(&chunks).await {
-                Ok(_) => println!("DEBUG: Embeddings processed successfully for document: {}", document.id),
-                Err(e) => eprintln!("WARNING: Failed to process embeddings for document {}: {}", document.id, e),
+            };
+            
+            if !has_embeddings {
+                process_document_embeddings_internal(vector_service, &document).await?;
             }
+        } else {
+            // No duplicate found, process normally
+            process_document_embeddings_internal(vector_service, &document).await?;
         }
     } else {
         println!("DEBUG: Vector service not available, skipping embedding generation");
     }
     
     Ok(document)
+}
+
+// Helper function to process embeddings for a document
+async fn process_document_embeddings_internal(
+    vector_service: &mut crate::embeddings::VectorService,
+    document: &crate::database::types::Document
+) -> Result<(), String> {
+    // Simple chunking - split by paragraphs
+    let chunks: Vec<crate::embeddings::DocumentChunk> = document.content
+        .split("\n\n")
+        .enumerate()
+        .filter(|(_, chunk_content)| !chunk_content.trim().is_empty())
+        .map(|(i, chunk_content)| {
+            let mut metadata = std::collections::HashMap::new();
+            metadata.insert("title".to_string(), document.title.clone());
+            metadata.insert("doc_type".to_string(), document.doc_type.clone());
+            metadata.insert("chunk_index".to_string(), i.to_string());
+            
+            if let Some(path) = &document.file_path {
+                metadata.insert("file_path".to_string(), path.clone());
+            }
+            
+            crate::embeddings::DocumentChunk {
+                id: format!("{}_{}", document.id, i),
+                document_id: document.id.clone(),
+                content: chunk_content.to_string(),
+                chunk_index: i,
+                metadata,
+                created_at: chrono::Utc::now(),
+            }
+        })
+        .collect();
+
+    if !chunks.is_empty() {
+        match vector_service.add_document_chunks(&chunks).await {
+            Ok(_) => {
+                println!("✅ Embeddings processed successfully for document: {}", document.id);
+                Ok(())
+            }
+            Err(e) => {
+                eprintln!("❌ Failed to process embeddings for document {}: {}", document.id, e);
+                Err(format!("Failed to process embeddings: {}", e))
+            }
+        }
+    } else {
+        println!("⚠️ No content chunks found for embedding");
+        Ok(())
+    }
 }
 
 #[tauri::command]
@@ -239,19 +305,26 @@ pub async fn upload_and_process_pdf_from_data(
     
     println!("DEBUG: Extracted metadata: {:?}", metadata);
     
+    // Check for duplicate content before processing
+    let duplicate_check = database.check_for_duplicate(&content).await
+        .map_err(|e| format!("Failed to check for duplicates: {}", e))?;
+    
+    if let Some(ref existing_doc) = duplicate_check {
+        println!("🔍 Duplicate content detected! Existing document: {} ({})", existing_doc.title, existing_doc.id);
+        
+        // For now, we'll still create the new document but won't process embeddings
+        // In the future, we could ask the user what to do
+    }
+    
     // Clean up temporary processing file
     let _ = std::fs::remove_file(&temp_file_path);
     
-    // Create document request
-    let doc_title = title.unwrap_or_else(|| {
-        file_name.split('.').next()
-            .map(|name| name.replace(['_', '-'], " "))
-            .unwrap_or(metadata.title.clone())
-    });
+    let doc_title = title.unwrap_or(metadata.title);
     
     let request = CreateDocumentRequest {
         title: doc_title,
-        content,
+        content: content.clone(),
+        content_hash: None, // Will be calculated automatically
         file_path: Some(stored_filename), // Store the unique filename
         doc_type: "pdf".to_string(),
         tags: tags.unwrap_or_default(),
@@ -267,40 +340,42 @@ pub async fn upload_and_process_pdf_from_data(
     
     println!("DEBUG: Document saved to database: {}", document.id);
     
-    // Process embeddings if service is available
+    // Process embeddings if service is available and not a duplicate
     let mut vector_guard = vector_state.lock().await;
     if let Some(vector_service) = vector_guard.as_mut() {
-        // Simple chunking - split by paragraphs
-        let chunks: Vec<crate::embeddings::DocumentChunk> = document.content
-            .split("\n\n")
-            .enumerate()
-            .filter(|(_, chunk_content)| !chunk_content.trim().is_empty())
-            .map(|(i, chunk_content)| {
-                let mut metadata = std::collections::HashMap::new();
-                metadata.insert("title".to_string(), document.title.clone());
-                metadata.insert("doc_type".to_string(), document.doc_type.clone());
-                metadata.insert("chunk_index".to_string(), i.to_string());
-                
-                if let Some(path) = &document.file_path {
-                    metadata.insert("file_path".to_string(), path.clone());
+        // Check if we found a duplicate earlier
+        if let Some(ref existing_doc) = duplicate_check {
+            println!("🔄 Attempting to reuse embeddings from existing document: {}", existing_doc.id);
+            
+            // Check if the existing document has embeddings
+            let has_embeddings = {
+                match vector_service.get_document_embedding_info(&existing_doc.id) {
+                    Ok(embedding_info) => {
+                        let chunks_count: i64 = embedding_info.get("total_chunks")
+                            .and_then(|v| v.as_i64())
+                            .unwrap_or(0);
+                        
+                        if chunks_count > 0 {
+                            println!("♻️ Found {} existing chunks, skipping embedding generation for duplicate", chunks_count);
+                            true
+                        } else {
+                            println!("⚠️ Existing document has no embeddings, processing new ones");
+                            false
+                        }
+                    }
+                    Err(_) => {
+                        println!("⚠️ Could not check existing embeddings, processing new ones");
+                        false
+                    }
                 }
-                
-                crate::embeddings::DocumentChunk {
-                    id: format!("{}_{}", document.id, i),
-                    document_id: document.id.clone(),
-                    content: chunk_content.to_string(),
-                    chunk_index: i,
-                    metadata,
-                    created_at: chrono::Utc::now(),
-                }
-            })
-            .collect();
-
-        if !chunks.is_empty() {
-            match vector_service.add_document_chunks(&chunks).await {
-                Ok(_) => println!("DEBUG: Embeddings processed successfully for document: {}", document.id),
-                Err(e) => eprintln!("WARNING: Failed to process embeddings for document {}: {}", document.id, e),
+            };
+            
+            if !has_embeddings {
+                process_document_embeddings_internal(vector_service, &document).await?;
             }
+        } else {
+            // No duplicate found, process normally
+            process_document_embeddings_internal(vector_service, &document).await?;
         }
     } else {
         println!("DEBUG: Vector service not available, skipping embedding generation");
@@ -401,22 +476,26 @@ pub async fn upload_and_process_pdf_from_url(
     
     println!("DEBUG: Extracted metadata: {:?}", metadata);
     
+    // Check for duplicate content before processing
+    let duplicate_check = database.check_for_duplicate(&content).await
+        .map_err(|e| format!("Failed to check for duplicates: {}", e))?;
+    
+    if let Some(ref existing_doc) = duplicate_check {
+        println!("🔍 Duplicate content detected! Existing document: {} ({})", existing_doc.title, existing_doc.id);
+        
+        // For now, we'll still create the new document but won't process embeddings
+        // In the future, we could ask the user what to do
+    }
+    
     // Clean up temporary processing file
     let _ = std::fs::remove_file(&temp_file_path);
     
-    // Create document request
-    let doc_title = title.unwrap_or_else(|| {
-        // Try to extract title from URL or use metadata title
-        url.split('/')
-            .last()
-            .and_then(|name| name.split('.').next())
-            .map(|name| name.replace(['_', '-'], " "))
-            .unwrap_or(metadata.title)
-    });
+    let doc_title = title.unwrap_or(metadata.title);
     
     let request = CreateDocumentRequest {
         title: doc_title,
-        content,
+        content: content.clone(),
+        content_hash: None, // Will be calculated automatically
         file_path: Some(stored_filename), // Store the unique filename
         doc_type: "pdf".to_string(),
         tags: tags.unwrap_or_default(),
@@ -432,40 +511,42 @@ pub async fn upload_and_process_pdf_from_url(
     
     println!("DEBUG: Document saved to database: {}", document.id);
     
-    // Process embeddings if service is available
+    // Process embeddings if service is available and not a duplicate
     let mut vector_guard = vector_state.lock().await;
     if let Some(vector_service) = vector_guard.as_mut() {
-        // Simple chunking - split by paragraphs
-        let chunks: Vec<crate::embeddings::DocumentChunk> = document.content
-            .split("\n\n")
-            .enumerate()
-            .filter(|(_, chunk_content)| !chunk_content.trim().is_empty())
-            .map(|(i, chunk_content)| {
-                let mut metadata = std::collections::HashMap::new();
-                metadata.insert("title".to_string(), document.title.clone());
-                metadata.insert("doc_type".to_string(), document.doc_type.clone());
-                metadata.insert("chunk_index".to_string(), i.to_string());
-                
-                if let Some(path) = &document.file_path {
-                    metadata.insert("file_path".to_string(), path.clone());
+        // Check if we found a duplicate earlier
+        if let Some(ref existing_doc) = duplicate_check {
+            println!("🔄 Attempting to reuse embeddings from existing document: {}", existing_doc.id);
+            
+            // Check if the existing document has embeddings
+            let has_embeddings = {
+                match vector_service.get_document_embedding_info(&existing_doc.id) {
+                    Ok(embedding_info) => {
+                        let chunks_count: i64 = embedding_info.get("total_chunks")
+                            .and_then(|v| v.as_i64())
+                            .unwrap_or(0);
+                        
+                        if chunks_count > 0 {
+                            println!("♻️ Found {} existing chunks, skipping embedding generation for duplicate", chunks_count);
+                            true
+                        } else {
+                            println!("⚠️ Existing document has no embeddings, processing new ones");
+                            false
+                        }
+                    }
+                    Err(_) => {
+                        println!("⚠️ Could not check existing embeddings, processing new ones");
+                        false
+                    }
                 }
-                
-                crate::embeddings::DocumentChunk {
-                    id: format!("{}_{}", document.id, i),
-                    document_id: document.id.clone(),
-                    content: chunk_content.to_string(),
-                    chunk_index: i,
-                    metadata,
-                    created_at: chrono::Utc::now(),
-                }
-            })
-            .collect();
-
-        if !chunks.is_empty() {
-            match vector_service.add_document_chunks(&chunks).await {
-                Ok(_) => println!("DEBUG: Embeddings processed successfully for document: {}", document.id),
-                Err(e) => eprintln!("WARNING: Failed to process embeddings for document {}: {}", document.id, e),
+            };
+            
+            if !has_embeddings {
+                process_document_embeddings_internal(vector_service, &document).await?;
             }
+        } else {
+            // No duplicate found, process normally
+            process_document_embeddings_internal(vector_service, &document).await?;
         }
     } else {
         println!("DEBUG: Vector service not available, skipping embedding generation");
