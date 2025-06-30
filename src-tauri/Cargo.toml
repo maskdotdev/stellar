@@ -36,4 +36,15 @@ tauri-plugin-fs = "2"
 regex = "1.0"
 base64 = "0.21"
 dirs = "5.0"
+# Embedding dependencies with sqlite-vec
+rusqlite = { version = "0.30", features = ["bundled"] }
+sqlite-vec = "0.1"
+candle-core = "0.8"
+candle-nn = "0.8"
+candle-transformers = "0.8"
+hf-hub = "0.3"
+tokenizers = "0.20"
+anyhow = "1.0"
+async-trait = "0.1"
+bincode = "1.3"
 
