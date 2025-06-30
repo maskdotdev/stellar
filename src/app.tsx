@@ -20,6 +20,7 @@ import { TooltipProvider } from "@/components/ui/tooltip"
 import { useStudyStore } from "@/lib/study-store"
 import { HotkeyProvider, HotkeyOverlay, useHotkeyContext } from "@/components/hotkey"
 import { DebugHotkeyTest } from "@/components/hotkey/dev"
+import { AppInitializationService } from "@/lib/app-initialization"
 
 // Component to show when hotkey leader mode is active
 const HotkeyModeIndicator: React.FC = () => {
@@ -237,6 +238,23 @@ export function App() {
   } = useStudyStore()
   
   const { theme, setTheme } = useTheme()
+
+  // Initialize services on app startup
+  useEffect(() => {
+    const initializeApp = async () => {
+      try {
+        console.log('🚀 Starting app initialization...')
+        const appInit = AppInitializationService.getInstance()
+        await appInit.initialize()
+        console.log('✅ App initialization completed successfully')
+      } catch (error) {
+        console.error('❌ App initialization failed:', error)
+        // Don't throw the error - the app should still work without embeddings
+      }
+    }
+
+    initializeApp()
+  }, []) // Empty dependency array = run once on mount
 
   // Dynamic keyboard shortcuts using store keybindings
   useEffect(() => {
