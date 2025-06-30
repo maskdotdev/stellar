@@ -1,16 +1,26 @@
 import { LibraryService, type Document } from './library-service'
+import { EmbeddingService, type EmbeddingSearchResult, type EmbeddingConfig } from './embedding-service'
 
-export interface DocumentContext {
+export interface ParsedDocumentContext {
   mentionedDocuments: Document[]
   contextualMessage: string
+  hasContext: boolean
+}
+
+export interface DocumentMention {
+  originalText: string
+  documentName: string
+  document?: Document
 }
 
 export class DocumentContextParser {
   private static instance: DocumentContextParser
   private libraryService: LibraryService
+  private embeddingService: EmbeddingService
 
   private constructor() {
     this.libraryService = LibraryService.getInstance()
+    this.embeddingService = EmbeddingService.getInstance()
   }
 
   public static getInstance(): DocumentContextParser {
@@ -21,45 +31,52 @@ export class DocumentContextParser {
   }
 
   /**
-   * Parse document mentions from a message and return enhanced context
+   * Parse document mentions in format @{document_name} from user message
    */
-  async parseDocumentMentions(message: string, documents: Document[]): Promise<DocumentContext> {
+  async parseDocumentMentions(message: string, availableDocuments: Document[]): Promise<ParsedDocumentContext> {
+    const mentionRegex = /@\{([^}]+)\}/g
+    const mentions: DocumentMention[] = []
     const mentionedDocuments: Document[] = []
-    
-    // Check each document to see if it's mentioned in the message
-    for (const document of documents) {
-      const mentionPattern = `@${document.title}`
-      if (message.includes(mentionPattern)) {
+    let match
+
+    while ((match = mentionRegex.exec(message)) !== null) {
+      const documentName = match[1]
+      const document = this.findDocumentByName(documentName, availableDocuments)
+      
+      mentions.push({
+        originalText: match[0],
+        documentName,
+        document
+      })
+
+      if (document) {
         mentionedDocuments.push(document)
       }
     }
 
-    if (mentionedDocuments.length === 0) {
-      return {
-        mentionedDocuments: [],
-        contextualMessage: message
-      }
-    }
-
-    // Create contextual message with document content
+    // Create contextual message with document content or semantic context
     let contextualMessage = message
 
     if (mentionedDocuments.length > 0) {
-      const documentContext = mentionedDocuments.map(doc => {
-        const preview = this.libraryService.getContentPreview(doc.content, 1000)
-        return `Document: "${doc.title}"\nContent: ${preview}\n---`
-      }).join('\n\n')
-
-      contextualMessage = `The user is asking about the following documents:
-
-${documentContext}
-
-User question: ${message}`
+      // Use mentioned documents for context
+      const documentContext = await this.buildDocumentContext(mentionedDocuments)
+      contextualMessage = `${message}\n\nRelevant document context:\n${documentContext}`
+    } else if (this.embeddingService.isInitialized()) {
+      // If no specific documents mentioned, try semantic search
+      const semanticContext = await this.embeddingService.findRelevantContext(message, {
+        limit: 3,
+        threshold: 0.75
+      })
+      
+      if (semanticContext) {
+        contextualMessage = `${message}\n\nRelevant context from your documents:\n${semanticContext}`
+      }
     }
 
     return {
       mentionedDocuments,
-      contextualMessage
+      contextualMessage,
+      hasContext: mentionedDocuments.length > 0 || contextualMessage !== message
     }
   }
 
@@ -79,30 +96,120 @@ User question: ${message}`
   /**
    * Create a system message with document context
    */
-  createSystemMessage(mentionedDocuments: Document[]): string {
-    if (mentionedDocuments.length === 0) {
-      return "You are a helpful AI assistant. Answer questions based on the provided context and your knowledge."
-    }
+  createSystemMessage(documents: Document[]): string {
+    if (documents.length === 0) return ""
 
-    const documentList = mentionedDocuments.map(doc => 
-      `- "${doc.title}" (${doc.doc_type})`
-    ).join('\n')
+    const documentSummaries = documents.map(doc => {
+      const preview = this.getContentPreview(doc.content, 500)
+      return `## ${doc.title}\nType: ${doc.doc_type}\nContent: ${preview}`
+    }).join('\n\n')
 
-    return `You are a helpful AI assistant with access to the following documents:
+    return `You have access to the following documents that the user has mentioned. Use this information to provide relevant and accurate responses:
 
-${documentList}
+${documentSummaries}
 
-When answering questions, reference the provided document content and be specific about which document you're citing. If the user asks about something not covered in the documents, acknowledge that and provide general knowledge while noting the limitation.`
+Please reference these documents when answering questions and provide specific information from them when relevant.`
   }
 
   /**
-   * Extract plain text from document mentions for display
+   * Get plain text message without @{} mentions for display
    */
   getPlainTextMessage(message: string): string {
-    // Simple replacement of @document_name with document_name
-    let result = message
-    // You could make this more sophisticated by iterating through known documents
-    // For now, just remove @ symbols that are likely document mentions
-    return result.replace(/@([a-zA-Z0-9\s\-_\.]+)/g, '$1')
+    return message.replace(/@\{([^}]+)\}/g, '$1')
+  }
+
+  /**
+   * Build enhanced document context using embeddings if available
+   */
+  private async buildDocumentContext(documents: Document[]): Promise<string> {
+    const contextParts: string[] = []
+
+    for (const document of documents) {
+      const title = `## ${document.title}`
+      let content = ""
+
+      if (this.embeddingService.isInitialized()) {
+        // Try to get most relevant chunks for this document
+        // This could be enhanced with the actual user query context
+        const chunks = await this.embeddingService.search({
+          query: document.title, // Simple approach - could be improved
+          limit: 3,
+          document_ids: [document.id],
+          threshold: 0.5
+        })
+
+        if (chunks.length > 0) {
+          content = chunks
+            .sort((a: EmbeddingSearchResult, b: EmbeddingSearchResult) => a.chunk.chunk_index - b.chunk.chunk_index)
+            .map((result: EmbeddingSearchResult) => result.chunk.content)
+            .join('\n\n')
+        } else {
+          // Fallback to truncated full content
+          content = this.getContentPreview(document.content, 1000)
+        }
+      } else {
+        // No embedding service, use truncated content
+        content = this.getContentPreview(document.content, 1000)
+      }
+
+      contextParts.push(`${title}\n${content}`)
+    }
+
+    return contextParts.join('\n\n---\n\n')
+  }
+
+  private findDocumentByName(name: string, documents: Document[]): Document | undefined {
+    const normalizedName = name.toLowerCase().trim()
+    
+    // Try exact title match first
+    let match = documents.find(doc => 
+      doc.title.toLowerCase().trim() === normalizedName
+    )
+
+    // Try partial title match
+    if (!match) {
+      match = documents.find(doc => 
+        doc.title.toLowerCase().includes(normalizedName) ||
+        normalizedName.includes(doc.title.toLowerCase())
+      )
+    }
+
+    // Try filename match (for PDFs)
+    if (!match && normalizedName.includes('.')) {
+      match = documents.find(doc => 
+        doc.file_path && doc.file_path.toLowerCase().includes(normalizedName)
+      )
+    }
+
+    return match
+  }
+
+  private getContentPreview(content: string, maxLength: number): string {
+    if (content.length <= maxLength) {
+      return content
+    }
+    
+    const truncated = content.substring(0, maxLength)
+    const lastSentence = truncated.lastIndexOf('.')
+    
+    if (lastSentence > maxLength * 0.7) {
+      return truncated.substring(0, lastSentence + 1)
+    }
+    
+    return truncated + '...'
+  }
+
+  /**
+   * Initialize the embedding service
+   */
+  async initializeEmbeddings(config?: EmbeddingConfig): Promise<boolean> {
+    return await this.embeddingService.initialize(config)
+  }
+
+  /**
+   * Get embedding service health status
+   */
+  async getEmbeddingHealth(): Promise<boolean> {
+    return await this.embeddingService.healthCheck()
   }
 } 
