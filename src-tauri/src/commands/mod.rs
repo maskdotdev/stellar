@@ -1,7 +1,8 @@
+pub mod actions;
 pub mod ai;
 pub mod database;
 pub mod pdf;
-pub mod actions;
+pub mod embeddings;
 
 pub use ai::*;
 pub use database::*;
