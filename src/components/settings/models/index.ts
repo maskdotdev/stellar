@@ -4,4 +4,8 @@ export { ModelsSettings } from "./models-settings"
 export { CatalogManagement } from "./catalog-management"
 export { Statistics } from "./statistics"
 export { ProviderLogo } from "./provider-logos"
-export { getCapabilityIcon, getFilteredModels, filterProviders } from './utils' 
+export { getCapabilityIcon, getFilteredModels, filterProviders } from './utils'
+export { AIModelsSettings } from "./ai-models-settings"
+export { AIOverview } from "./ai-overview"
+export { EmbeddingModelsSettings } from "./embedding-models-settings"
+export { EmbeddingDebug } from "./embedding-debug" 

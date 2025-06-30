@@ -3,7 +3,7 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { ProvidersSettings } from "./providers-settings"
-import { ModelsSettings } from "./models"
+import { AIModelsSettings } from "./models"
 import { ChatSettings } from "./chat-settings"
 import { AppearanceSettings } from "./appearance-settings"
 import { KeybindingsSettings } from "./keybindings-settings"
@@ -27,7 +27,7 @@ export function Settings() {
             <Tabs value={settingsTab} onValueChange={(value) => setSettingsTab(value as any)} className="w-full">
               <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="providers">AI Providers</TabsTrigger>
-                <TabsTrigger value="models">Models</TabsTrigger>
+                <TabsTrigger value="models">AI Models</TabsTrigger>
                 <TabsTrigger value="chat">Chat Settings</TabsTrigger>
                 <TabsTrigger value="appearance">Appearance</TabsTrigger>
                 <TabsTrigger value="keybindings">Keybindings</TabsTrigger>
@@ -38,7 +38,7 @@ export function Settings() {
               </TabsContent>
 
               <TabsContent value="models" className="space-y-4">
-                <ModelsSettings />
+                <AIModelsSettings />
               </TabsContent>
 
               <TabsContent value="chat" className="space-y-4">
