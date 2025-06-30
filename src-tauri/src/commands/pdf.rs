@@ -1,13 +1,15 @@
 use crate::database::{Database, Document, CreateDocumentRequest};
 use crate::pdf_processor::{PdfProcessor, MarkerOptions};
+use crate::embeddings::VectorService;
 use tauri::State;
 use tokio::sync::Mutex;
 use std::sync::Arc;
 use std::path::PathBuf;
 use uuid::Uuid;
 
-// Database state type
+// State types
 type DatabaseState = Arc<Mutex<Option<Database>>>;
+type VectorServiceState = Arc<Mutex<Option<VectorService>>>;
 
 // Helper function to get PDF storage directory
 fn get_pdf_storage_dir() -> Result<PathBuf, String> {
@@ -35,7 +37,8 @@ fn generate_pdf_filename(original_name: &str) -> String {
 
 #[tauri::command]
 pub async fn upload_and_process_pdf(
-    state: State<'_, DatabaseState>,
+    db_state: State<'_, DatabaseState>,
+    vector_state: State<'_, VectorServiceState>,
     file_path: String,
     title: Option<String>,
     tags: Option<Vec<String>>,
@@ -46,8 +49,8 @@ pub async fn upload_and_process_pdf(
 ) -> Result<Document, String> {
     println!("DEBUG: upload_and_process_pdf called with file_path: {}", file_path);
     
-    let db_state = state.lock().await;
-    let database = db_state.as_ref().ok_or("Database not initialized")?;
+    let db_guard = db_state.lock().await;
+    let database = db_guard.as_ref().ok_or("Database not initialized")?;
     
     println!("DEBUG: Database state obtained");
     
@@ -115,17 +118,57 @@ pub async fn upload_and_process_pdf(
     println!("DEBUG: Created document request: {:?}", request.title);
     
     // Save to database
-    let result = database.create_document(request).await
-        .map_err(|e| format!("Failed to save document: {}", e));
+    let document = database.create_document(request).await
+        .map_err(|e| format!("Failed to save document: {}", e))?;
     
-    println!("DEBUG: Database operation result: {:?}", result.is_ok());
+    println!("DEBUG: Document saved to database: {}", document.id);
     
-    result
+    // Process embeddings if service is available
+    let mut vector_guard = vector_state.lock().await;
+    if let Some(vector_service) = vector_guard.as_mut() {
+        // Simple chunking - split by paragraphs
+        let chunks: Vec<crate::embeddings::DocumentChunk> = document.content
+            .split("\n\n")
+            .enumerate()
+            .filter(|(_, chunk_content)| !chunk_content.trim().is_empty())
+            .map(|(i, chunk_content)| {
+                let mut metadata = std::collections::HashMap::new();
+                metadata.insert("title".to_string(), document.title.clone());
+                metadata.insert("doc_type".to_string(), document.doc_type.clone());
+                metadata.insert("chunk_index".to_string(), i.to_string());
+                
+                if let Some(path) = &document.file_path {
+                    metadata.insert("file_path".to_string(), path.clone());
+                }
+                
+                crate::embeddings::DocumentChunk {
+                    id: format!("{}_{}", document.id, i),
+                    document_id: document.id.clone(),
+                    content: chunk_content.to_string(),
+                    chunk_index: i,
+                    metadata,
+                    created_at: chrono::Utc::now(),
+                }
+            })
+            .collect();
+
+        if !chunks.is_empty() {
+            match vector_service.add_document_chunks(&chunks).await {
+                Ok(_) => println!("DEBUG: Embeddings processed successfully for document: {}", document.id),
+                Err(e) => eprintln!("WARNING: Failed to process embeddings for document {}: {}", document.id, e),
+            }
+        }
+    } else {
+        println!("DEBUG: Vector service not available, skipping embedding generation");
+    }
+    
+    Ok(document)
 }
 
 #[tauri::command]
 pub async fn upload_and_process_pdf_from_data(
-    state: State<'_, DatabaseState>,
+    db_state: State<'_, DatabaseState>,
+    vector_state: State<'_, VectorServiceState>,
     file_data: Vec<u8>,
     file_name: String,
     title: Option<String>,
@@ -137,8 +180,8 @@ pub async fn upload_and_process_pdf_from_data(
 ) -> Result<Document, String> {
     println!("DEBUG: upload_and_process_pdf_from_data called with file_name: {}", file_name);
     
-    let db_state = state.lock().await;
-    let database = db_state.as_ref().ok_or("Database not initialized")?;
+    let db_guard = db_state.lock().await;
+    let database = db_guard.as_ref().ok_or("Database not initialized")?;
     
     println!("DEBUG: Database state obtained, file size: {} bytes", file_data.len());
     
@@ -219,17 +262,57 @@ pub async fn upload_and_process_pdf_from_data(
     println!("DEBUG: Created document request: {:?}", request.title);
     
     // Save to database
-    let result = database.create_document(request).await
-        .map_err(|e| format!("Failed to save document: {}", e));
+    let document = database.create_document(request).await
+        .map_err(|e| format!("Failed to save document: {}", e))?;
     
-    println!("DEBUG: Database operation result: {:?}", result.is_ok());
+    println!("DEBUG: Document saved to database: {}", document.id);
     
-    result
+    // Process embeddings if service is available
+    let mut vector_guard = vector_state.lock().await;
+    if let Some(vector_service) = vector_guard.as_mut() {
+        // Simple chunking - split by paragraphs
+        let chunks: Vec<crate::embeddings::DocumentChunk> = document.content
+            .split("\n\n")
+            .enumerate()
+            .filter(|(_, chunk_content)| !chunk_content.trim().is_empty())
+            .map(|(i, chunk_content)| {
+                let mut metadata = std::collections::HashMap::new();
+                metadata.insert("title".to_string(), document.title.clone());
+                metadata.insert("doc_type".to_string(), document.doc_type.clone());
+                metadata.insert("chunk_index".to_string(), i.to_string());
+                
+                if let Some(path) = &document.file_path {
+                    metadata.insert("file_path".to_string(), path.clone());
+                }
+                
+                crate::embeddings::DocumentChunk {
+                    id: format!("{}_{}", document.id, i),
+                    document_id: document.id.clone(),
+                    content: chunk_content.to_string(),
+                    chunk_index: i,
+                    metadata,
+                    created_at: chrono::Utc::now(),
+                }
+            })
+            .collect();
+
+        if !chunks.is_empty() {
+            match vector_service.add_document_chunks(&chunks).await {
+                Ok(_) => println!("DEBUG: Embeddings processed successfully for document: {}", document.id),
+                Err(e) => eprintln!("WARNING: Failed to process embeddings for document {}: {}", document.id, e),
+            }
+        }
+    } else {
+        println!("DEBUG: Vector service not available, skipping embedding generation");
+    }
+    
+    Ok(document)
 }
 
 #[tauri::command]
 pub async fn upload_and_process_pdf_from_url(
-    state: State<'_, DatabaseState>,
+    db_state: State<'_, DatabaseState>,
+    vector_state: State<'_, VectorServiceState>,
     url: String,
     title: Option<String>,
     tags: Option<Vec<String>>,
@@ -240,8 +323,8 @@ pub async fn upload_and_process_pdf_from_url(
 ) -> Result<Document, String> {
     println!("DEBUG: upload_and_process_pdf_from_url called with URL: {}", url);
     
-    let db_state = state.lock().await;
-    let database = db_state.as_ref().ok_or("Database not initialized")?;
+    let db_guard = db_state.lock().await;
+    let database = db_guard.as_ref().ok_or("Database not initialized")?;
     
     println!("DEBUG: Database state obtained");
     
@@ -344,12 +427,51 @@ pub async fn upload_and_process_pdf_from_url(
     println!("DEBUG: Created document request: {:?}", request.title);
     
     // Save to database
-    let result = database.create_document(request).await
-        .map_err(|e| format!("Failed to save document: {}", e));
+    let document = database.create_document(request).await
+        .map_err(|e| format!("Failed to save document: {}", e))?;
     
-    println!("DEBUG: Database operation result: {:?}", result.is_ok());
+    println!("DEBUG: Document saved to database: {}", document.id);
     
-    result
+    // Process embeddings if service is available
+    let mut vector_guard = vector_state.lock().await;
+    if let Some(vector_service) = vector_guard.as_mut() {
+        // Simple chunking - split by paragraphs
+        let chunks: Vec<crate::embeddings::DocumentChunk> = document.content
+            .split("\n\n")
+            .enumerate()
+            .filter(|(_, chunk_content)| !chunk_content.trim().is_empty())
+            .map(|(i, chunk_content)| {
+                let mut metadata = std::collections::HashMap::new();
+                metadata.insert("title".to_string(), document.title.clone());
+                metadata.insert("doc_type".to_string(), document.doc_type.clone());
+                metadata.insert("chunk_index".to_string(), i.to_string());
+                
+                if let Some(path) = &document.file_path {
+                    metadata.insert("file_path".to_string(), path.clone());
+                }
+                
+                crate::embeddings::DocumentChunk {
+                    id: format!("{}_{}", document.id, i),
+                    document_id: document.id.clone(),
+                    content: chunk_content.to_string(),
+                    chunk_index: i,
+                    metadata,
+                    created_at: chrono::Utc::now(),
+                }
+            })
+            .collect();
+
+        if !chunks.is_empty() {
+            match vector_service.add_document_chunks(&chunks).await {
+                Ok(_) => println!("DEBUG: Embeddings processed successfully for document: {}", document.id),
+                Err(e) => eprintln!("WARNING: Failed to process embeddings for document {}: {}", document.id, e),
+            }
+        }
+    } else {
+        println!("DEBUG: Vector service not available, skipping embedding generation");
+    }
+    
+    Ok(document)
 }
 
 // New command to serve PDF files to the frontend
