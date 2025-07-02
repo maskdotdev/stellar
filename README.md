@@ -2,6 +2,8 @@
 
 A modern study and research application built with Tauri, React, and TypeScript.
 
+![Stellar](./stellar-themes.gif)
+
 ## Features
 
 - 📄 **Advanced PDF Processing**: Convert PDFs to markdown with high accuracy using [Marker](https://github.com/datalab-to/marker)
