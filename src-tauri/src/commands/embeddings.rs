@@ -164,7 +164,7 @@ pub async fn check_embedding_health(
 #[tauri::command]
 pub async fn init_embedding_service(
     state: State<'_, VectorServiceState>,
-    chroma_url: Option<String>,
+    _chroma_url: Option<String>,
 ) -> Result<serde_json::Value, String> {
     // Use the same data directory as the main database
     let app_data_dir = std::env::current_dir()
