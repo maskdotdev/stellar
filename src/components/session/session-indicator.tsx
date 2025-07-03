@@ -8,6 +8,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Separator } from "@/components/ui/separator"
 import { 
   Play, 
   Square, 
@@ -19,6 +20,7 @@ import {
 } from "lucide-react"
 import { useActionsStore, StudySession } from "@/lib/actions-service"
 import { useToast } from "@/hooks/use-toast"
+import { SmartSessionDialog } from "./smart-session-dialog"
 
 export function SessionIndicator() {
   const { 
@@ -163,10 +165,10 @@ export function SessionIndicator() {
 
   const getSessionTypeIcon = (type: string) => {
     switch (type) {
-      case "focused": return <Zap className="h-3 w-3" />
-      case "exploratory": return <BookOpen className="h-3 w-3" />
-      case "review": return <BarChart3 className="h-3 w-3" />
-      default: return <Settings className="h-3 w-3" />
+      case "focused": return <Zap className="h-4 w-4 text-muted-foreground" />
+      case "exploratory": return <BookOpen className="h-4 w-4 text-muted-foreground" />
+      case "review": return <BarChart3 className="h-4 w-4 text-muted-foreground" />
+      default: return <Settings className="h-4 w-4 text-muted-foreground" />
     }
   }
 
@@ -257,81 +259,93 @@ export function SessionIndicator() {
           <span>Start Session</span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-80" align="end">
-        <Card className="border-0 shadow-none">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm">Start Study Session</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="session-title" className="text-xs">Session Title</Label>
-              <Input
-                id="session-title"
-                placeholder="Enter session title..."
-                value={newSessionTitle}
-                onChange={(e) => setNewSessionTitle(e.target.value)}
-                className="text-sm"
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="session-type" className="text-xs">Session Type</Label>
-              <Select value={newSessionType} onValueChange={setNewSessionType}>
-                <SelectTrigger className="text-sm">
+      <PopoverContent className="w-96 p-0" align="center">
+        <div className="p-6 space-y-6">
+          {/* Header */}
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold leading-none tracking-tight">Start Study Session</h3>
+            <p className="text-sm text-muted-foreground">Configure your study session settings</p>
+          </div>
+
+          {/* Session Title */}
+          <div className="space-y-2">
+            <Label htmlFor="session-title" className="text-sm font-medium">
+              Session Title
+            </Label>
+            <Input
+              id="session-title"
+              placeholder="Enter session title..."
+              value={newSessionTitle}
+              onChange={(e) => setNewSessionTitle(e.target.value)}
+              className="h-11"
+            />
+          </div>
+
+          {/* Session Type */}
+          <div className="space-y-2">
+            <Label className="text-sm font-medium">Session Type</Label>
+            <Select value={newSessionType} onValueChange={setNewSessionType}>
+              <SelectTrigger className="h-11">
+                <div className="flex items-center gap-2">
+                  {getSessionTypeIcon(newSessionType)}
                   <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="mixed">
-                    <div className="flex items-center gap-2">
-                      <Settings className="h-3 w-3" />
-                      Mixed Study
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="focused">
-                    <div className="flex items-center gap-2">
-                      <Zap className="h-3 w-3" />
-                      Focused Study
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="exploratory">
-                    <div className="flex items-center gap-2">
-                      <BookOpen className="h-3 w-3" />
-                      Exploratory Learning
-                    </div>
-                  </SelectItem>
-                  <SelectItem value="review">
-                    <div className="flex items-center gap-2">
-                      <BarChart3 className="h-3 w-3" />
-                      Review Session
-                    </div>
-                  </SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="flex gap-2">
-              <Button 
-                size="sm" 
-                onClick={handleQuickStart}
-                disabled={isStartingSession}
-                variant="outline"
-                className="flex-1"
-              >
-                <Zap className="h-3 w-3 mr-1" />
-                Quick Start
-              </Button>
-              <Button 
-                size="sm" 
-                onClick={handleStartSession}
-                disabled={isStartingSession || !newSessionTitle.trim()}
-                className="flex-1"
-              >
-                <Play className="h-3 w-3 mr-1" />
-                Start Session
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+                </div>
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="mixed">
+                  <div className="flex items-center gap-2">
+                    <Settings className="h-4 w-4" />
+                    Mixed Study
+                  </div>
+                </SelectItem>
+                <SelectItem value="focused">
+                  <div className="flex items-center gap-2">
+                    <Zap className="h-4 w-4" />
+                    Focused Study
+                  </div>
+                </SelectItem>
+                <SelectItem value="exploratory">
+                  <div className="flex items-center gap-2">
+                    <BookOpen className="h-4 w-4" />
+                    Exploratory Learning
+                  </div>
+                </SelectItem>
+                <SelectItem value="review">
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4" />
+                    Review Session
+                  </div>
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-3">
+            <Button 
+              variant="outline" 
+              onClick={handleQuickStart}
+              disabled={isStartingSession}
+              className="flex-1 h-11 gap-2 bg-transparent"
+            >
+              <Zap className="h-4 w-4" />
+              Quick Start
+            </Button>
+            <Button 
+              onClick={handleStartSession}
+              disabled={isStartingSession || !newSessionTitle.trim()}
+              className="flex-1 h-11 gap-2"
+            >
+              <Play className="h-4 w-4" />
+              Start Session
+            </Button>
+          </div>
+
+          <Separator />
+
+          {/* Smart Session */}
+          <SmartSessionDialog />
+        </div>
       </PopoverContent>
     </Popover>
   )
