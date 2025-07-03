@@ -1,6 +1,7 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { invoke } from '@tauri-apps/api/core'
+import { sessionDetectionService, SessionSuggestion } from './session-detection-service'
 
 // Action Types Enum
 export enum ActionType {
@@ -161,6 +162,21 @@ export interface ActionStats {
   average_session_duration: number
 }
 
+// Database initialization helper
+let dbInitialized = false
+const ensureDatabaseInitialized = async () => {
+  if (dbInitialized) return
+  
+  try {
+    await invoke('init_database')
+    dbInitialized = true
+    console.log('Actions database initialized successfully')
+  } catch (error) {
+    console.error('Failed to initialize actions database:', error)
+    throw error
+  }
+}
+
 // Actions Store State - SQLite Backend
 interface ActionsState {
   currentSessionId: string | null
@@ -180,6 +196,12 @@ interface ActionsState {
   getStudySessions: (limit?: number, offset?: number) => Promise<StudySession[]>
   setCurrentSession: (sessionId: string) => void
   clearCurrentSession: () => void
+  
+  // Smart session management
+  generateSessionTitle: (sessionId: string) => Promise<SessionSuggestion>
+  checkAutoEndSession: () => Promise<boolean>
+  autoDetectSessionsFromActions: (actions: UserAction[]) => Promise<SessionSuggestion[]>
+  startSmartSession: () => Promise<StudySession>
   
   // Settings
   setTracking: (enabled: boolean) => void
@@ -203,6 +225,8 @@ export const useActionsStore = create<ActionsState>()(
         set({ isLoading: true })
         
         try {
+          await ensureDatabaseInitialized()
+          
           // Get current session or create one
           let sessionId = context.sessionId || get().currentSessionId
           
@@ -240,6 +264,7 @@ export const useActionsStore = create<ActionsState>()(
       
       getActionsBySession: async (sessionId: string) => {
         try {
+          await ensureDatabaseInitialized()
           const actions = await invoke<UserAction[]>('get_actions_by_session', { sessionId })
           return actions
         } catch (error) {
@@ -250,6 +275,7 @@ export const useActionsStore = create<ActionsState>()(
       
       getActionsByDocument: async (documentId: string) => {
         try {
+          await ensureDatabaseInitialized()
           const actions = await invoke<UserAction[]>('get_actions_by_document', { documentId })
           return actions
         } catch (error) {
@@ -260,6 +286,7 @@ export const useActionsStore = create<ActionsState>()(
       
       getRecentActions: async (limit: number) => {
         try {
+          await ensureDatabaseInitialized()
           const actions = await invoke<UserAction[]>('get_recent_actions', { limit })
           return actions
         } catch (error) {
@@ -270,9 +297,10 @@ export const useActionsStore = create<ActionsState>()(
       
       startNewSession: async (title: string, sessionType: string = 'mixed') => {
         try {
+          await ensureDatabaseInitialized()
           const session = await invoke<StudySession>('start_new_session', { 
             title, 
-            sessionType 
+            session_type: sessionType 
           })
           set({ currentSessionId: session.id })
           return session
@@ -284,6 +312,7 @@ export const useActionsStore = create<ActionsState>()(
       
       getCurrentSession: async () => {
         try {
+          await ensureDatabaseInitialized()
           const session = await invoke<StudySession | null>('get_active_session')
           if (session) {
             set({ currentSessionId: session.id })
@@ -300,6 +329,7 @@ export const useActionsStore = create<ActionsState>()(
         if (!sessionId) return false
         
         try {
+          await ensureDatabaseInitialized()
           const success = await invoke<boolean>('end_study_session', { sessionId })
           if (success) {
             set({ currentSessionId: null })
@@ -313,6 +343,7 @@ export const useActionsStore = create<ActionsState>()(
       
       getStudySessions: async (limit: number = 50, offset: number = 0) => {
         try {
+          await ensureDatabaseInitialized()
           const sessions = await invoke<StudySession[]>('get_study_sessions', { limit, offset })
           return sessions
         } catch (error) {
@@ -339,6 +370,7 @@ export const useActionsStore = create<ActionsState>()(
       
       getActionStats: async () => {
         try {
+          await ensureDatabaseInitialized()
           const stats = await invoke<ActionStats>('get_action_statistics')
           return stats
         } catch (error) {
@@ -351,16 +383,83 @@ export const useActionsStore = create<ActionsState>()(
             average_session_duration: 0
           }
         }
+      },
+      
+      // Smart session management methods
+      generateSessionTitle: async (sessionId: string) => {
+        try {
+          await ensureDatabaseInitialized()
+          const actions = await invoke<UserAction[]>('get_actions_by_session', { sessionId })
+          return sessionDetectionService.generateSessionTitle(actions)
+        } catch (error) {
+          console.error('Failed to generate session title:', error)
+          return {
+            suggestedTitle: "Study Session",
+            suggestedType: "mixed" as const,
+            confidence: 0.3,
+            reasoning: "Error generating title"
+          }
+        }
+      },
+      
+      checkAutoEndSession: async () => {
+        const currentSessionId = get().currentSessionId
+        if (!currentSessionId) return false
+        
+        try {
+          await ensureDatabaseInitialized()
+          return await sessionDetectionService.shouldAutoEndSession(currentSessionId)
+        } catch (error) {
+          console.error('Failed to check auto-end session:', error)
+          return false
+        }
+      },
+      
+      autoDetectSessionsFromActions: async (actions: UserAction[]) => {
+        try {
+          await ensureDatabaseInitialized()
+          return await sessionDetectionService.autoDetectSessions(actions)
+        } catch (error) {
+          console.error('Failed to auto-detect sessions:', error)
+          return []
+        }
+      },
+      
+      startSmartSession: async () => {
+        try {
+          await ensureDatabaseInitialized()
+          
+          // Get recent actions to analyze patterns
+          const recentActions = await get().getRecentActions(50)
+          
+          let sessionTitle = "Study Session"
+          let sessionType = "mixed"
+          
+          if (recentActions.length > 0) {
+            const suggestion = sessionDetectionService.generateSessionTitle(recentActions)
+            sessionTitle = suggestion.suggestedTitle
+            sessionType = suggestion.suggestedType
+          }
+          
+          // Add timestamp to make title unique
+          const now = new Date()
+          const timeString = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+          const finalTitle = `${sessionTitle} - ${timeString}`
+          
+          return await get().startNewSession(finalTitle, sessionType)
+        } catch (error) {
+          console.error('Failed to start smart session:', error)
+          // Fallback to regular session
+          return await get().startNewSession("Study Session", "mixed")
+        }
       }
     }),
     {
-      name: 'stellar-actions-store',
-      version: 2, // Increment version for breaking changes
-      // Only persist settings, not data (since data is now in SQLite)
+      name: 'actions-store',
       partialize: (state) => ({
         currentSessionId: state.currentSessionId,
         isTracking: state.isTracking
-      })
+      }),
     }
   )
 )
