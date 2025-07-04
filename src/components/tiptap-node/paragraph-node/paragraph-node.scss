@@ -358,7 +358,7 @@
       padding: 0 0.25rem;
       margin: 0 0.25rem;
       border: 1px solid var(--tiptap-mathematics-border-color);
-      font-family: monospace;
+      font-family: var(--font-mono, monospace);
       font-size: 0.875rem;
     }
   
