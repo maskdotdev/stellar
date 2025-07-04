@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { useState } from "react"
 import { Keyboard, Edit3, RotateCcw } from "lucide-react"
-import { useStudyStore, type Keybinding } from "@/lib/study-store"
+import { useStudyStore, type Keybinding } from "@/lib/stores/study-store"
 
 export function KeybindingsSettings() {
   const { 

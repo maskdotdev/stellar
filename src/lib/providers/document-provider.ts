@@ -1,7 +1,7 @@
 import { MentionProvider, MentionItem } from "@/components/ui/mention-input"
-import { useStudyStore } from "@/lib/study-store"
-import { useSettingsStore } from "@/lib/settings-store"
-import { LibraryService } from "@/lib/library-service"
+import { useStudyStore } from "@/lib/stores/study-store"
+import { useSettingsStore } from "@/lib/stores/settings-store"
+import { LibraryService } from "@/lib/services/library-service"
 import { FileText, BookOpen, Code, Headphones } from "lucide-react"
 
 const typeIcons = {

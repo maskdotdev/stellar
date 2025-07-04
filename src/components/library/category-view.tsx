@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { FolderPlus, Edit, Trash2, GraduationCap } from "lucide-react"
-import { type Category } from "@/lib/library-service"
+import { type Category } from "@/lib/services/library-service"
 import { DynamicIcon } from "./dynamic-icon"
 import { useEffect, useRef } from "react"
 
@@ -93,10 +93,7 @@ export function CategoryView({
     )
   }
 
-  const allCategories = [
-    { id: "uncategorized", name: "No Category" } as Category,
-    ...filteredCategories
-  ]
+
 
   return (
     <div ref={containerRef} className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

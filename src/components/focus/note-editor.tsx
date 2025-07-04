@@ -15,10 +15,12 @@ import {
   X,
   Clock
 } from "lucide-react"
-import { useStudyStore } from "@/lib/study-store"
-import { LibraryService, type Document, type Category } from "@/lib/library-service"
+import { useStudyStore } from "@/lib/stores/study-store"
+import { LibraryService, type Document, type Category } from "@/lib/services/library-service"
 import { useToast } from "@/hooks/use-toast"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { useActionsStore, ActionsService, ActionType } from "@/lib/services/actions-service"
+import { useDebouncedNoteAction } from "@/hooks/use-debounced-action"
 
 interface NoteEditorProps {
   documentId?: string
@@ -43,6 +45,11 @@ export function NoteEditor({ documentId, onBack, categories = [], currentCategor
   const { toast } = useToast()
   const { addDocument, updateDocument, setEditingNoteId, setCurrentDocument, setCurrentView, documents } = useStudyStore()
   const libraryService = LibraryService.getInstance()
+  
+  // Actions tracking
+  const actionsService = ActionsService.getInstance()
+  const { currentSessionId } = useActionsStore()
+  const { recordNoteEdit, finishEditingSession } = useDebouncedNoteAction()
 
   // Load existing document if editing
   useEffect(() => {
@@ -133,6 +140,32 @@ export function NoteEditor({ documentId, onBack, categories = [], currentCategor
     return () => clearTimeout(timeoutId)
   }, [title, content, tags])
 
+  // Debounced action recording for content changes (only for existing notes)
+  useEffect(() => {
+    if (documentId && document && title && content) {
+      recordNoteEdit(
+        documentId,
+        title,
+        content,
+        {
+          tags: tags,
+          categoryId: selectedCategoryId || undefined,
+          sessionId: currentSessionId || 'default-session',
+          isManualSave: false
+        }
+      )
+    }
+  }, [documentId, document, title, content, tags, selectedCategoryId, currentSessionId, recordNoteEdit])
+
+  // Cleanup: finish editing session when navigating away
+  useEffect(() => {
+    return () => {
+      if (documentId && document) {
+        finishEditingSession()
+      }
+    }
+  }, [documentId, document, finishEditingSession])
+
   // Handle document link clicks
   useEffect(() => {
     const handleDocumentLinkClick = (event: MouseEvent) => {
@@ -202,6 +235,19 @@ export function NoteEditor({ documentId, onBack, categories = [], currentCategor
           setDocument(updatedDocument)
           setLastSaved(new Date())
           
+          // Record note edit action (debounced)
+          recordNoteEdit(
+            updatedDocument.id,
+            updatedDocument.title,
+            content,
+            {
+              tags: tags,
+              categoryId: selectedCategoryId || undefined,
+              sessionId: currentSessionId || 'default-session',
+              isManualSave: !silent
+            }
+          )
+          
           if (!silent) {
             toast({
               title: "Success",
@@ -224,6 +270,24 @@ export function NoteEditor({ documentId, onBack, categories = [], currentCategor
         setDocument(newDocument)
         setEditingNoteId(newDocument.id) // Update to editing mode
         setLastSaved(new Date())
+        
+        // Record note creation action (immediate for new notes)
+        await actionsService.recordActionWithAutoContext(
+          ActionType.NOTE_CREATE,
+          {
+            documentId: newDocument.id,
+            noteTitle: newDocument.title,
+            noteWordCount: content.replace(/<[^>]*>/g, '').split(/\s+/).length,
+            tags: tags,
+            categoryId: selectedCategoryId || undefined,
+            isAutoSave: silent
+          },
+          {
+            sessionId: currentSessionId || 'default-session',
+            documentIds: [newDocument.id],
+            categoryIds: selectedCategoryId ? [selectedCategoryId] : undefined
+          }
+        )
         
         if (!silent) {
           toast({

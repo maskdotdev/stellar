@@ -1,4 +1,4 @@
-import { AIProvider, AIModel } from "./ai-store"
+import { AIProvider, AIModel } from "@/lib/stores/ai-store"
 import { invoke } from "@tauri-apps/api/core"
 
 // Types from models.dev API
@@ -55,7 +55,7 @@ export interface ModelRecommendation {
 }
 
 export class ModelsService {
-  private static readonly MODELS_DEV_API = "https://models.dev/api.json"
+
   private static cachedData: ModelsDevResponse | null = null
   private static lastFetch: number = 0
   private static readonly CACHE_DURATION = 1000 * 60 * 60 // 1 hour

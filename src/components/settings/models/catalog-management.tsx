@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { RefreshCw, Download, Search, FileDown, Globe, Database } from "lucide-react"
-import { useAIStore } from "@/lib/ai-store"
+import { useAIStore } from "@/lib/stores/ai-store"
 import { useToast } from "@/hooks/use-toast"
 import { getCapabilityIcon } from "./utils"
 

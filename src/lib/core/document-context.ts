@@ -1,5 +1,5 @@
-import { LibraryService, type Document } from './library-service'
-import { EmbeddingService, type EmbeddingSearchResult, type EmbeddingConfig } from './embedding-service'
+import { LibraryService, type Document } from "@/lib/services/library-service"
+import { EmbeddingService, type EmbeddingSearchResult, type EmbeddingConfig } from "@/lib/services/embedding-service"
 
 export interface ParsedDocumentContext {
   mentionedDocuments: Document[]

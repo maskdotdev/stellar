@@ -18,7 +18,7 @@ import {
   Settings,
   Zap
 } from "lucide-react"
-import { useActionsStore, StudySession } from "@/lib/actions-service"
+import { useActionsStore, StudySession } from "@/lib/services/actions-service"
 import { useToast } from "@/hooks/use-toast"
 import { SmartSessionDialog } from "./smart-session-dialog"
 
@@ -287,7 +287,6 @@ export function SessionIndicator() {
             <Select value={newSessionType} onValueChange={setNewSessionType}>
               <SelectTrigger className="h-11">
                 <div className="flex items-center gap-2">
-                  {getSessionTypeIcon(newSessionType)}
                   <SelectValue />
                 </div>
               </SelectTrigger>

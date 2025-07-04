@@ -1,6 +1,6 @@
 import { invoke } from '@tauri-apps/api/core'
 import { open } from '@tauri-apps/plugin-dialog'
-import { extractTextFromHTML } from './tiptap-utils'
+import { extractTextFromHTML } from '@/lib/utils/tiptap-utils'
 
 export interface Document {
   id: string

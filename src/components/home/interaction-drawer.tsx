@@ -7,8 +7,9 @@ import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { MessageCircle, Zap, Network, Send, Bot, User, AlertCircle } from "lucide-react"
-import { useStudyStore } from "@/lib/study-store"
+import { useStudyStore } from "@/lib/stores/study-store"
 import { useChat } from "@/hooks/use-chat"
+import { useActionsStore, ActionsService, ActionType } from "@/lib/services/actions-service"
 
 export function InteractionDrawer() {
   const [chatInput, setChatInput] = useState("")
@@ -24,12 +25,38 @@ export function InteractionDrawer() {
     activeProvider,
     activeModel
   } = useChat({ autoCreateConversation: true })
+  
+  // Actions tracking
+  const actionsService = ActionsService.getInstance()
+  const { currentSessionId } = useActionsStore()
+  const { currentDocument, currentCategory, documents } = useStudyStore()
 
   const handleSendMessage = async () => {
     if (!chatInput.trim() || !canSendMessage) return
     
     const message = chatInput
     setChatInput("")
+    
+    // Record chat message action
+    const currentDoc = currentDocument ? documents.find(doc => doc.id === currentDocument) : null
+    await actionsService.recordActionWithAutoContext(
+      ActionType.CHAT_MESSAGE,
+      {
+        messageLength: message.length,
+        hasDocumentContext: !!currentDocument,
+        documentId: currentDocument || undefined,
+        documentTitle: currentDoc?.title || undefined,
+        categoryId: currentCategory || undefined,
+        modelUsed: activeModel?.name || 'unknown',
+        provider: activeProvider?.name || 'unknown'
+      },
+      {
+        sessionId: currentSessionId || 'default-session',
+        documentIds: currentDocument ? [currentDocument] : undefined,
+        categoryIds: currentCategory ? [currentCategory] : undefined
+      }
+    )
+    
     await sendMessage(message)
   }
 

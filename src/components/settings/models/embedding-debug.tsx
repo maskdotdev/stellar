@@ -18,7 +18,7 @@ import {
   SkipForward,
   Folder
 } from "lucide-react"
-import { EmbeddingService } from "@/lib/embedding-service"
+import { EmbeddingService } from "@/lib/services/embedding-service"
 import { useToast } from "@/hooks/use-toast"
 
 interface EmbeddedDocument {
@@ -45,7 +45,7 @@ export function EmbeddingDebug() {
   const [databaseInfo, setDatabaseInfo] = useState<DatabaseInfo | null>(null)
   const [selectedDocument, setSelectedDocument] = useState<string | null>(null)
   const [documentDetails, setDocumentDetails] = useState<any>(null)
-  const [embeddedDocs, setEmbeddedDocs] = useState<EmbeddedDocument[]>([])
+
   const [isReprocessing, setIsReprocessing] = useState(false)
   const [reprocessResult, setReprocessResult] = useState<{
     processed: number

@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react"
 import { useToast } from "@/hooks/use-toast"
-import { useStudyStore } from "@/lib/study-store"
-import { useSimpleSettingsStore } from "@/lib/simple-settings-store"
-import { LibraryService, type Document, type Category, type CreateCategoryRequest } from "@/lib/library-service"
-import { useActionsStore, ActionsService, ActionType } from "@/lib/actions-service"
+import { useStudyStore } from "@/lib/stores/study-store"
+import { useSimpleSettingsStore } from "@/lib/stores/simple-settings-store"
+import { LibraryService, type Document, type Category, type CreateCategoryRequest } from "@/lib/services/library-service"
+import { useActionsStore, ActionsService, ActionType } from "@/lib/services/actions-service"
+import { useDebouncedSearchAction } from "@/hooks/use-debounced-action"
 
 export function useLibrary() {
   const [searchQuery, setSearchQuery] = useState("")
@@ -25,7 +26,8 @@ export function useLibrary() {
   
   // Actions tracking
   const actionsService = ActionsService.getInstance()
-  const { currentSessionId, recordAction } = useActionsStore()
+  const { currentSessionId } = useActionsStore()
+  const { recordSearch } = useDebouncedSearchAction()
   
   // Use persistent settings for layout preferences
   const viewMode = useSimpleSettingsStore((state) => state.libraryViewMode)
@@ -34,17 +36,17 @@ export function useLibrary() {
   
   // Wrapper function that adds action tracking to search
   const addSearchHistory = async (query: string) => {
-    // Add search action tracking
+    // Add search action tracking (debounced)
     try {
-      await recordAction(ActionType.SEARCH_QUERY, {
+      recordSearch(
         query,
-        scope: currentCategory ? 'documents' : 'categories',
-        context: currentCategory || 'categories',
-        resultCount: currentCategory ? filteredDocuments.length : filteredCategories.length
-      }, {
-        sessionId: currentSessionId || undefined,
-        categoryIds: currentCategory ? [currentCategory] : undefined
-      })
+        currentCategory ? 'documents' : 'categories',
+        currentCategory ? filteredDocuments.length : filteredCategories.length,
+        {
+          categoryId: currentCategory || undefined,
+          sessionId: currentSessionId || undefined
+        }
+      )
     } catch (error) {
       console.error('Failed to track search action:', error)
     }

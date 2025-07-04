@@ -1,8 +1,9 @@
 import { useState, useCallback } from "react"
-import { useAIStore, type ChatMessage } from "@/lib/ai-store"
-import { AIService } from "@/lib/ai-service"
-import { useStudyStore } from "@/lib/study-store"
-import { DocumentContextParser } from "@/lib/document-context"
+import { useAIStore, type ChatMessage } from "@/lib/stores/ai-store"
+import { AIService } from "@/lib/services/ai-service"
+import { useStudyStore } from "@/lib/stores/study-store"
+import { useActionsStore } from "@/lib/services/actions-service"
+import { DocumentContextParser } from "@/lib/core/document-context"
 
 interface UseChatOptions {
   conversationId?: string
@@ -24,12 +25,15 @@ export function useChat(options: UseChatOptions = {}) {
     addConversation,
     addMessage,
     setActiveConversation,
+    linkConversationToSession,
     isLoading,
     setLoading,
     error,
     setError,
     settings
   } = useAIStore()
+  
+  const { currentSessionId } = useActionsStore()
 
   const [streamingMessage, setStreamingMessage] = useState("")
   const [isStreaming, setIsStreaming] = useState(false)
@@ -67,13 +71,31 @@ export function useChat(options: UseChatOptions = {}) {
         createdAt: new Date(),
         updatedAt: new Date(),
         model: activeModel.id,
-        providerId: activeProvider.id
+        providerId: activeProvider.id,
+        sessionId: currentSessionId || undefined,
+        documentReferences: documentContext.mentionedDocuments.map(doc => ({
+          id: doc.id,
+          title: doc.title,
+          category_id: doc.category_id,
+          relevance_score: 1.0
+        })),
+        categoryTags: documentContext.mentionedDocuments.map(doc => doc.category_id).filter(Boolean) as string[],
+        conversationType: 'general' as const,
+        studyContext: {
+          relatedConversations: [],
+          conceptsCovered: [],
+          knowledgeGaps: []
+        }
       }
       addConversation(newConversation)
       // Get the newly created conversation ID (would need to modify store to return it)
       targetConversationId = conversations[conversations.length - 1]?.id
       if (targetConversationId) {
         setActiveConversation(targetConversationId)
+        // Link to current session if available
+        if (currentSessionId) {
+          linkConversationToSession(targetConversationId, currentSessionId)
+        }
       }
     }
 

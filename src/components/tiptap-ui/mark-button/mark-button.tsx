@@ -14,7 +14,7 @@ import { SuperscriptIcon } from "@/components/tiptap-icons/superscript-icon"
 import { UnderlineIcon } from "@/components/tiptap-icons/underline-icon"
 
 // --- Lib ---
-import { isMarkInSchema } from "@/lib/tiptap-utils"
+import { isMarkInSchema } from "@/lib/utils/tiptap-utils"
 
 // --- UI Primitives ---
 import type { ButtonProps } from "@/components/tiptap-ui-primitive/button"

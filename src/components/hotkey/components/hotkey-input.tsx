@@ -2,7 +2,7 @@ import * as React from "react"
 import { Input as UIInput } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { useHotkey, useHotkeyPrefix, useHotkeyContext } from "../core"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils/utils"
 import { useForkRef } from "@/hooks/use-fork-ref"
 
 interface InputProps extends React.ComponentProps<typeof UIInput> {

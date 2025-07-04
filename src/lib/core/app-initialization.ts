@@ -1,5 +1,5 @@
-import { LibraryService } from './library-service'
-import { EmbeddingService } from './embedding-service'
+import { LibraryService } from "@/lib/services/library-service"
+import { EmbeddingService } from "@/lib/services/embedding-service"
 import { DocumentContextParser } from './document-context'
 
 export class AppInitializationService {
@@ -56,7 +56,6 @@ export class AppInitializationService {
     embeddings: boolean
     embeddingHealth: boolean
   }> {
-    const libraryService = LibraryService.getInstance()
     const embeddingService = EmbeddingService.getInstance()
     const contextParser = DocumentContextParser.getInstance()
 

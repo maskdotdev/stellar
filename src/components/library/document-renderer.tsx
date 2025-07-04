@@ -5,11 +5,14 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { FileText, Eye, Code, Loader2, Globe } from 'lucide-react'
+import { FileText, Eye, Code, Loader2, Globe, MessageCircle, Sparkles } from 'lucide-react'
 import { PdfViewer } from './pdf-viewer'
-import { type Document } from '@/lib/library-service'
-import { LibraryService } from '@/lib/library-service'
-import { cn } from '@/lib/utils'
+import { type Document } from '@/lib/services/library-service'
+import { LibraryService } from '@/lib/services/library-service'
+import { useStudyStore } from '@/lib/stores/study-store'
+import { useAIStore, type DocumentReference } from '@/lib/stores/ai-store'
+import { useActionsStore } from '@/lib/services/actions-service'
+import { cn } from '@/lib/utils/utils'
 
 
 interface DocumentRendererProps {
@@ -29,11 +32,15 @@ export function DocumentRenderer({
   const [pdfFilePath, setPdfFilePath] = useState<string | null>(null)
   const [isPdfLoading, setIsPdfLoading] = useState(false)
   const [pdfError, setPdfError] = useState<string | null>(null)
+  const [selectedText, setSelectedText] = useState<string>('')
 
   // Determine if PDF view is available
   const hasPdfFile = document.doc_type === 'pdf' && document.file_path
 
   const libraryService = LibraryService.getInstance()
+  const { setShowFloatingChat, setInitialChatText } = useStudyStore()
+  const { createConversationWithContext } = useAIStore()
+  const { currentSessionId } = useActionsStore()
 
   // Load PDF file path when component mounts or document changes
   useEffect(() => {
@@ -79,9 +86,53 @@ export function DocumentRenderer({
     const selection = window.getSelection()
     if (selection && selection.toString().trim()) {
       const text = selection.toString()
+      setSelectedText(text)
       onTextSelection?.(text)
     }
   }, [onTextSelection])
+  
+  // 🔥 NEW: Chat about this document
+  const handleChatAboutDocument = useCallback(() => {
+    const documentRef: DocumentReference = {
+      id: document.id,
+      title: document.title,
+      category_id: document.category_id,
+      relevance_score: 1.0
+    }
+    
+    createConversationWithContext(
+      `Chat about ${document.title}`,
+      currentSessionId || undefined,
+      [documentRef],
+      'explanation'
+    )
+    
+    setInitialChatText(`Let's discuss this document: @{${document.title}}`)
+    setShowFloatingChat(true)
+  }, [document, createConversationWithContext, currentSessionId, setInitialChatText, setShowFloatingChat])
+  
+  // 🔥 NEW: Chat about selected text
+  const handleChatAboutSelection = useCallback(() => {
+    if (!selectedText.trim()) return
+    
+    const documentRef: DocumentReference = {
+      id: document.id,
+      title: document.title,
+      category_id: document.category_id,
+      relevantSections: [selectedText],
+      relevance_score: 1.0
+    }
+    
+    createConversationWithContext(
+      `Chat about selection from ${document.title}`,
+      currentSessionId || undefined,
+      [documentRef],
+      'explanation'
+    )
+    
+    setInitialChatText(`I want to discuss this text from @{${document.title}}:\n\n"${selectedText}"\n\nCan you explain this in more detail?`)
+    setShowFloatingChat(true)
+  }, [selectedText, document, createConversationWithContext, currentSessionId, setInitialChatText, setShowFloatingChat])
 
   // Memoize the callback functions to prevent PdfViewer rerenders
   const onLoadSuccess = useCallback((numPages: any) => {
@@ -261,6 +312,30 @@ export function DocumentRenderer({
           <span className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded">
             {document.content.length.toLocaleString()} chars
           </span>
+        </div>
+        
+        {/* 🔥 NEW: Chat Actions */}
+        <div className="flex items-center space-x-2">
+          {selectedText && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={handleChatAboutSelection}
+              className="h-8 text-xs"
+            >
+              <Sparkles className="h-3 w-3 mr-1" />
+              Chat about selection
+            </Button>
+          )}
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleChatAboutDocument}
+            className="h-8 text-xs"
+          >
+            <MessageCircle className="h-3 w-3 mr-1" />
+            Chat about this
+          </Button>
         </div>
       </div>
 

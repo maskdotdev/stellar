@@ -19,8 +19,8 @@ import {
   RefreshCw,
   Star
 } from "lucide-react"
-import { useActionsStore, UserAction } from "@/lib/actions-service"
-import { SessionSuggestion } from "@/lib/session-detection-service"
+import { useActionsStore } from "@/lib/services/actions-service"
+import { SessionSuggestion } from "@/lib/services/session-detection-service"
 import { useToast } from "@/hooks/use-toast"
 
 export function SmartSessionDialog() {
@@ -35,7 +35,6 @@ export function SmartSessionDialog() {
   
   const [isOpen, setIsOpen] = useState(false)
   const [sessionSuggestions, setSessionSuggestions] = useState<SessionSuggestion[]>([])
-  const [_recentActions, setRecentActions] = useState<UserAction[]>([])
   const [insights, setInsights] = useState<{
     totalActions: number
     sessionsCount: number
@@ -56,11 +55,8 @@ export function SmartSessionDialog() {
     try {
       setIsGenerating(true)
       
-      // Load recent actions
+      // Load recent actions and get session suggestions
       const actions = await getRecentActions(100)
-      setRecentActions(actions)
-      
-      // Get session suggestions from recent actions
       if (actions.length > 0) {
         const suggestions = await autoDetectSessionsFromActions(actions)
         setSessionSuggestions(suggestions.slice(0, 5)) // Show top 5 suggestions

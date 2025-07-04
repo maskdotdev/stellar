@@ -4,7 +4,7 @@ import * as React from "react"
 import { Button as UIButton, buttonVariants } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { useHotkey, useHotkeyPrefix, useHotkeyContext } from "../core"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils/utils"
 import { type VariantProps } from "class-variance-authority"
 import { useForkRef } from "@/hooks/use-fork-ref"
 

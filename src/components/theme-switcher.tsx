@@ -10,9 +10,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { themes, ThemeManager, BaseTheme } from "@/lib/theme-config"
+import { themes, ThemeManager, BaseTheme } from "@/lib/config/theme-config"
 
-export { themes } from "@/lib/theme-config"
+export { themes } from "@/lib/config/theme-config"
 
 export function ThemeSwitcher() {
   const { theme, setTheme } = useTheme()

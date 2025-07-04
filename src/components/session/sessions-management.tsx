@@ -21,8 +21,12 @@ import {
   FileText,
   MessageSquare,
   BookOpen,
+  Sparkles,
+  Copy,
+  CheckCircle
 } from "lucide-react"
-import { useActionsStore, StudySession, UserAction } from "@/lib/actions-service"
+import { useActionsStore, StudySession, UserAction } from "@/lib/services/actions-service"
+import { SessionSummary } from "@/lib/services/session-detection-service"
 import { useToast } from "@/hooks/use-toast"
 
 export function SessionsManagement() {
@@ -30,6 +34,7 @@ export function SessionsManagement() {
     startNewSession, 
     getActionsBySession,
     getStudySessions,
+    getSessionSummary
   } = useActionsStore()
   
   const [sessions, setSessions] = useState<StudySession[]>([])
@@ -40,6 +45,8 @@ export function SessionsManagement() {
   const [filterStatus, setFilterStatus] = useState("all")
   const [isLoading, setIsLoading] = useState(true)
   const [sessionActions, setSessionActions] = useState<UserAction[]>([])
+  const [sessionSummary, setSessionSummary] = useState<SessionSummary | null>(null)
+  const [isGeneratingSummary, setIsGeneratingSummary] = useState(false)
   
   const { toast } = useToast()
 
@@ -109,7 +116,65 @@ export function SessionsManagement() {
 
   const handleSessionSelect = (session: StudySession) => {
     setSelectedSession(session)
+    setSessionSummary(null) // Clear previous summary
     loadSessionActions(session.id)
+  }
+  
+  const handleGenerateSummary = async (sessionId: string) => {
+    if (!sessionId) return
+    
+    setIsGeneratingSummary(true)
+    try {
+      const summary = await getSessionSummary(sessionId)
+      setSessionSummary(summary)
+      
+      toast({
+        title: "Summary generated",
+        description: "AI session summary has been generated successfully"
+      })
+    } catch (error) {
+      console.error('Failed to generate session summary:', error)
+      toast({
+        title: "Failed to generate summary",
+        description: "There was an error generating the session summary",
+        variant: "destructive"
+      })
+    } finally {
+      setIsGeneratingSummary(false)
+    }
+  }
+  
+  const handleCopySummary = () => {
+    if (!sessionSummary) return
+    
+    const summaryText = `
+# ${sessionSummary.title}
+
+## Summary
+${sessionSummary.summary}
+
+## Key Insights
+${sessionSummary.keyInsights.map(insight => `• ${insight}`).join('\n')}
+
+## Concepts Covered
+${sessionSummary.conceptsCovered.map(concept => `• ${concept}`).join('\n')}
+
+## Learning Objectives
+${sessionSummary.learningObjectives.map(objective => `• ${objective}`).join('\n')}
+
+## Suggested Follow-up
+${sessionSummary.suggestedFollowUp.map(followUp => `• ${followUp}`).join('\n')}
+
+---
+Generated on ${sessionSummary.generatedAt.toLocaleString()}
+    `.trim()
+    
+    navigator.clipboard.writeText(summaryText)
+    
+    toast({
+      title: "Summary copied",
+      description: "Session summary has been copied to clipboard"
+    })
   }
 
   const handleResumeSession = async (session: StudySession) => {
@@ -175,12 +240,12 @@ export function SessionsManagement() {
     }
   }
 
-  const getSessionTypeColor = (type: string) => {
+  const getSessionTypeVariant = (type: string) => {
     switch (type) {
-      case "focused": return "bg-orange-500/10 text-orange-700 border-orange-200"
-      case "exploratory": return "bg-blue-500/10 text-blue-700 border-blue-200"
-      case "review": return "bg-green-500/10 text-green-700 border-green-200"
-      default: return "bg-purple-500/10 text-purple-700 border-purple-200"
+      case "focused": return "destructive"
+      case "exploratory": return "secondary"
+      case "review": return "default"
+      default: return "outline"
     }
   }
 
@@ -271,7 +336,7 @@ export function SessionsManagement() {
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <ScrollArea className="h-96">
+            <ScrollArea className="h-96 px-4">
               <div className="space-y-3">
                 {filteredSessions.length === 0 ? (
                   <div className="text-center py-8 text-muted-foreground">
@@ -283,8 +348,8 @@ export function SessionsManagement() {
                       key={session.id}
                       className={`p-4 rounded-lg border cursor-pointer transition-colors ${
                         selectedSession?.id === session.id
-                          ? "bg-accent border-accent-foreground/20"
-                          : "hover:bg-accent/50"
+                          ? "border-accent"
+                          : "hover:border-accent"
                       }`}
                       onClick={() => handleSessionSelect(session)}
                     >
@@ -305,8 +370,8 @@ export function SessionsManagement() {
                         </div>
                         <div className="flex flex-col items-end gap-1">
                           <Badge 
-                            variant="outline" 
-                            className={`text-xs ${getSessionTypeColor(session.session_type)}`}
+                            variant={getSessionTypeVariant(session.session_type)} 
+                            className="text-xs"
                           >
                             {getSessionTypeIcon(session.session_type)}
                             <span className="ml-1 capitalize">{session.session_type}</span>
@@ -358,23 +423,38 @@ export function SessionsManagement() {
                       )}
                     </div>
                     <Badge 
-                      variant="outline" 
-                      className={getSessionTypeColor(selectedSession.session_type)}
+                      variant={getSessionTypeVariant(selectedSession.session_type)}
                     >
                       {getSessionTypeIcon(selectedSession.session_type)}
                       <span className="ml-1 capitalize">{selectedSession.session_type}</span>
                     </Badge>
                   </div>
-                  {!selectedSession.is_active && (
+                  <div className="flex gap-2">
+                    {!selectedSession.is_active && (
+                      <Button
+                        size="sm"
+                        onClick={() => handleResumeSession(selectedSession)}
+                        className="shrink-0"
+                      >
+                        <Play className="h-3 w-3 mr-1" />
+                        Resume
+                      </Button>
+                    )}
                     <Button
                       size="sm"
-                      onClick={() => handleResumeSession(selectedSession)}
+                      variant="outline"
+                      onClick={() => handleGenerateSummary(selectedSession.id)}
+                      disabled={isGeneratingSummary}
                       className="shrink-0"
                     >
-                      <Play className="h-3 w-3 mr-1" />
-                      Resume
+                      {isGeneratingSummary ? (
+                        <RefreshCw className="h-3 w-3 mr-1 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-3 w-3 mr-1" />
+                      )}
+                      {isGeneratingSummary ? 'Generating...' : 'AI Summary'}
                     </Button>
-                  )}
+                  </div>
                 </div>
 
                 {/* Session Statistics */}
@@ -408,6 +488,101 @@ export function SessionsManagement() {
                     <div className="text-xs text-muted-foreground">Conversations</div>
                   </div>
                 </div>
+
+                {/* 🔥 NEW: AI Session Summary */}
+                {sessionSummary && (
+                  <div>
+                    <div className="flex items-center justify-between mb-3">
+                      <h4 className="font-medium flex items-center gap-2">
+                        <Sparkles className="h-4 w-4" />
+                        AI Session Summary
+                      </h4>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={handleCopySummary}
+                        className="h-7"
+                      >
+                        <Copy className="h-3 w-3 mr-1" />
+                        Copy
+                      </Button>
+                    </div>
+                    <ScrollArea className="h-64">
+                      <div className="space-y-4 p-4 rounded-lg bg-muted/30">
+                        {/* Summary */}
+                        <div>
+                          <h5 className="font-medium text-sm mb-2">Summary</h5>
+                          <p className="text-sm text-muted-foreground leading-relaxed">
+                            {sessionSummary.summary}
+                          </p>
+                        </div>
+                        
+                        {/* Key Insights */}
+                        {sessionSummary.keyInsights.length > 0 && (
+                          <div>
+                            <h5 className="font-medium text-sm mb-2">Key Insights</h5>
+                            <ul className="space-y-1">
+                              {sessionSummary.keyInsights.map((insight, index) => (
+                                <li key={index} className="flex items-start gap-2 text-sm text-muted-foreground">
+                                  <CheckCircle className="h-3 w-3 mt-0.5 text-green-600 shrink-0" />
+                                  {insight}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        
+                        {/* Concepts Covered */}
+                        {sessionSummary.conceptsCovered.length > 0 && (
+                          <div>
+                            <h5 className="font-medium text-sm mb-2">Concepts Covered</h5>
+                            <div className="flex flex-wrap gap-1">
+                              {sessionSummary.conceptsCovered.map((concept, index) => (
+                                <Badge key={index} variant="secondary" className="text-xs">
+                                  {concept}
+                                </Badge>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        
+                        {/* Learning Objectives */}
+                        {sessionSummary.learningObjectives.length > 0 && (
+                          <div>
+                            <h5 className="font-medium text-sm mb-2">Learning Objectives</h5>
+                            <ul className="space-y-1">
+                              {sessionSummary.learningObjectives.map((objective, index) => (
+                                <li key={index} className="flex items-start gap-2 text-sm text-muted-foreground">
+                                  <BookOpen className="h-3 w-3 mt-0.5 text-blue-600 shrink-0" />
+                                  {objective}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        
+                        {/* Suggested Follow-up */}
+                        {sessionSummary.suggestedFollowUp.length > 0 && (
+                          <div>
+                            <h5 className="font-medium text-sm mb-2">Suggested Follow-up</h5>
+                            <ul className="space-y-1">
+                              {sessionSummary.suggestedFollowUp.map((followUp, index) => (
+                                <li key={index} className="flex items-start gap-2 text-sm text-muted-foreground">
+                                  <ChevronRight className="h-3 w-3 mt-0.5 text-purple-600 shrink-0" />
+                                  {followUp}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        
+                        <div className="text-xs text-muted-foreground pt-2 border-t">
+                          Generated on {sessionSummary.generatedAt.toLocaleString()}
+                        </div>
+                      </div>
+                    </ScrollArea>
+                  </div>
+                )}
 
                 {/* Activity Timeline */}
                 <div>

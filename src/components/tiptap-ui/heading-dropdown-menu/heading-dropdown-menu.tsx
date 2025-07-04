@@ -9,7 +9,7 @@ import { ChevronDownIcon } from "@/components/tiptap-icons/chevron-down-icon"
 import { HeadingIcon } from "@/components/tiptap-icons/heading-icon"
 
 // --- Lib ---
-import { isNodeInSchema } from "@/lib/tiptap-utils"
+import { isNodeInSchema } from "@/lib/utils/tiptap-utils"
 
 // --- Tiptap UI ---
 import {

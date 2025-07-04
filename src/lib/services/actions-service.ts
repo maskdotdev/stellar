@@ -1,13 +1,15 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { invoke } from '@tauri-apps/api/core'
-import { sessionDetectionService, SessionSuggestion } from './session-detection-service'
+import { sessionDetectionService, SessionSuggestion, SessionSummary } from './session-detection-service'
 
 // Action Types Enum
 export enum ActionType {
   // Document Actions
   DOCUMENT_UPLOAD = 'document_upload',
   DOCUMENT_VIEW = 'document_view',
+  DOCUMENT_EDIT = 'document_edit',
+  DOCUMENT_DELETE = 'document_delete',
   DOCUMENT_HIGHLIGHT = 'document_highlight',
   DOCUMENT_ANNOTATE = 'document_annotate',
   
@@ -15,17 +17,23 @@ export enum ActionType {
   NOTE_CREATE = 'note_create',
   NOTE_EDIT = 'note_edit',
   NOTE_DELETE = 'note_delete',
+  NOTE_LINK = 'note_link',
   
   // Chat Actions
   CHAT_START = 'chat_start',
   CHAT_MESSAGE = 'chat_message',
-  CHAT_END = 'chat_end',
+  CHAT_SUMMARIZE = 'chat_summarize',
+  CHAT_ANALYZE = 'chat_analyze',
   
-  // Flashcard Actions
+  // 🧠 PHASE 2: Flashcard actions
   FLASHCARD_CREATE = 'flashcard_create',
+  FLASHCARD_EDIT = 'flashcard_edit',
+  FLASHCARD_DELETE = 'flashcard_delete',
   FLASHCARD_REVIEW = 'flashcard_review',
-  FLASHCARD_CORRECT = 'flashcard_correct',
-  FLASHCARD_INCORRECT = 'flashcard_incorrect',
+  FLASHCARD_BULK_CREATE = 'flashcard_bulk_create',
+  FLASHCARD_DECK_CREATE = 'flashcard_deck_create',
+  FLASHCARD_DECK_EDIT = 'flashcard_deck_edit',
+  FLASHCARD_DECK_DELETE = 'flashcard_deck_delete',
   
   // Category Actions
   CATEGORY_CREATE = 'category_create',
@@ -34,11 +42,11 @@ export enum ActionType {
   
   // Search Actions
   SEARCH_QUERY = 'search_query',
-  SEARCH_RESULT_CLICK = 'search_result_click',
+  SEARCH_FILTER = 'search_filter',
   
   // Navigation Actions
-  VIEW_CHANGE = 'view_change',
-  FOCUS_MODE_TOGGLE = 'focus_mode_toggle',
+  VIEW_SWITCH = 'view_switch',
+  VIEW_FOCUS = 'view_focus',
   
   // Study Actions
   STUDY_SESSION_START = 'study_session_start',
@@ -202,6 +210,7 @@ interface ActionsState {
   checkAutoEndSession: () => Promise<boolean>
   autoDetectSessionsFromActions: (actions: UserAction[]) => Promise<SessionSuggestion[]>
   startSmartSession: () => Promise<StudySession>
+  getSessionSummary: (sessionId: string) => Promise<SessionSummary>
   
   // Settings
   setTracking: (enabled: boolean) => void
@@ -231,8 +240,32 @@ export const useActionsStore = create<ActionsState>()(
           let sessionId = context.sessionId || get().currentSessionId
           
           if (!sessionId) {
-            const session = await get().startNewSession("Study Session")
-            sessionId = session.id
+            try {
+              const session = await get().startNewSession("Study Session")
+              sessionId = session.id
+              if (!sessionId) {
+                throw new Error('Failed to create session: No session ID returned')
+              }
+            } catch (sessionError) {
+              console.error('Failed to create session for action recording:', sessionError)
+              // Use the record_simple_action endpoint which handles session creation internally
+              try {
+                await invoke('record_simple_action', { 
+                  action_type: type,
+                  document_id: context.documentIds?.[0] || null,
+                  data: data
+                })
+                return
+              } catch (simpleActionError) {
+                console.error('Failed to record simple action:', simpleActionError)
+                throw new Error('Failed to record action: Cannot create or use session')
+              }
+            }
+          }
+          
+          // Validate session exists before recording action
+          if (!sessionId) {
+            throw new Error('No valid session ID available for action recording')
           }
           
           // Prepare action data
@@ -257,6 +290,7 @@ export const useActionsStore = create<ActionsState>()(
           await invoke('record_user_action', { req: actionData })
         } catch (error) {
           console.error('Failed to record action:', error)
+          // Don't throw the error to prevent breaking the app
         } finally {
           set({ isLoading: false })
         }
@@ -302,10 +336,18 @@ export const useActionsStore = create<ActionsState>()(
             title, 
             session_type: sessionType 
           })
+          
+          // Validate session was created properly
+          if (!session || !session.id) {
+            throw new Error('Invalid session returned from database')
+          }
+          
           set({ currentSessionId: session.id })
           return session
         } catch (error) {
           console.error('Failed to start new session:', error)
+          // Clear any stale session ID if session creation fails
+          set({ currentSessionId: null })
           throw error
         }
       },
@@ -451,6 +493,139 @@ export const useActionsStore = create<ActionsState>()(
           console.error('Failed to start smart session:', error)
           // Fallback to regular session
           return await get().startNewSession("Study Session", "mixed")
+        }
+      },
+      
+      // 🔥 NEW: AI-generated session summaries
+      getSessionSummary: async (sessionId: string): Promise<SessionSummary> => {
+        try {
+          await ensureDatabaseInitialized()
+          
+          // Get session data
+          const session = await invoke<StudySession>('get_study_session', { sessionId })
+          if (!session) {
+            throw new Error('Session not found')
+          }
+          
+          // Get session actions
+          const actions = await invoke<UserAction[]>('get_actions_by_session', { sessionId })
+          
+          // Generate basic summary data
+          const actionTypes = actions.map(a => a.action_type)
+          const documentsUsed = Array.from(new Set(actions.flatMap(a => a.document_ids || [])))
+          const categoriesUsed = Array.from(new Set(actions.flatMap(a => a.category_ids || [])))
+          
+          // Activity analysis
+          const activityPattern = sessionDetectionService.analyzeActivityPattern(actions)
+          
+          // Generate AI summary using the existing AI service
+          const summaryPrompt = `
+            Please provide a comprehensive study session summary for the following session:
+            
+            Session: ${session.title}
+            Duration: ${Math.round(session.total_duration / 60)} minutes
+            Total Actions: ${actions.length}
+            Primary Activities: ${actionTypes.join(', ')}
+            Documents Used: ${documentsUsed.length}
+            Categories: ${categoriesUsed.length}
+            
+            Please provide:
+            1. A brief summary of what was accomplished
+            2. Key insights from the study session
+            3. Main concepts covered
+            4. Learning objectives achieved
+            5. Suggested follow-up activities
+            
+            Format your response as a structured summary focusing on educational value.
+          `
+          
+          // Import AI service to generate summary
+          const { AIService } = await import('./ai-service')
+          const aiService = AIService.getInstance()
+          
+          // Use the first available provider/model for summary generation
+          const { useAIStore } = await import('@/lib/stores/ai-store')
+          const aiStore = useAIStore.getState()
+          const activeProvider = aiStore.getActiveProvider()
+          const activeModel = aiStore.getActiveModel()
+          
+          let summaryText = "Study session completed successfully."
+          let keyInsights = ["Session data analyzed"]
+          let conceptsCovered = ["Various topics covered"]
+          let learningObjectives = ["Review session content"]
+          let suggestedFollowUp = ["Continue with related topics"]
+          
+          // Generate AI summary if provider is available
+          if (activeProvider && activeModel) {
+            try {
+                             const response = await aiService.chatCompletion(
+                 activeProvider,
+                 activeModel,
+                 {
+                   messages: [{
+                     id: crypto.randomUUID(),
+                     role: 'user',
+                     content: summaryPrompt,
+                     timestamp: new Date()
+                   }],
+                   model: activeModel.id,
+                   temperature: 0.7,
+                   maxTokens: 1000
+                 }
+               )
+              
+              const aiSummary = response.choices[0]?.message?.content || ""
+              if (aiSummary) {
+                summaryText = aiSummary
+                // Parse AI response for structured data (basic parsing)
+                const lines = aiSummary.split('\n').filter(line => line.trim())
+                keyInsights = lines.filter(line => line.includes('insight') || line.includes('key')).slice(0, 3)
+                conceptsCovered = lines.filter(line => line.includes('concept') || line.includes('topic')).slice(0, 5)
+                learningObjectives = lines.filter(line => line.includes('objective') || line.includes('goal')).slice(0, 3)
+                suggestedFollowUp = lines.filter(line => line.includes('follow') || line.includes('next')).slice(0, 3)
+              }
+            } catch (error) {
+              console.error('Failed to generate AI summary:', error)
+              // Use fallback summary
+            }
+          }
+          
+          return {
+            sessionId,
+            title: session.title,
+            summary: summaryText,
+            keyInsights,
+            documentsUsed,
+            conceptsCovered,
+            actionsSummary: {
+              totalActions: actions.length,
+              primaryActivities: [activityPattern.dominantAction],
+              timeSpent: Math.round(session.total_duration / 60)
+            },
+            learningObjectives,
+            suggestedFollowUp,
+            generatedAt: new Date()
+          }
+        } catch (error) {
+          console.error('Failed to generate session summary:', error)
+          
+          // Return basic fallback summary
+          return {
+            sessionId,
+            title: "Study Session",
+            summary: "Session completed. Unable to generate detailed summary.",
+            keyInsights: ["Session data reviewed"],
+            documentsUsed: [],
+            conceptsCovered: [],
+            actionsSummary: {
+              totalActions: 0,
+              primaryActivities: [],
+              timeSpent: 0
+            },
+            learningObjectives: [],
+            suggestedFollowUp: [],
+            generatedAt: new Date()
+          }
         }
       }
     }),
@@ -623,7 +798,7 @@ export class ActionsService {
     
     // Calculate consecutive days with actions
     const dates = Object.keys(actionsByDate).sort()
-    let streak = 0
+
     let currentStreak = 0
     
     for (let i = dates.length - 1; i >= 0; i--) {

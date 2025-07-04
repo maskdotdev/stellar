@@ -3,7 +3,7 @@
 import * as React from "react"
 import { Badge } from "@/components/ui/badge"
 import { useHotkey, useHotkeyPrefix, useHotkeyContext } from "../core"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils/utils"
 
 interface HotkeyWrapperProps {
   /** The hotkey label for this element */

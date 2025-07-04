@@ -15,7 +15,7 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Check, ChevronDown } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils/utils"
 import { DynamicIcon } from "./dynamic-icon"
 import { dynamicIconImports } from "lucide-react/dynamic"
 

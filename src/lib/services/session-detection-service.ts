@@ -23,6 +23,24 @@ export interface SessionSuggestion {
   reasoning: string
 }
 
+// 🔥 NEW: AI-generated session summary
+export interface SessionSummary {
+  sessionId: string
+  title: string
+  summary: string
+  keyInsights: string[]
+  documentsUsed: string[]
+  conceptsCovered: string[]
+  actionsSummary: {
+    totalActions: number
+    primaryActivities: string[]
+    timeSpent: number
+  }
+  learningObjectives: string[]
+  suggestedFollowUp: string[]
+  generatedAt: Date
+}
+
 export class SessionDetectionService {
   private config: SessionDetectionConfig = {
     idleThresholdMinutes: 30,

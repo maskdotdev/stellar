@@ -1,4 +1,4 @@
-import React from "react"
+
 import { Eye, Code, Brain, Image, FileText } from "lucide-react"
 
 export const getCapabilityIcon = (capability: string, size: "sm" | "md" = "md") => {

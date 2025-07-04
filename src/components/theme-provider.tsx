@@ -1,5 +1,5 @@
 import * as React from "react"
-import { Theme, ThemeManager } from "@/lib/theme-config"
+import { Theme, ThemeManager } from "@/lib/config/theme-config"
 
 type ThemeProviderProps = {
   children: React.ReactNode

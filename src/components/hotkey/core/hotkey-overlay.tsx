@@ -2,7 +2,7 @@ import React from 'react';
 import { useHotkeyContext } from './hotkey-provider';
 import { Badge } from '@/components/ui/badge';
 import { Card } from '@/components/ui/card';
-import { isElementInteractive } from '@/lib/hotkey-system';
+
 
 export const HotkeyOverlay: React.FC = () => {
   const { mode, prefixes, currentBuffer, showOverlay } = useHotkeyContext();

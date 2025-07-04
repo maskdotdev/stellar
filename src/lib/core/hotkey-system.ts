@@ -1,5 +1,5 @@
 // Core hotkey system with trie-based prefix generation
-import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { createContext } from 'react';
 
 export type HotItem = { 
   label: string; 

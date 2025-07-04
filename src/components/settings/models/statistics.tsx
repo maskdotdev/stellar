@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { BarChart3, Database } from "lucide-react"
-import { useAIStore } from "@/lib/ai-store"
+import { useAIStore } from "@/lib/stores/ai-store"
 import { getCapabilityIcon } from "./utils"
 
 export function Statistics() {

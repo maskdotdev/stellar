@@ -11,8 +11,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { useAIStore, type AIProvider } from "@/lib/ai-store"
-import { aiService } from "@/lib/ai-service"
+import { useAIStore, type AIProvider } from "@/lib/stores/ai-store"
+import { aiService } from "@/lib/services/ai-service"
 
 export function ProvidersSettings() {
   const {

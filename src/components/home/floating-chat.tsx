@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useMemo } from "react"
 import { Button } from "@/components/ui/button"
 import { MentionInput } from "@/components/ui/mention-input"
-import { createDocumentProvider, createUrlProvider } from "@/lib/mention-providers"
+import { createDocumentProvider, createUrlProvider } from "@/lib/providers"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -21,11 +21,11 @@ import {
   Settings,
   RotateCcw
 } from "lucide-react"
-import { useStudyStore } from "@/lib/study-store"
+import { useStudyStore } from "@/lib/stores/study-store"
 import { useChat } from "@/hooks/use-chat"
-import { useAIStore } from "@/lib/ai-store"
-import { useActionsStore, ActionsService, ActionType } from "@/lib/actions-service"
-import { cn } from "@/lib/utils"
+import { useAIStore } from "@/lib/stores/ai-store"
+import { useActionsStore, ActionsService, ActionType } from "@/lib/services/actions-service"
+import { cn } from "@/lib/utils/utils"
 
 interface FloatingChatProps {
   onClose: () => void
@@ -59,7 +59,7 @@ export function FloatingChat({ onClose, initialText }: FloatingChatProps) {
       if (documents.length === 0) {
         try {
           setIsLoadingDocuments(true)
-          const { LibraryService } = await import("@/lib/library-service")
+          const { LibraryService } = await import("@/lib/services/library-service")
           const libraryService = LibraryService.getInstance()
           await libraryService.initialize()
           const docs = await libraryService.getAllDocuments()

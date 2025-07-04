@@ -10,7 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { type Category, type CreateCategoryRequest } from "@/lib/library-service"
+import { type Category, type CreateCategoryRequest } from "@/lib/services/library-service"
 import { suggestedCategories } from "./library-constants"
 import { IconCombobox } from "./icon-combobox"
 

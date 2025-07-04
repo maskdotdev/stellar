@@ -1,7 +1,7 @@
 "use client"
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { useAIStore } from "@/lib/ai-store"
+import { useAIStore } from "@/lib/stores/ai-store"
 import { ModelSelection } from "./model-selection"
 import { ModelBrowser } from "./model-browser"
 import { CatalogManagement } from "./catalog-management"

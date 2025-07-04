@@ -19,7 +19,7 @@ import {
   Plus,
 } from "lucide-react";
 
-import { LibraryService, type Document, type Category } from "@/lib/library-service";
+import { LibraryService, type Document, type Category } from "@/lib/services/library-service";
 import { useToast } from "@/hooks/use-toast";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 

@@ -16,6 +16,7 @@ export type BaseTheme =
   | "infinity" 
   | "pluto" 
   | "t3-chat"
+  | "catppuccin"
 
 // Full theme type including all variants
 export type Theme = BaseTheme | 
@@ -31,7 +32,9 @@ export type Theme = BaseTheme |
   "dark-starry-night" | 
   "dark-infinity" | 
   "dark-pluto" | 
-  "dark-t3-chat"
+  "dark-t3-chat" |
+  "catppuccin" |
+  "dark-catppuccin"
 
 // Theme definition interface
 export interface ThemeDefinition {
@@ -205,6 +208,17 @@ export const THEME_CONFIG: Record<BaseTheme, ThemeDefinition> = {
     variants: {
       light: "t3-chat",
       dark: "dark-t3-chat"
+    }
+  },
+  catppuccin: {
+    name: "catppuccin",
+    label: "Catppuccin",
+    icon: Circle,
+    activeColor: "oklch(0.7871 0.1187 304.7693)",
+    description: "Catppuccin theme",
+    variants: {
+      light: "catppuccin",
+      dark: "dark-catppuccin"
     }
   }
 }

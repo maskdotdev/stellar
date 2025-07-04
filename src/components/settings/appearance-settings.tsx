@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Separator } from "@/components/ui/separator"
 import { ThemeSwitcher, themes } from "@/components/theme-switcher"
 import { useTheme } from "@/components/theme-provider"
-import { ThemeManager } from "@/lib/theme-config"
+import { ThemeManager } from "@/lib/config/theme-config"
 import { useState, useEffect } from "react"
 
 export function AppearanceSettings() {

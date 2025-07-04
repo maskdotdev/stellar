@@ -7,7 +7,7 @@ import { AIModelsSettings } from "./models"
 import { ChatSettings } from "./chat-settings"
 import { AppearanceSettings } from "./appearance-settings"
 import { KeybindingsSettings } from "./keybindings-settings"
-import { useStudyStore } from "@/lib/study-store"
+import { useStudyStore } from "@/lib/stores/study-store"
 
 export function Settings() {
   const { settingsTab, setSettingsTab } = useStudyStore()

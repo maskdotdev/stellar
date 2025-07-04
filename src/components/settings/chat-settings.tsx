@@ -5,7 +5,7 @@ import { Switch } from "@/components/ui/switch"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Slider } from "@/components/ui/slider"
 import { Separator } from "@/components/ui/separator"
-import { useAIStore } from "@/lib/ai-store"
+import { useAIStore } from "@/lib/stores/ai-store"
 
 export function ChatSettings() {
   const { settings, updateSettings } = useAIStore()

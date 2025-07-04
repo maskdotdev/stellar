@@ -14,13 +14,14 @@ import { Settings } from "@/components/settings"
 import { ActionsDashboard } from "@/components/home/actions-dashboard"
 import { SessionsManagement } from "@/components/session"
 import { ThemeProvider, useTheme } from "@/components/theme-provider"
-import { ThemeManager } from "@/lib/theme-config"
+import { ThemeManager } from "@/lib/config/theme-config"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { useStudyStore } from "@/lib/study-store"
+import { useStudyStore } from "@/lib/stores/study-store"
 import { HotkeyProvider, HotkeyOverlay, useHotkeyContext } from "@/components/hotkey"
 import { DebugHotkeyTest } from "@/components/hotkey/dev"
-import { AppInitializationService } from "@/lib/app-initialization"
+import { AppInitializationService } from "@/lib/core/app-initialization"
+import { FlashcardDashboard } from "@/components/flashcards/flashcard-dashboard"
 
 // Component to show when hotkey leader mode is active
 const HotkeyModeIndicator: React.FC = () => {
@@ -306,6 +307,9 @@ export function App() {
             case "history":
               setCurrentView("history")
               break
+            case "flashcards":
+              setCurrentView("flashcards")
+              break
               
             // Quick Actions
             case "import":
@@ -426,6 +430,8 @@ export function App() {
         return <ActionsDashboard />
       case "sessions":
         return <SessionsManagement />
+      case "flashcards":
+        return <FlashcardDashboard />
       case "settings":
         return <Settings />
       case "debug-hotkeys":

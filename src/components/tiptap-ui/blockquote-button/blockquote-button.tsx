@@ -8,7 +8,7 @@ import { useTiptapEditor } from "@/hooks/use-tiptap-editor"
 import { BlockQuoteIcon } from "@/components/tiptap-icons/block-quote-icon"
 
 // --- Lib ---
-import { isNodeInSchema } from "@/lib/tiptap-utils"
+import { isNodeInSchema } from "@/lib/utils/tiptap-utils"
 
 // --- UI Primitives ---
 import type { ButtonProps } from "@/components/tiptap-ui-primitive/button"

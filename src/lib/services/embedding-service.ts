@@ -228,7 +228,7 @@ export class EmbeddingService {
       documentGroups.get(docId)!.push(result)
     }
 
-    for (const [docId, chunks] of documentGroups.entries()) {
+    for (const [, chunks] of documentGroups.entries()) {
       const docTitle = chunks[0]?.chunk.metadata.title || "Document"
       const chunkContents = chunks
         .sort((a, b) => a.chunk.chunk_index - b.chunk.chunk_index)

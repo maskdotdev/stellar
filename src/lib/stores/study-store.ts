@@ -2,7 +2,7 @@
 
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
-import type { Document, Category } from "./library-service"
+import type { Document, Category } from "@/lib/services/library-service"
 
 export interface Keybinding {
   id: string
@@ -14,7 +14,7 @@ export interface Keybinding {
 }
 
 interface NavigationState {
-  view: "focus" | "library" | "graph" | "workspace" | "history" | "analytics" | "sessions" | "settings" | "note-editor" | "debug-hotkeys"
+  view: "focus" | "library" | "graph" | "workspace" | "history" | "analytics" | "sessions" | "settings" | "note-editor" | "debug-hotkeys" | "flashcards"
   focusMode?: boolean
   currentDocument?: string | null
   editingNoteId?: string | null
@@ -52,7 +52,7 @@ const defaultKeybindings: Keybinding[] = [
 ]
 
 interface StudyState {
-  currentView: "focus" | "library" | "graph" | "workspace" | "history" | "analytics" | "sessions" | "settings" | "note-editor" | "debug-hotkeys"
+  currentView: "focus" | "library" | "graph" | "workspace" | "history" | "analytics" | "sessions" | "settings" | "note-editor" | "debug-hotkeys" | "flashcards"
   focusMode: boolean
   showCommandPalette: boolean
   showInteractionDrawer: boolean

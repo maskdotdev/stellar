@@ -1,5 +1,5 @@
 import { invoke } from "@tauri-apps/api/core"
-import type { AIProvider, AIModel, ChatMessage } from "./ai-store"
+import type { AIProvider, AIModel, ChatMessage } from "@/lib/stores/ai-store"
 
 export interface ChatCompletionRequest {
   messages: ChatMessage[]

@@ -5,9 +5,9 @@ import { Bot, Database, Zap, CheckCircle, XCircle, AlertCircle, RefreshCw } from
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { useAIStore } from "@/lib/ai-store"
-import { EmbeddingService } from "@/lib/embedding-service"
-import { AppInitializationService } from "@/lib/app-initialization"
+import { useAIStore } from "@/lib/stores/ai-store"
+import { EmbeddingService } from "@/lib/services/embedding-service"
+import { AppInitializationService } from "@/lib/core/app-initialization"
 import { useToast } from "@/hooks/use-toast"
 
 interface AIServiceStatus {

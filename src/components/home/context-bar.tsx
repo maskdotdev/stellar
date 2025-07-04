@@ -11,8 +11,9 @@ import {
   BreadcrumbSeparator
 } from "@/components/ui/breadcrumb"
 import { Pin, Share, Download, Tag } from "lucide-react"
-import { useStudyStore } from "@/lib/study-store"
+import { useStudyStore } from "@/lib/stores/study-store"
 import { SessionIndicator } from "@/components/session"
+import { useActionsStore, ActionsService, ActionType } from "@/lib/services/actions-service"
 
 export function ContextBar() {
   const { 
@@ -26,6 +27,48 @@ export function ContextBar() {
     navigateToCategory,
     navigateBackToCategories 
   } = useStudyStore()
+  
+  // Actions tracking
+  const actionsService = ActionsService.getInstance()
+  const { currentSessionId } = useActionsStore()
+
+  // Handle navigation with action tracking
+  const handleNavigationClick = async (targetView: string, breadcrumbName: string) => {
+    await actionsService.recordActionWithAutoContext(
+      ActionType.VIEW_SWITCH,
+      {
+        fromView: currentView,
+        toView: targetView,
+        viewLabel: breadcrumbName,
+        navigationMethod: 'breadcrumb'
+      },
+      {
+        sessionId: currentSessionId || 'default-session'
+      }
+    )
+    
+    setCurrentView(targetView as any)
+  }
+
+  const handleCategoryNavigation = async (categoryId: string, categoryName: string) => {
+    await actionsService.recordActionWithAutoContext(
+      ActionType.VIEW_SWITCH,
+      {
+        fromView: currentView,
+        toView: 'library',
+        viewLabel: categoryName,
+        navigationMethod: 'breadcrumb',
+        categoryId: categoryId
+      },
+      {
+        sessionId: currentSessionId || 'default-session',
+        categoryIds: [categoryId]
+      }
+    )
+    
+    setCurrentView("library")
+    navigateToCategory(categoryId, categoryName)
+  }
 
   const getBreadcrumbs = () => {
     switch (currentView) {
@@ -34,18 +77,30 @@ export function ContextBar() {
           id: breadcrumb.id,
           name: breadcrumb.name,
           isClickable: true,
-          onClick: () => {
+          onClick: async () => {
             if (breadcrumb.id === null) {
+              await actionsService.recordActionWithAutoContext(
+                ActionType.VIEW_SWITCH,
+                {
+                  fromView: currentView,
+                  toView: 'library',
+                  viewLabel: 'All Categories',
+                  navigationMethod: 'breadcrumb'
+                },
+                {
+                  sessionId: currentSessionId || 'default-session'
+                }
+              )
               navigateBackToCategories()
             } else {
-              navigateToCategory(breadcrumb.id, breadcrumb.name)
+              await handleCategoryNavigation(breadcrumb.id, breadcrumb.name)
             }
           }
         }))
       
       case "focus":
         const focusBreadcrumbs = [
-          { id: "library", name: "Library", isClickable: true, onClick: () => setCurrentView("library") }
+          { id: "library", name: "Library", isClickable: true, onClick: async () => await handleNavigationClick("library", "Library") }
         ]
         if (currentCategory) {
           // Add category breadcrumb if we're in a category
@@ -54,10 +109,7 @@ export function ContextBar() {
             id: currentCategory,
             name: categoryName,
             isClickable: true,
-            onClick: () => {
-              setCurrentView("library")
-              navigateToCategory(currentCategory, categoryName)
-            }
+            onClick: async () => await handleCategoryNavigation(currentCategory, categoryName)
           })
         }
         if (currentDocument) {
@@ -68,44 +120,49 @@ export function ContextBar() {
             id: "current-doc",
             name: documentTitle,
             isClickable: false,
-            onClick: () => {}
+            onClick: async () => {}
           })
         }
         return focusBreadcrumbs
       
       case "settings":
         return [
-          { id: "settings", name: "Settings", isClickable: false, onClick: () => {} }
+          { id: "settings", name: "Settings", isClickable: false, onClick: async () => {} }
         ]
       
       case "history":
         return [
-          { id: "history", name: "History", isClickable: false, onClick: () => {} }
+          { id: "history", name: "History", isClickable: false, onClick: async () => {} }
         ]
       
       case "graph":
         return [
-          { id: "graph", name: "Graph View", isClickable: false, onClick: () => {} }
+          { id: "graph", name: "Graph View", isClickable: false, onClick: async () => {} }
         ]
       
       case "workspace":
         return [
-          { id: "workspace", name: "Workspace", isClickable: false, onClick: () => {} }
+          { id: "workspace", name: "Workspace", isClickable: false, onClick: async () => {} }
         ]
       
       case "sessions":
         return [
-          { id: "sessions", name: "Study Sessions", isClickable: false, onClick: () => {} }
+          { id: "sessions", name: "Study Sessions", isClickable: false, onClick: async () => {} }
+        ]
+      
+      case "flashcards":
+        return [
+          { id: "flashcards", name: "Flashcards", isClickable: false, onClick: async () => {} }
         ]
       
       case "note-editor":
         return [
-          { id: "library", name: "Library", isClickable: true, onClick: () => setCurrentView("library") },
-          { id: "note-editor", name: "Note Editor", isClickable: false, onClick: () => {} }
+          { id: "library", name: "Library", isClickable: true, onClick: async () => await handleNavigationClick("library", "Library") },
+          { id: "note-editor", name: "Note Editor", isClickable: false, onClick: async () => {} }
         ]
       
       default:
-        return [{ id: "home", name: "Home", isClickable: false, onClick: () => {} }]
+        return [{ id: "home", name: "Home", isClickable: false, onClick: async () => {} }]
     }
   }
 

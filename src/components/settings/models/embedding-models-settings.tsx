@@ -9,10 +9,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Textarea } from "@/components/ui/textarea"
-import { Switch } from "@/components/ui/switch"
+
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip"
-import { EmbeddingService, type EmbeddingConfig } from "@/lib/embedding-service"
+import { EmbeddingService, type EmbeddingConfig } from "@/lib/services/embedding-service"
 import { useToast } from "@/hooks/use-toast"
 import { EmbeddingDebug } from "./embedding-debug"
 

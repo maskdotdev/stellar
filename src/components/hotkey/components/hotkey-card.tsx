@@ -4,7 +4,7 @@ import * as React from "react"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useHotkey, useHotkeyPrefix, useHotkeyContext } from "../core"
-import { cn } from "@/lib/utils"
+import { cn } from "@/lib/utils/utils"
 
 type CardComponentProps = React.ComponentProps<typeof Card>
 
