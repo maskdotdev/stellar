@@ -7,6 +7,7 @@ import { ThemeSwitcher, themes } from "@/components/theme-switcher"
 import { useTheme } from "@/components/theme-provider"
 import { ThemeManager } from "@/lib/config/theme-config"
 import { useState, useEffect } from "react"
+import { FontSettings } from "./font-settings"
 
 export function AppearanceSettings() {
   const { theme, setTheme } = useTheme()
@@ -185,6 +186,8 @@ export function AppearanceSettings() {
             </div>
           </CardContent>
         </Card>
+
+        <FontSettings />
       </div>
     </div>
   )
