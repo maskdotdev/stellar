@@ -414,7 +414,22 @@ export const useActionsStore = create<ActionsState>()(
         try {
           await ensureDatabaseInitialized()
           const stats = await invoke<ActionStats>('get_action_statistics')
-          return stats
+          
+          // Validate the returned stats object
+          if (!stats || typeof stats !== 'object') {
+            throw new Error('Invalid stats format returned from database')
+          }
+          
+          // Ensure all required fields are present with proper types
+          const validatedStats: ActionStats = {
+            total_actions: typeof stats.total_actions === 'number' ? stats.total_actions : 0,
+            actions_by_type: typeof stats.actions_by_type === 'object' && stats.actions_by_type !== null ? stats.actions_by_type : {},
+            sessions_count: typeof stats.sessions_count === 'number' ? stats.sessions_count : 0,
+            documents_accessed: typeof stats.documents_accessed === 'number' ? stats.documents_accessed : 0,
+            average_session_duration: typeof stats.average_session_duration === 'number' ? stats.average_session_duration : 0
+          }
+          
+          return validatedStats
         } catch (error) {
           console.error('Failed to get action statistics:', error)
           return {
