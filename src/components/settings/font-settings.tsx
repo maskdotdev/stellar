@@ -2,10 +2,8 @@ import { Type, FileText, Code } from "lucide-react"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Separator } from "@/components/ui/separator"
 import { useSettingsStore } from "@/lib/stores/settings-store"
 import { Button } from "@/components/ui/button"
-import { useEffect, useMemo } from "react"
 
 // Common system font stacks for each font type
 const FONT_OPTIONS = {
@@ -154,12 +152,6 @@ export function FontSettings() {
     setFontFamily("sans", "system-ui, -apple-system, sans-serif")
     setFontFamily("serif", "ui-serif, Georgia, serif")
     setFontFamily("mono", "ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Monaco, Consolas, 'Courier New', monospace")
-  }
-
-  const getCurrentFontName = (fontType: "sans" | "serif" | "mono") => {
-    const currentFont = fontFamily[fontType]
-    const option = FONT_OPTIONS[fontType].find(opt => opt.value === currentFont)
-    return option?.name || "Custom"
   }
 
   return (

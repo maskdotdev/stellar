@@ -22,7 +22,6 @@ import { HotkeyProvider, HotkeyOverlay, useHotkeyContext } from "@/components/ho
 import { DebugHotkeyTest } from "@/components/hotkey/dev"
 import { AppInitializationService } from "@/lib/core/app-initialization"
 import { FlashcardDashboard } from "@/components/flashcards/flashcard-dashboard"
-import { DebugFontTest } from "@/components/debug-font-test"
 import { useSettingsStore } from "@/lib/stores/settings-store"
 
 // Function to apply custom fonts if they've been set by the user
@@ -540,8 +539,6 @@ export function App() {
           {/* Hotkey Overlay */}
           <HotkeyOverlay />
           
-          {/* Font Debug Test (temporary) */}
-          <DebugFontTest />
           </div>
           <Toaster />
         </TooltipProvider>
