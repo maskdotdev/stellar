@@ -8,9 +8,9 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme {
-  --font-family-sans: var(--font-sans, ui-sans-serif, system-ui, sans-serif);
+  --font-family-sans: var(--font-sans, system-ui, -apple-system, sans-serif);
   --font-family-mono: var(--font-mono, ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Monaco, Consolas, 'Courier New', monospace);
-  --font-family-serif: var(--font-serif, ui-serif, Georgia, Cambria, 'Times New Roman', Times, serif);
+  --font-family-serif: var(--font-serif, ui-serif, Georgia, serif);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -52,8 +52,36 @@
   * {
     @apply border-border outline-ring/50;
   }
+  
+  /* Initialize font variables */
+  :root {
+    --font-sans: system-ui, -apple-system, sans-serif;
+    --font-serif: ui-serif, Georgia, serif;
+    --font-mono: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Monaco, Consolas, 'Courier New', monospace;
+  }
+  
+  /* Apply theme fonts to the entire document */
+  html {
+    font-family: var(--font-sans);
+  }
+  
   body {
-    @apply bg-background text-foreground font-sans;
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans);
+  }
+  
+  /* Ensure serif and mono fonts are also properly applied */
+  .font-serif {
+    font-family: var(--font-serif) !important;
+  }
+  
+  .font-mono {
+    font-family: var(--font-mono) !important;
+  }
+  
+  /* Apply to code elements specifically */
+  code, pre, kbd, samp {
+    font-family: var(--font-mono);
   }
 }
 
