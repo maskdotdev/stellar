@@ -1,13 +1,13 @@
 "use client"
 
-import React, { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Badge } from '@/components/ui/badge'
 import { MessageCircle, Lightbulb, Plus, FileText, Clock } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { type Document } from '@/lib/library-service'
+import { cn } from '@/lib/utils/utils'
+import { type Document } from '@/lib/services/library-service'
 
 interface NoteSelectionDialogProps {
   open: boolean
@@ -140,7 +140,6 @@ export function TextSelectionPopover({
 
     // Adjust position to stay within viewport
     const viewportWidth = window.innerWidth
-    const viewportHeight = window.innerHeight
     const popoverWidth = 200 // Estimated popover width
     const popoverHeight = 50 // Estimated popover height
 

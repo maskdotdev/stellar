@@ -3,13 +3,12 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { FileText, MessageCircle, Lightbulb, Split, Loader2, ArrowLeft } from "lucide-react"
-import { useStudyStore } from "@/lib/study-store"
-import { LibraryService, type Document } from "@/lib/library-service"
+import { FileText, Split, Loader2, ArrowLeft } from "lucide-react"
+import { useStudyStore } from "@/lib/stores/study-store"
+import { LibraryService, type Document } from "@/lib/services/library-service"
 import { DocumentRenderer } from "@/components/library/document-renderer"
 import { TextSelectionPopover } from "./text-selection-popover"
-import { useActionsStore, ActionsService, ActionType } from "@/lib/actions-service"
+import { useActionsStore, ActionsService, ActionType } from "@/lib/services/actions-service"
 
 export function FocusPane() {
   const [splitView, setSplitView] = useState(false)
@@ -18,6 +17,9 @@ export function FocusPane() {
   const [isLoading, setIsLoading] = useState(false)
   const [notes, setNotes] = useState("")
   const [existingNotes, setExistingNotes] = useState<Document[]>([])
+  
+  // Document reading tracking
+  const [documentStartTime, setDocumentStartTime] = useState<Date | null>(null)
   
   const { 
     setShowFloatingChat, 
@@ -40,8 +42,32 @@ export function FocusPane() {
   useEffect(() => {
     const loadDocument = async () => {
       if (!currentDocumentId) {
+        // If switching away from a document, record reading session
+        if (documentStartTime && currentDocument) {
+          const readingDuration = (new Date().getTime() - documentStartTime.getTime()) / 1000
+          if (readingDuration > 5) { // Only record if read for more than 5 seconds
+            await actionsService.recordActionWithAutoContext(
+              ActionType.DOCUMENT_VIEW,
+              {
+                documentId: currentDocument.id,
+                documentTitle: currentDocument.title,
+                documentType: currentDocument.doc_type,
+                readingDuration: Math.round(readingDuration),
+                categoryId: currentDocument.category_id || undefined
+              },
+              {
+                sessionId: currentSessionId || 'default-session',
+                documentIds: [currentDocument.id],
+                categoryIds: currentDocument.category_id ? [currentDocument.category_id] : undefined,
+                duration: Math.round(readingDuration)
+              }
+            )
+          }
+        }
+        
         setCurrentDocument(null)
         setExistingNotes([])
+        setDocumentStartTime(null)
         return
       }
 
@@ -49,6 +75,9 @@ export function FocusPane() {
         setIsLoading(true)
         const doc = await libraryService.getDocument(currentDocumentId)
         setCurrentDocument(doc)
+        
+        // Start reading session timer
+        setDocumentStartTime(new Date())
         
         // Load existing notes from the same category
         const notesInCategory = documents.filter(d => 
@@ -66,6 +95,33 @@ export function FocusPane() {
 
     loadDocument()
   }, [currentDocumentId, documents])
+
+  // Cleanup reading session on unmount
+  useEffect(() => {
+    return () => {
+      if (documentStartTime && currentDocument) {
+        const readingDuration = (new Date().getTime() - documentStartTime.getTime()) / 1000
+        if (readingDuration > 5) { // Only record if read for more than 5 seconds
+          actionsService.recordActionWithAutoContext(
+            ActionType.DOCUMENT_VIEW,
+            {
+              documentId: currentDocument.id,
+              documentTitle: currentDocument.title,
+              documentType: currentDocument.doc_type,
+              readingDuration: Math.round(readingDuration),
+              categoryId: currentDocument.category_id || undefined
+            },
+            {
+              sessionId: currentSessionId || 'default-session',
+              documentIds: [currentDocument.id],
+              categoryIds: currentDocument.category_id ? [currentDocument.category_id] : undefined,
+              duration: Math.round(readingDuration)
+            }
+          )
+        }
+      }
+    }
+  }, [documentStartTime, currentDocument, actionsService, currentSessionId])
 
   const handleTextSelection = async (text: string) => {
     // Record document highlight action

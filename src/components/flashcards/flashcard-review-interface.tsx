@@ -1,19 +1,17 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { 
-  RotateCcw,
   Check,
   X,
   SkipForward,
   Star,
   Timer,
-  BarChart3,
   Target,
   Brain,
   Zap,
@@ -58,8 +56,7 @@ interface CardReview {
 export function FlashcardReviewInterface({ 
   cards, 
   onComplete, 
-  onExit,
-  sessionType = 'mixed'
+  onExit
 }: FlashcardReviewInterfaceProps) {
   const { recordReview } = useFlashcardStore()
   const { recordAction, currentSessionId } = useActionsStore()

@@ -15,9 +15,7 @@ import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { TooltipWrapper } from "@/components/ui/tooltip";
 import {
-  RefreshCw,
   Search,
-  Zap,
   MessageSquare,
   Star,
   Eye,
@@ -29,11 +27,11 @@ import {
   Expand,
   DollarSign,
 } from "lucide-react";
-import { useAIStore } from "@/lib/ai-store";
+import { useAIStore } from "@/lib/stores/ai-store";
 import { useToast } from "@/hooks/use-toast";
 import { getFilteredModels, filterProviders, getCapabilityIcon, getCapabilityTooltip } from "./utils";
 import { ProviderLogo } from "./provider-logos";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils/utils";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 
@@ -49,8 +47,6 @@ export function ModelBrowser() {
     providers,
     setActiveProvider,
     setActiveModel,
-    syncProvider,
-    isLoading,
     activeProviderId,
     activeModelId,
   } = useAIStore();
@@ -62,21 +58,7 @@ export function ModelBrowser() {
 
   const { toast } = useToast();
 
-  const handleSyncProvider = async (providerId: string) => {
-    try {
-      await syncProvider(providerId);
-      toast({
-        title: "Provider synced",
-        description: `Updated models for ${providerId}`,
-      });
-    } catch (error) {
-      toast({
-        title: "Sync failed",
-        description: `Failed to sync provider ${providerId}`,
-        variant: "destructive",
-      });
-    }
-  };
+
 
   const handleSelectModel = (
     providerId: string,

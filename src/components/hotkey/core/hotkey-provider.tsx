@@ -6,8 +6,8 @@ import {
   buildPrefixes, 
   isUserActivelyEditing, 
   isElementInteractive,
-  type HotkeyContextType 
-} from '@/lib/hotkey-system';
+ 
+} from '@/lib/core/hotkey-system';
 
 interface HotkeyProviderProps {
   children: React.ReactNode;
@@ -73,7 +73,6 @@ const hotkeyReducer = (state: HotkeyState, action: HotkeyAction): HotkeyState =>
 export const HotkeyProvider: React.FC<HotkeyProviderProps> = ({ 
   children, 
   bufferTimeout = 750,
-  showOverlayDelay = 500,
   enabled = true,
   leaderKey = ' ', // Default to space key
   requireConfirmation = false

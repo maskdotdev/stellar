@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Separator } from "@/components/ui/separator"
+
 import { 
   Activity, 
   BarChart3, 
@@ -17,11 +17,11 @@ import {
   TrendingUp,
   RefreshCw
 } from "lucide-react"
-import { useActionsStore, ActionType, ActionsService, UserAction, ActionStats } from "@/lib/actions-service"
+import { useActionsStore, ActionType, ActionsService, UserAction, ActionStats } from "@/lib/services/actions-service"
 import { useState, useEffect } from "react"
 
 export function ActionsDashboard() {
-  const { getActionStats, getRecentActions, currentSessionId, isLoading } = useActionsStore()
+  const { getActionStats, getRecentActions, currentSessionId } = useActionsStore()
   const actionsService = ActionsService.getInstance()
   
   const [stats, setStats] = useState<ActionStats>({
@@ -111,23 +111,23 @@ export function ActionsDashboard() {
     }
   }
   
-  const getActionColor = (type: string) => {
+  const getActionColor = (type: string): "default" | "secondary" | "destructive" | "outline" => {
     switch (type) {
       case ActionType.DOCUMENT_VIEW:
       case ActionType.DOCUMENT_UPLOAD:
-        return "bg-blue-100 text-blue-800"
+        return "default"
       case ActionType.CHAT_MESSAGE:
       case ActionType.CHAT_START:
-        return "bg-green-100 text-green-800"
+        return "outline"
       case ActionType.DOCUMENT_HIGHLIGHT:
-        return "bg-yellow-100 text-yellow-800"
+        return "outline"
       case ActionType.SEARCH_QUERY:
-        return "bg-purple-100 text-purple-800"
+        return "secondary"
       case ActionType.NOTE_CREATE:
       case ActionType.NOTE_EDIT:
-        return "bg-indigo-100 text-indigo-800"
+        return "default"
       default:
-        return "bg-gray-100 text-gray-800"
+        return "secondary"
     }
   }
   
@@ -310,7 +310,7 @@ export function ActionsDashboard() {
                   className="flex items-start justify-between p-3 rounded-lg bg-muted/50"
                 >
                   <div className="flex items-start gap-3">
-                    <div className={`p-2 rounded-lg ${getActionColor(action.action_type)}`}>
+                    <div className="p-2 rounded-lg bg-muted">
                       {getActionIcon(action.action_type)}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -318,6 +318,10 @@ export function ActionsDashboard() {
                         {formatActionDescription(action)}
                       </p>
                       <div className="flex items-center gap-2 mt-1">
+                        <Badge variant={getActionColor(action.action_type)} className="text-xs">
+                          {action.action_type.replace('_', ' ').toLowerCase()
+                            .replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                        </Badge>
                         <Badge variant="outline" className="text-xs">
                           Session: {action.session_id.slice(0, 8)}...
                         </Badge>

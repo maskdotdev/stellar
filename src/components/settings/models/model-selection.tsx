@@ -1,19 +1,17 @@
 "use client"
 
 import { useState } from "react"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Badge } from "@/components/ui/badge"
-import { Input } from "@/components/ui/input"
-import { Search } from "lucide-react"
-import { useAIStore } from "@/lib/ai-store"
+import { useAIStore } from "@/lib/stores/ai-store"
 import { getCapabilityIcon } from "./utils"
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Button } from "@/components/ui/button"
 import { Check, ChevronsUpDown } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { cn, formatNumber } from "@/lib/utils/utils"
 
 export function ModelSelection() {
   const {
@@ -27,7 +25,7 @@ export function ModelSelection() {
   } = useAIStore()
   
   const [providerSearchOpen, setProviderSearchOpen] = useState(false)
-  const [providerSearchValue, setProviderSearchValue] = useState("")
+  const [modelSearchOpen, setModelSearchOpen] = useState(false)
   
   const activeProvider = getActiveProvider()
   const activeModel = getActiveModel()
@@ -112,34 +110,72 @@ export function ModelSelection() {
             <CardTitle className="text-lg">Active Model</CardTitle>
           </CardHeader>
           <CardContent>
-            <Select 
-              value={activeModelId || "none"} 
-              onValueChange={(value) => setActiveModel(value === "none" ? "" : value)}
-              disabled={!activeProvider}
-            >
-              <SelectTrigger>
-                <SelectValue placeholder="Select a model" />
-              </SelectTrigger>
-              <SelectContent>
-                {activeProvider?.models.map((model) => (
-                  <SelectItem key={model.id} value={model.id}>
-                    <div className="flex flex-col">
-                      <div className="flex items-center gap-1">
-                        <span>{model.name}</span>
-                        {model.capabilities.map(cap => (
-                          <span key={cap} className="ml-1">
-                            {getCapabilityIcon(cap, "sm")}
-                          </span>
-                        ))}
-                      </div>
-                      <span className="text-xs text-muted-foreground">
-                        {model.contextWindow.toLocaleString()} context • {model.maxTokens.toLocaleString()} max tokens
-                      </span>
+            {/* Searchable Model Selection */}
+            <Popover open={modelSearchOpen} onOpenChange={setModelSearchOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  role="combobox"
+                  aria-expanded={modelSearchOpen}
+                  className="w-full justify-between"
+                  disabled={!activeProvider}
+                >
+                  {activeModelId ? (
+                    <div className="flex items-center gap-2">
+                      <span>{activeProvider?.models.find(m => m.id === activeModelId)?.name}</span>
+                      {activeModel && activeModel.contextWindow && (
+                        <Badge variant="secondary" className="text-xs">
+                          {formatNumber(activeModel.contextWindow)} ctx
+                        </Badge>
+                      )}
                     </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+                  ) : (
+                    "Select model..."
+                  )}
+                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-full p-0">
+                <Command>
+                  <CommandInput placeholder="Search models..." className="h-9" />
+                  <CommandEmpty>No model found.</CommandEmpty>
+                  <CommandList>
+                    <CommandGroup>
+                      {activeProvider?.models.map((model) => (
+                        <CommandItem
+                          key={model.id}
+                          value={model.name}
+                          onSelect={() => {
+                            setActiveModel(model.id === activeModelId ? "" : model.id)
+                            setModelSearchOpen(false)
+                          }}
+                        >
+                          <div className="flex items-center gap-2 flex-1">
+                            <span>{model.name}</span>
+                            {model.contextWindow && (
+                              <Badge variant="secondary" className="text-xs">
+                                {formatNumber(model.contextWindow)} ctx
+                              </Badge>
+                            )}
+                            {model.capabilities.length > 0 && (
+                              <Badge variant="outline" className="text-xs">
+                                {model.capabilities.length} caps
+                              </Badge>
+                            )}
+                          </div>
+                          <Check
+                            className={cn(
+                              "ml-auto h-4 w-4",
+                              activeModelId === model.id ? "opacity-100" : "opacity-0"
+                            )}
+                          />
+                        </CommandItem>
+                      ))}
+                    </CommandGroup>
+                  </CommandList>
+                </Command>
+              </PopoverContent>
+            </Popover>
           </CardContent>
         </Card>
       </div>

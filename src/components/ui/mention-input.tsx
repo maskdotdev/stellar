@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Badge } from "@/components/ui/badge"
-import { cn } from "@/lib/utils"
+
+import { cn } from "@/lib/utils/utils"
 
 // Base interfaces for extensibility
 export interface MentionItem {
@@ -240,7 +239,6 @@ export function MentionInput({
     if (!mentionState.provider) return
 
     const cursorPosition = inputRef.current?.selectionStart || 0
-    const beforeCursor = value.slice(0, cursorPosition)
     const afterCursor = value.slice(cursorPosition)
     
     const trigger = mentionState.provider.trigger || '@'

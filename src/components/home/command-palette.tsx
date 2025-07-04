@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useEffect, useState } from "react"
+import React, { useState } from "react"
 import {
   CommandDialog,
   CommandInput,
@@ -8,14 +8,14 @@ import {
   CommandEmpty,
   CommandGroup,
   CommandItem,
-  CommandShortcut,
-  CommandSeparator,
+
 } from "@/components/ui/command"
 import { Button } from "@/components/ui/button"
-import { Search, Settings, Palette, Moon, Sun, Home, Library, History, Focus, FileText, Network, Calendar, BarChart3, HelpCircle, Keyboard, Download, Plus, Upload, File, FolderOpen, Trash2, Edit, Copy, Bug } from "lucide-react"
-import { useStudyStore } from "@/lib/study-store"
+import { Search, Settings, Palette, Moon, Sun, Library, History, Focus, FileText, Network, Calendar, BarChart3, HelpCircle, Keyboard, Download, Plus, Upload, File, FolderOpen, Bug, Zap } from "lucide-react"
+import { useStudyStore } from "@/lib/stores/study-store"
 import { useTheme } from "@/components/theme-provider"
-import { themes, ThemeManager } from "@/lib/theme-config"
+import { themes, ThemeManager } from "@/lib/config/theme-config"
+import { useActionsStore, ActionsService, ActionType } from "@/lib/services/actions-service"
 
 interface Command {
   id: string
@@ -29,6 +29,10 @@ export function CommandPalette() {
   const [search, setSearch] = useState("")
   const { currentView, setCurrentView, keybindings, showCommandPalette, setShowCommandPalette } = useStudyStore()
   const { theme, setTheme } = useTheme()
+  
+  // Actions tracking
+  const actionsService = ActionsService.getInstance()
+  const { currentSessionId } = useActionsStore()
 
   // Helper to get keybinding by id
   const getKeybindingShortcut = (keybindings: any[], id: string): string => {
@@ -43,6 +47,7 @@ export function CommandPalette() {
   const navigationCommands: Command[] = [
     { id: "focus", label: "Focus Pane", icon: Focus, shortcut: getKeybindingShortcut(keybindings, "focus") },
     { id: "library", label: "Library", icon: Library, shortcut: getKeybindingShortcut(keybindings, "library") },
+    { id: "flashcards", label: "Flashcards", icon: Zap, shortcut: getKeybindingShortcut(keybindings, "flashcards") },
     { id: "workspace", label: "Workspace", icon: FileText, shortcut: getKeybindingShortcut(keybindings, "workspace") },
     { id: "graph", label: "Graph View", icon: Network, shortcut: getKeybindingShortcut(keybindings, "graph") },
     { id: "history", label: "History", icon: History, shortcut: getKeybindingShortcut(keybindings, "history") },
@@ -72,22 +77,29 @@ export function CommandPalette() {
     { id: "settings-export", label: "Export Data", icon: Download, shortcut: getKeybindingShortcut(keybindings, "settings-export") },
   ]
 
-  // All commands
-  const allCommands = [...navigationCommands, ...actionCommands, ...settingsCommands]
 
-  // Filter commands based on search
-  const filteredCommands = search 
-    ? allCommands.filter(command => 
-        command.label.toLowerCase().includes(search.toLowerCase())
-      )
-    : allCommands
 
-  const runCommand = React.useCallback((command: Command) => {
+  const runCommand = React.useCallback(async (command: Command) => {
     setShowCommandPalette(false)
     setSearch("")
 
     // Handle navigation commands
     if (navigationCommands.some(nav => nav.id === command.id)) {
+      // Record navigation action
+      await actionsService.recordActionWithAutoContext(
+        ActionType.VIEW_SWITCH,
+        {
+          fromView: currentView,
+          toView: command.id,
+          viewLabel: command.label,
+          navigationMethod: 'command-palette',
+          searchQuery: search
+        },
+        {
+          sessionId: currentSessionId || 'default-session'
+        }
+      )
+      
       setCurrentView(command.id as any)
       return
     }
@@ -136,7 +148,7 @@ export function CommandPalette() {
     if (selectedTheme) {
       ThemeManager.applyThemeWithPreference(selectedTheme.name, theme, setTheme)
     }
-  }, [setCurrentView, theme, setTheme, setShowCommandPalette])
+  }, [setCurrentView, theme, setTheme, setShowCommandPalette, actionsService, currentView, currentSessionId, search])
 
   return (
     <>
