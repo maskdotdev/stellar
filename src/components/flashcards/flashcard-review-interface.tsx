@@ -484,8 +484,8 @@ export function FlashcardReviewInterface({
               {[1, 2, 3, 4, 5].map((level) => (
                 <Button
                   key={level}
-                  variant="outline"
-                  className="h-16 flex flex-col items-center justify-center"
+                  variant="ghost"
+                  className="h-16 flex flex-col text-muted-foreground hover:text-accent-foreground items-center justify-center"
                   onClick={() => handleConfidenceSubmit(level as any)}
                 >
                   <div className="flex">
