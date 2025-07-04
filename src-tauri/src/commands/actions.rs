@@ -79,8 +79,35 @@ pub async fn record_user_action(
     let db_state = state.lock().await;
     let database = db_state.as_ref().ok_or("Database not initialized")?;
     
-    database.record_action(req).await
-        .map_err(|e| format!("Failed to record action: {}", e))
+    // Validate that the session exists before recording action
+    match database.get_session(&req.session_id).await {
+        Ok(Some(_)) => {
+            // Session exists, proceed with recording action
+            database.record_action(req).await
+                .map_err(|e| format!("Failed to record action: {}", e))
+        }
+        Ok(None) => {
+            // Session doesn't exist, create a default session and record action
+            let session_req = CreateSessionRequest {
+                title: "Auto-created Study Session".to_string(),
+                session_type: Some("mixed".to_string()),
+                metadata: None,
+            };
+            
+            match database.create_session(session_req).await {
+                Ok(session) => {
+                    // Update the request with the new session ID
+                    let mut new_req = req;
+                    new_req.session_id = session.id;
+                    
+                    database.record_action(new_req).await
+                        .map_err(|e| format!("Failed to record action with new session: {}", e))
+                }
+                Err(e) => Err(format!("Failed to create session for action: {}", e))
+            }
+        }
+        Err(e) => Err(format!("Failed to validate session: {}", e))
+    }
 }
 
 #[tauri::command]
@@ -198,4 +225,31 @@ pub async fn record_simple_action(
 
     database.record_action(req).await
         .map_err(|e| format!("Failed to record simple action: {}", e))
+}
+
+// ======================== Debug Commands ========================
+
+#[tauri::command]
+pub async fn debug_database_state(
+    state: State<'_, DatabaseState>
+) -> Result<serde_json::Value, String> {
+    let db_state = state.lock().await;
+    let database = db_state.as_ref().ok_or("Database not initialized")?;
+    
+    let active_session = database.get_active_session().await
+        .map_err(|e| format!("Failed to get active session: {}", e))?;
+    
+    let sessions_count = database.get_sessions(Some(10), Some(0)).await
+        .map_err(|e| format!("Failed to get sessions: {}", e))?;
+    
+    let recent_actions = database.get_recent_actions(10).await
+        .map_err(|e| format!("Failed to get recent actions: {}", e))?;
+    
+    Ok(serde_json::json!({
+        "active_session": active_session,
+        "recent_sessions_count": sessions_count.len(),
+        "recent_actions_count": recent_actions.len(),
+        "recent_sessions": sessions_count,
+        "recent_actions": recent_actions
+    }))
 } 

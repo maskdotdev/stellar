@@ -139,6 +139,116 @@ impl Database {
             .execute(&pool)
             .await?;
 
+        // 🧠 PHASE 2: Flashcard System Tables
+
+        // Create flashcard decks table
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS flashcard_decks (
+                id TEXT PRIMARY KEY,
+                name TEXT NOT NULL,
+                description TEXT,
+                color TEXT,
+                icon TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                category_id TEXT,
+                is_shared BOOLEAN NOT NULL DEFAULT FALSE,
+                tags TEXT NOT NULL DEFAULT '[]', -- JSON array
+                metadata TEXT, -- JSON metadata
+                FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE SET NULL
+            )
+            "#,
+        )
+        .execute(&pool)
+        .await?;
+
+        // Create flashcards table
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS flashcards (
+                id TEXT PRIMARY KEY,
+                front TEXT NOT NULL,
+                back TEXT NOT NULL,
+                source_document_id TEXT,
+                source_text TEXT,
+                difficulty TEXT NOT NULL DEFAULT 'medium',
+                created_at TEXT NOT NULL,
+                last_reviewed TEXT,
+                next_review TEXT,
+                review_count INTEGER NOT NULL DEFAULT 0,
+                success_rate REAL NOT NULL DEFAULT 0.0,
+                tags TEXT NOT NULL DEFAULT '[]', -- JSON array
+                category_id TEXT,
+                card_type TEXT NOT NULL DEFAULT 'basic',
+                deck_id TEXT,
+                ef_factor REAL NOT NULL DEFAULT 2.5, -- Ease Factor for SM-2
+                interval INTEGER NOT NULL DEFAULT 1, -- Review interval in days
+                repetitions INTEGER NOT NULL DEFAULT 0, -- Consecutive successful reviews
+                metadata TEXT, -- JSON metadata
+                FOREIGN KEY (source_document_id) REFERENCES documents (id) ON DELETE SET NULL,
+                FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE SET NULL,
+                FOREIGN KEY (deck_id) REFERENCES flashcard_decks (id) ON DELETE SET NULL
+            )
+            "#,
+        )
+        .execute(&pool)
+        .await?;
+
+        // Create flashcard reviews table
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS flashcard_reviews (
+                id TEXT PRIMARY KEY,
+                flashcard_id TEXT NOT NULL,
+                session_id TEXT NOT NULL,
+                timestamp TEXT NOT NULL,
+                response TEXT NOT NULL, -- 'correct', 'incorrect', 'partial'
+                time_spent INTEGER NOT NULL DEFAULT 0, -- Time in seconds
+                confidence INTEGER NOT NULL DEFAULT 3, -- 1-5 scale
+                quality INTEGER NOT NULL DEFAULT 3, -- 0-5 scale for SM-2
+                previous_ef REAL NOT NULL DEFAULT 2.5,
+                new_ef REAL NOT NULL DEFAULT 2.5,
+                previous_interval INTEGER NOT NULL DEFAULT 1,
+                new_interval INTEGER NOT NULL DEFAULT 1,
+                metadata TEXT, -- JSON metadata
+                FOREIGN KEY (flashcard_id) REFERENCES flashcards (id) ON DELETE CASCADE,
+                FOREIGN KEY (session_id) REFERENCES study_sessions (id) ON DELETE CASCADE
+            )
+            "#,
+        )
+        .execute(&pool)
+        .await?;
+
+        // Create indexes for flashcard tables
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_flashcards_deck_id ON flashcards(deck_id)")
+            .execute(&pool)
+            .await?;
+        
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_flashcards_category_id ON flashcards(category_id)")
+            .execute(&pool)
+            .await?;
+        
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_flashcards_next_review ON flashcards(next_review)")
+            .execute(&pool)
+            .await?;
+        
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_flashcards_source_document ON flashcards(source_document_id)")
+            .execute(&pool)
+            .await?;
+        
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_flashcard_reviews_flashcard_id ON flashcard_reviews(flashcard_id)")
+            .execute(&pool)
+            .await?;
+        
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_flashcard_reviews_session_id ON flashcard_reviews(session_id)")
+            .execute(&pool)
+            .await?;
+        
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_flashcard_reviews_timestamp ON flashcard_reviews(timestamp)")
+            .execute(&pool)
+            .await?;
+
         // Migration: Add category_id column to documents table if it doesn't exist
         let columns = sqlx::query("PRAGMA table_info(documents)")
             .fetch_all(&pool)
@@ -232,6 +342,95 @@ impl Database {
             document_ids: document_ids.and_then(|ids| serde_json::from_str(&ids).ok()),
             category_ids: category_ids.and_then(|ids| serde_json::from_str(&ids).ok()),
             duration: row.get("duration"),
+            metadata: metadata.and_then(|m| serde_json::from_str(&m).ok()),
+        })
+    }
+
+    // 🧠 PHASE 2: Flashcard System Helper Methods
+
+    // Helper function to convert database row to Flashcard
+    pub fn row_to_flashcard(&self, row: sqlx::sqlite::SqliteRow) -> Result<super::types::Flashcard, sqlx::Error> {
+        let created_at: String = row.get("created_at");
+        let last_reviewed: Option<String> = row.get("last_reviewed");
+        let next_review: Option<String> = row.get("next_review");
+        let tags: String = row.get("tags");
+        let metadata: Option<String> = row.get("metadata");
+
+        Ok(super::types::Flashcard {
+            id: row.get("id"),
+            front: row.get("front"),
+            back: row.get("back"),
+            source_document_id: row.get("source_document_id"),
+            source_text: row.get("source_text"),
+            difficulty: row.get("difficulty"),
+            created_at: DateTime::parse_from_rfc3339(&created_at)
+                .unwrap_or_else(|_| Utc::now().into())
+                .with_timezone(&Utc),
+            last_reviewed: last_reviewed.and_then(|t| DateTime::parse_from_rfc3339(&t).ok())
+                .map(|t| t.with_timezone(&Utc)),
+            next_review: next_review.and_then(|t| DateTime::parse_from_rfc3339(&t).ok())
+                .map(|t| t.with_timezone(&Utc)),
+            review_count: row.get("review_count"),
+            success_rate: row.get("success_rate"),
+            tags: serde_json::from_str(&tags).unwrap_or_default(),
+            category_id: row.get("category_id"),
+            card_type: row.get("card_type"),
+            deck_id: row.get("deck_id"),
+            ef_factor: row.get("ef_factor"),
+            interval: row.get("interval"),
+            repetitions: row.get("repetitions"),
+            metadata: metadata.and_then(|m| serde_json::from_str(&m).ok()),
+        })
+    }
+
+    // Helper function to convert database row to FlashcardDeck
+    pub fn row_to_flashcard_deck(&self, row: sqlx::sqlite::SqliteRow) -> Result<super::types::FlashcardDeck, sqlx::Error> {
+        let created_at: String = row.get("created_at");
+        let updated_at: String = row.get("updated_at");
+        let tags: String = row.get("tags");
+        let metadata: Option<String> = row.get("metadata");
+
+        Ok(super::types::FlashcardDeck {
+            id: row.get("id"),
+            name: row.get("name"),
+            description: row.get("description"),
+            color: row.get("color"),
+            icon: row.get("icon"),
+            created_at: DateTime::parse_from_rfc3339(&created_at)
+                .unwrap_or_else(|_| Utc::now().into())
+                .with_timezone(&Utc),
+            updated_at: DateTime::parse_from_rfc3339(&updated_at)
+                .unwrap_or_else(|_| Utc::now().into())
+                .with_timezone(&Utc),
+            category_id: row.get("category_id"),
+            is_shared: row.get("is_shared"),
+            tags: serde_json::from_str(&tags).unwrap_or_default(),
+            card_count: 0, // Will be populated by queries that join with flashcards
+            due_count: 0, // Will be populated by queries that join with flashcards
+            metadata: metadata.and_then(|m| serde_json::from_str(&m).ok()),
+        })
+    }
+
+    // Helper function to convert database row to FlashcardReview
+    pub fn row_to_flashcard_review(&self, row: sqlx::sqlite::SqliteRow) -> Result<super::types::FlashcardReview, sqlx::Error> {
+        let timestamp: String = row.get("timestamp");
+        let metadata: Option<String> = row.get("metadata");
+
+        Ok(super::types::FlashcardReview {
+            id: row.get("id"),
+            flashcard_id: row.get("flashcard_id"),
+            session_id: row.get("session_id"),
+            timestamp: DateTime::parse_from_rfc3339(&timestamp)
+                .unwrap_or_else(|_| Utc::now().into())
+                .with_timezone(&Utc),
+            response: row.get("response"),
+            time_spent: row.get("time_spent"),
+            confidence: row.get("confidence"),
+            quality: row.get("quality"),
+            previous_ef: row.get("previous_ef"),
+            new_ef: row.get("new_ef"),
+            previous_interval: row.get("previous_interval"),
+            new_interval: row.get("new_interval"),
             metadata: metadata.and_then(|m| serde_json::from_str(&m).ok()),
         })
     }

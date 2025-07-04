@@ -80,10 +80,32 @@ pub async fn openai_chat_completion(
         return Err(format!("API error: {}", error_text));
     }
 
-    response
-        .json::<ChatCompletionResponse>()
+    // Parse OpenAI response manually to handle snake_case to camelCase conversion
+    let openai_response: serde_json::Value = response
+        .json()
         .await
-        .map_err(|e| format!("Failed to parse response: {}", e))
+        .map_err(|e| format!("Failed to parse response: {}", e))?;
+
+    let content = openai_response["choices"][0]["message"]["content"]
+        .as_str()
+        .unwrap_or("")
+        .to_string();
+
+    Ok(ChatCompletionResponse {
+        id: openai_response["id"].as_str().unwrap_or("").to_string(),
+        choices: vec![ChatChoice {
+            message: ChatMessage {
+                role: "assistant".to_string(),
+                content,
+            },
+            finish_reason: openai_response["choices"][0]["finish_reason"].as_str().unwrap_or("stop").to_string(),
+        }],
+        usage: ChatUsage {
+            prompt_tokens: openai_response["usage"]["prompt_tokens"].as_u64().unwrap_or(0) as u32,
+            completion_tokens: openai_response["usage"]["completion_tokens"].as_u64().unwrap_or(0) as u32,
+            total_tokens: openai_response["usage"]["total_tokens"].as_u64().unwrap_or(0) as u32,
+        },
+    })
 }
 
 pub async fn openai_chat_completion_stream(

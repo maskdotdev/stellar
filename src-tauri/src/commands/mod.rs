@@ -3,11 +3,13 @@ pub mod ai;
 pub mod database;
 pub mod pdf;
 pub mod embeddings;
+pub mod flashcards;
 
 pub use ai::*;
 pub use database::*;
 pub use pdf::*;
 pub use actions::*;
+pub use flashcards::*;
 
 // Re-export the simple commands here
 #[tauri::command]
