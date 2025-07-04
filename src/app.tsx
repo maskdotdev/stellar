@@ -22,6 +22,16 @@ import { HotkeyProvider, HotkeyOverlay, useHotkeyContext } from "@/components/ho
 import { DebugHotkeyTest } from "@/components/hotkey/dev"
 import { AppInitializationService } from "@/lib/core/app-initialization"
 import { FlashcardDashboard } from "@/components/flashcards/flashcard-dashboard"
+import { DebugFontTest } from "@/components/debug-font-test"
+import { useSettingsStore } from "@/lib/stores/settings-store"
+
+// Function to apply custom fonts if they've been set by the user
+const updateCSSFontVariables = (fontFamily: { sans: string; serif: string; mono: string }) => {
+  const root = document.documentElement
+  root.style.setProperty('--font-sans', fontFamily.sans)
+  root.style.setProperty('--font-serif', fontFamily.serif)
+  root.style.setProperty('--font-mono', fontFamily.mono)
+}
 
 // Component to show when hotkey leader mode is active
 const HotkeyModeIndicator: React.FC = () => {
@@ -239,6 +249,27 @@ export function App() {
   } = useStudyStore()
   
   const { theme, setTheme } = useTheme()
+
+  // Restore custom fonts if they were previously set by the user
+  useEffect(() => {
+    const fontFamily = useSettingsStore.getState().display.fontFamily
+    const defaultFonts = {
+      sans: "system-ui, -apple-system, sans-serif",
+      serif: "ui-serif, Georgia, serif", 
+      mono: "ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Monaco, Consolas, 'Courier New', monospace"
+    }
+    
+    // Only apply custom fonts if user has previously customized them
+    const hasCustomFonts = 
+      fontFamily.sans !== defaultFonts.sans ||
+      fontFamily.serif !== defaultFonts.serif ||
+      fontFamily.mono !== defaultFonts.mono
+    
+    if (hasCustomFonts) {
+      console.log('🎨 Restoring custom fonts:', fontFamily)
+      updateCSSFontVariables(fontFamily)
+    }
+  }, []) // Run once on app mount
 
   // Initialize services on app startup
   useEffect(() => {
@@ -508,6 +539,9 @@ export function App() {
 
           {/* Hotkey Overlay */}
           <HotkeyOverlay />
+          
+          {/* Font Debug Test (temporary) */}
+          <DebugFontTest />
           </div>
           <Toaster />
         </TooltipProvider>
