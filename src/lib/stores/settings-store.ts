@@ -21,6 +21,11 @@ interface DisplaySettings {
   compactMode: boolean
   showLineNumbers: boolean
   wordWrap: boolean
+  fontFamily: {
+    sans: string
+    serif: string
+    mono: string
+  }
 }
 
 // Application Behavior Settings
@@ -102,6 +107,7 @@ interface SettingsState {
   setCompactMode: (compact: boolean) => void
   setShowLineNumbers: (show: boolean) => void
   setWordWrap: (wrap: boolean) => void
+  setFontFamily: (fontType: "sans" | "serif" | "mono", fontFamily: string) => void
   
   // Actions for App Settings
   setAutoSave: (enabled: boolean) => void
@@ -165,6 +171,11 @@ const defaultSettings = {
     compactMode: false,
     showLineNumbers: false,
     wordWrap: true,
+    fontFamily: {
+      sans: "system-ui, -apple-system, sans-serif",
+      serif: "ui-serif, Georgia, serif",
+      mono: "ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Monaco, Consolas, 'Courier New', monospace"
+    },
   },
   app: {
     autoSave: true,
@@ -295,6 +306,18 @@ export const useSettingsStore = create<SettingsState>()(
       setWordWrap: (wrap) => 
         set((state) => ({ 
           display: { ...state.display, wordWrap: wrap },
+          lastUpdated: new Date().toISOString()
+        })),
+        
+      setFontFamily: (fontType, fontFamily) => 
+        set((state) => ({ 
+          display: { 
+            ...state.display, 
+            fontFamily: { 
+              ...state.display.fontFamily, 
+              [fontType]: fontFamily 
+            } 
+          },
           lastUpdated: new Date().toISOString()
         })),
       
@@ -586,6 +609,7 @@ export const useDisplaySettings = () => useSettingsStore((state) => ({
   setCompactMode: state.setCompactMode,
   setShowLineNumbers: state.setShowLineNumbers,
   setWordWrap: state.setWordWrap,
+  setFontFamily: state.setFontFamily,
 }))
 
 export const useAppSettings = () => useSettingsStore((state) => ({
