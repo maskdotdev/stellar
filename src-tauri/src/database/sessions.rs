@@ -252,12 +252,15 @@ impl Database {
             .fetch_one(&self.pool)
             .await?;
 
-        // Documents accessed
-        let documents_accessed: i64 = sqlx::query_scalar(
-            "SELECT COUNT(DISTINCT json_extract(value, '$')) FROM user_actions, json_each(user_actions.document_ids) WHERE user_actions.document_ids IS NOT NULL"
+        // Documents accessed - handle NULL and empty JSON arrays properly
+        let documents_accessed: i64 = match sqlx::query_scalar(
+            "SELECT COUNT(DISTINCT json_extract(value, '$')) FROM user_actions, json_each(user_actions.document_ids) WHERE user_actions.document_ids IS NOT NULL AND user_actions.document_ids != 'null' AND json_valid(user_actions.document_ids) = 1"
         )
         .fetch_one(&self.pool)
-        .await?;
+        .await {
+            Ok(count) => count,
+            Err(_) => 0, // If there's an error (e.g., no valid JSON), default to 0
+        };
 
         // Average session duration
         let avg_duration: Option<f64> = sqlx::query_scalar("SELECT AVG(total_duration) FROM study_sessions WHERE total_duration > 0")
