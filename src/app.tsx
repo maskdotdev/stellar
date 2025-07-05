@@ -1,28 +1,39 @@
 'use client'
 
-import { useEffect } from "react"
+import { useEffect, Suspense, lazy } from "react"
 import { SlimNavRail } from "@/components/home/slim-nav-rail"
 import { ContextBar } from "@/components/home/context-bar"
-import { FocusPane, NoteEditor } from "@/components/focus"
 import { FloatingChat } from "@/components/home/floating-chat"
 import { CommandPalette } from "@/components/home/command-palette"
-import { GraphView } from "@/components/home/graph-view"
-import { Library } from "@/components/library"
-import { Workspace } from "@/components/home/workspace"
-import { History } from "@/components/history"
-import { Settings } from "@/components/settings"
-import { ActionsDashboard } from "@/components/home/actions-dashboard"
-import { SessionsManagement } from "@/components/session"
 import { ThemeProvider, useTheme } from "@/components/theme-provider"
 import { ThemeManager } from "@/lib/config/theme-config"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { useStudyStore } from "@/lib/stores/study-store"
 import { HotkeyProvider, HotkeyOverlay, useHotkeyContext } from "@/components/hotkey"
-import { DebugHotkeyTest } from "@/components/hotkey/dev"
 import { AppInitializationService } from "@/lib/core/app-initialization"
-import { FlashcardDashboard } from "@/components/flashcards/flashcard-dashboard"
 import { useSettingsStore } from "@/lib/stores/settings-store"
+import { MessageCircle } from "lucide-react"
+
+// Lazy load heavy components to enable code splitting
+const FocusPane = lazy(() => import("@/components/focus").then(module => ({ default: module.FocusPane })))
+const NoteEditor = lazy(() => import("@/components/focus").then(module => ({ default: module.NoteEditor })))
+const GraphView = lazy(() => import("@/components/home/graph-view").then(module => ({ default: module.GraphView })))
+const Library = lazy(() => import("@/components/library").then(module => ({ default: module.Library })))
+const Workspace = lazy(() => import("@/components/home/workspace").then(module => ({ default: module.Workspace })))
+const History = lazy(() => import("@/components/history").then(module => ({ default: module.History })))
+const Settings = lazy(() => import("@/components/settings").then(module => ({ default: module.Settings })))
+const ActionsDashboard = lazy(() => import("@/components/home/actions-dashboard").then(module => ({ default: module.ActionsDashboard })))
+const SessionsManagement = lazy(() => import("@/components/session").then(module => ({ default: module.SessionsManagement })))
+const FlashcardDashboard = lazy(() => import("@/components/flashcards/flashcard-dashboard").then(module => ({ default: module.FlashcardDashboard })))
+const DebugHotkeyTest = lazy(() => import("@/components/hotkey/dev").then(module => ({ default: module.DebugHotkeyTest })))
+
+// Loading fallback component
+const LoadingSpinner = () => (
+  <div className="flex items-center justify-center h-full">
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+  </div>
+)
 
 // Function to apply custom fonts if they've been set by the user
 const updateCSSFontVariables = (fontFamily: { sans: string; serif: string; mono: string }) => {
@@ -69,8 +80,6 @@ const HotkeyModeIndicator: React.FC = () => {
     </div>
   );
 };
-
-import { MessageCircle } from "lucide-react"
 
 // Helper function to check if user is actively editing
 const isUserActivelyEditing = (target: HTMLElement): boolean => {
@@ -356,9 +365,6 @@ export function App() {
             case "chat":
               setShowFloatingChat(!showFloatingChat)
               break
-            case "flashcards":
-              console.log("Create flashcards")
-              break
             case "toggle-dark-mode":
               ThemeManager.toggleDarkMode(theme, setTheme)
               break
@@ -451,33 +457,71 @@ export function App() {
   const renderCurrentView = () => {
     switch (currentView) {
       case "graph":
-        return <GraphView />
+        return (
+          <Suspense fallback={<LoadingSpinner />}>
+            <GraphView />
+          </Suspense>
+        )
       case "workspace":
-        return <Workspace />
+        return (
+          <Suspense fallback={<LoadingSpinner />}>
+            <Workspace />
+          </Suspense>
+        )
       case "history":
-        return <History />
+        return (
+          <Suspense fallback={<LoadingSpinner />}>
+            <History />
+          </Suspense>
+        )
       case "analytics":
-        return <ActionsDashboard />
+        return (
+          <Suspense fallback={<LoadingSpinner />}>
+            <ActionsDashboard />
+          </Suspense>
+        )
       case "sessions":
-        return <SessionsManagement />
+        return (
+          <Suspense fallback={<LoadingSpinner />}>
+            <SessionsManagement />
+          </Suspense>
+        )
       case "flashcards":
-        return <FlashcardDashboard />
+        return (
+          <Suspense fallback={<LoadingSpinner />}>
+            <FlashcardDashboard />
+          </Suspense>
+        )
       case "settings":
-        return <Settings />
+        return (
+          <Suspense fallback={<LoadingSpinner />}>
+            <Settings />
+          </Suspense>
+        )
       case "debug-hotkeys":
-        return <DebugHotkeyTest />
+        return (
+          <Suspense fallback={<LoadingSpinner />}>
+            <DebugHotkeyTest />
+          </Suspense>
+        )
       case "note-editor":
         return (
-          <NoteEditor 
-            documentId={editingNoteId || undefined} 
-            onBack={() => setCurrentView("library")}
-            categories={categories}
-            currentCategoryId={currentCategory}
-          />
+          <Suspense fallback={<LoadingSpinner />}>
+            <NoteEditor 
+              documentId={editingNoteId || undefined} 
+              onBack={() => setCurrentView("library")}
+              categories={categories}
+              currentCategoryId={currentCategory}
+            />
+          </Suspense>
         )
       case "library":
       default:
-        return <Library />
+        return (
+          <Suspense fallback={<LoadingSpinner />}>
+            <Library />
+          </Suspense>
+        )
     }
   }
 
@@ -503,7 +547,15 @@ export function App() {
             )}
 
             {/* Focus Pane */}
-            <div className="overflow-hidden min-h-0 h-full">{currentView === "focus" ? <FocusPane /> : renderCurrentView()}</div>
+            <div className="overflow-hidden min-h-0 h-full">
+              {currentView === "focus" ? (
+                <Suspense fallback={<LoadingSpinner />}>
+                  <FocusPane />
+                </Suspense>
+              ) : (
+                renderCurrentView()
+              )}
+            </div>
 
           </div>
 
