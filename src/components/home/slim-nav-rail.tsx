@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { TooltipProvider, TooltipWrapper } from "@/components/ui/tooltip"
 import { Library, Network, FileText, History, Settings, BookOpen, Sun, Moon, BarChart3, Calendar, Bug, Zap } from "lucide-react"
 import { useStudyStore } from "@/lib/stores/study-store"
 import { useTheme } from "@/components/theme-provider"
@@ -89,21 +89,16 @@ export function SlimNavRail() {
           onAction={() => handleNavigation("focus", "Focus Pane")}
           group="navigation"
         >
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant={currentView === "focus" ? "default" : "ghost"}
-                size="icon"
-                className="w-8 h-8"
-                onClick={() => handleNavigation("focus", "Focus Pane")}
-              >
-                <BookOpen className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <p>Focus Pane • {getKeybindingShortcut("focus")}</p>
-            </TooltipContent>
-          </Tooltip>
+          <TooltipWrapper content={`Focus Pane • ${getKeybindingShortcut("focus")}`} side="right">
+            <Button
+              variant={currentView === "focus" ? "default" : "ghost"}
+              size="icon"
+              className="w-8 h-8"
+              onClick={() => handleNavigation("focus", "Focus Pane")}
+            >
+              <BookOpen className="h-4 w-4" />
+            </Button>
+          </TooltipWrapper>
         </HotkeyWrapper>
 
         <div className="w-6 h-px bg-border my-2" />
@@ -117,23 +112,16 @@ export function SlimNavRail() {
             group="navigation"
             showIndicator={true}
           >
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant={currentView === item.id ? "default" : "ghost"}
-                  size="icon"
-                  className="w-8 h-8"
-                  onClick={() => handleNavigation(item.id, item.label)}
-                >
-                  <item.icon className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p>
-                  {item.label} • {item.shortcut}
-                </p>
-              </TooltipContent>
-            </Tooltip>
+            <TooltipWrapper content={`${item.label} • ${item.shortcut}`} side="right">
+              <Button
+                variant={currentView === item.id ? "default" : "ghost"}
+                size="icon"
+                className="w-8 h-8"
+                onClick={() => handleNavigation(item.id, item.label)}
+              >
+                <item.icon className="h-4 w-4" />
+              </Button>
+            </TooltipWrapper>
           </HotkeyWrapper>
         ))}
 
@@ -147,21 +135,16 @@ export function SlimNavRail() {
             onAction={() => handleNavigation("debug-hotkeys", "Debug Hotkeys")}
             group="development"
           >
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant={currentView === "debug-hotkeys" ? "default" : "ghost"}
-                  size="icon"
-                  className="w-8 h-8"
-                  onClick={() => handleNavigation("debug-hotkeys", "Debug Hotkeys")}
-                >
-                  <Bug className="h-4 w-4" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">
-                <p>Debug Hotkeys • {getKeybindingShortcut("debug-hotkeys")}</p>
-              </TooltipContent>
-            </Tooltip>
+            <TooltipWrapper content={`Debug Hotkeys • ${getKeybindingShortcut("debug-hotkeys")}`} side="right">
+              <Button
+                variant={currentView === "debug-hotkeys" ? "default" : "ghost"}
+                size="icon"
+                className="w-8 h-8"
+                onClick={() => handleNavigation("debug-hotkeys", "Debug Hotkeys")}
+              >
+                <Bug className="h-4 w-4" />
+              </Button>
+            </TooltipWrapper>
           </HotkeyWrapper>
         )}
 
@@ -171,25 +154,20 @@ export function SlimNavRail() {
           onAction={handleDarkModeToggle}
           group="interface"
         >
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="w-8 h-8"
-                onClick={handleDarkModeToggle}
-              >
-                {darkMode ? (
-                  <Moon className="h-4 w-4" />
-                ) : (
-                  <Sun className="h-4 w-4" />
-                )}
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">
-              <p>Switch to {darkMode ? 'Light' : 'Dark'} Mode</p>
-            </TooltipContent>
-          </Tooltip>
+          <TooltipWrapper content={`Switch to ${darkMode ? 'Light' : 'Dark'} Mode`} side="right">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="w-8 h-8"
+              onClick={handleDarkModeToggle}
+            >
+              {darkMode ? (
+                <Moon className="h-4 w-4" />
+              ) : (
+                <Sun className="h-4 w-4" />
+              )}
+            </Button>
+          </TooltipWrapper>
         </HotkeyWrapper>
 
         {/* Notification Badge */}

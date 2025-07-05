@@ -10,26 +10,35 @@ interface TooltipWrapperProps {
   disabled?: boolean
 }
 
-export function TooltipWrapper({
+export const TooltipWrapper = React.forwardRef<
+  HTMLElement,
+  TooltipWrapperProps
+>(({
   content,
   children,
   side = "top",
   sideOffset = 4,
   delayDuration = 200,
   disabled = false
-}: TooltipWrapperProps) {
+}, ref) => {
   if (disabled || !content) {
+    // When disabled or no content, we need to forward the ref to the children
+    if (React.isValidElement(children)) {
+      return React.cloneElement(children as React.ReactElement<any>, { ref })
+    }
     return <>{children}</>
   }
 
   return (
     <Tooltip delayDuration={delayDuration}>
       <TooltipTrigger asChild>
-        {children}
+        {React.isValidElement(children) ? React.cloneElement(children as React.ReactElement<any>, { ref }) : children}
       </TooltipTrigger>
       <TooltipContent side={side} sideOffset={sideOffset}>
         {content}
       </TooltipContent>
     </Tooltip>
   )
-} 
+})
+
+TooltipWrapper.displayName = "TooltipWrapper" 
