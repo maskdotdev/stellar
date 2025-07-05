@@ -299,6 +299,22 @@ export function App() {
   // Dynamic keyboard shortcuts using store keybindings
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // IMMEDIATELY return for standard system shortcuts to avoid any interference
+      const systemShortcuts = ['c', 'v', 'a', 'x', 'z', 'y', 's', 'r', 'f', 't', 'w', 'n', 'q', 'l', 'j', 'k', 'i', 'b', 'u', 'h', 'g', 'p', 'o', 'e', 'd', 'm']
+      if (e.metaKey && systemShortcuts.includes(e.key.toLowerCase())) {
+        // Debug: Check if event has been prevented or stopped
+        if (process.env.NODE_ENV === 'development' && (e.key === 'c' || e.key === 'v')) {
+          console.log('🔍 Event status before return:', {
+            defaultPrevented: e.defaultPrevented,
+            cancelable: e.cancelable,
+            bubbles: e.bubbles,
+            isTrusted: e.isTrusted,
+            timeStamp: e.timeStamp
+          })
+        }
+        return
+      }
+      
       // Skip if user is typing in an input field
       const target = e.target as HTMLElement
       const isTyping = isUserActivelyEditing(target)
@@ -319,9 +335,13 @@ export function App() {
         })
       }
       
+      // CRITICAL: Only handle shortcuts we've explicitly defined
+      // All other shortcuts (CMD+C, CMD+V, CMD+A, etc.) will pass through normally
+      
       // Handle keybindings
       for (const binding of keybindings) {
         if (matchesKeybinding(e, binding.currentKeys)) {
+          
           // Some keybindings should work even when editing (like Escape)
           const alwaysAllowedActions = ['escape', 'command-palette']
           const shouldPreventWhenTyping = !alwaysAllowedActions.includes(binding.id)
@@ -415,29 +435,40 @@ export function App() {
         }
       }
       
-      // Quick search with "/" key (only if not typing)
-      if (e.key === "/" && !e.metaKey && !e.ctrlKey && !isTyping) {
-        e.preventDefault()
-        setShowCommandPalette(true)
-      }
-      
-      // Back navigation with "b" key (only if not typing)
-      if (e.key === "b" && !e.metaKey && !e.ctrlKey && !e.altKey && !e.shiftKey && !isTyping) {
-        e.preventDefault()
-        if (canGoBack()) {
-          goBack()
+      // Handle additional single-key shortcuts (only if not typing and not using modifiers)
+      if (!isTyping && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        // Quick search with "/" key
+        if (e.key === "/" && !e.shiftKey) {
+          e.preventDefault()
+          setShowCommandPalette(true)
+        }
+        
+        // Back navigation with "b" key
+        else if (e.key === "b" && !e.shiftKey) {
+          e.preventDefault()
+          if (canGoBack()) {
+            goBack()
+          }
         }
       }
       
-      // Tab to toggle context bar (only if not typing) 
-      if (e.key === "Tab" && !e.shiftKey && !e.metaKey && !e.ctrlKey && !isTyping) {
-        e.preventDefault()
-        // Toggle context bar visibility logic would go here
+      // Handle Tab key (only if not typing and no modifiers except shift)
+      if (!isTyping && e.key === "Tab" && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        if (!e.shiftKey) {
+          e.preventDefault()
+          // Toggle context bar visibility logic would go here
+        }
       }
+      
+      // Unhandled shortcuts naturally pass through to the browser
+      // This ensures CMD+C, CMD+V, CMD+A, etc. work normally
     }
 
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
+    // TEMPORARILY DISABLED - Testing if our event listener is causing copy/paste issues
+    // window.addEventListener("keydown", handleKeyDown)
+    // return () => window.removeEventListener("keydown", handleKeyDown)
+    
+    return () => {} // Empty cleanup function
   }, [
     keybindings, 
     focusMode, 
@@ -527,9 +558,9 @@ export function App() {
 
   return (
     <ThemeProvider
-      defaultTheme="dark-teal"
+      defaultTheme="light-teal"
     >
-      <HotkeyProvider leaderKey=" " requireConfirmation={false} bufferTimeout={1500}>
+              <HotkeyProvider leaderKey=" " requireConfirmation={false} bufferTimeout={1500} enabled={false}>
         <TooltipProvider delayDuration={100}>
           <div className="h-screen bg-background text-foreground overflow-hidden spotlight-bg">
           {/* Main Layout Grid */}
