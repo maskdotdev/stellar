@@ -1,11 +1,8 @@
 use tauri::State;
 use crate::database::{
-    Database, CreateActionRequest, CreateSessionRequest, UserAction, StudySession, ActionStats
+    CreateActionRequest, CreateSessionRequest, UserAction, StudySession, ActionStats
 };
-use tokio::sync::Mutex;
-use std::sync::Arc;
-
-pub type DatabaseState = Arc<Mutex<Option<Database>>>;
+use crate::commands::database::DatabaseState;
 
 // ======================== Sessions Commands ========================
 

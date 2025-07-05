@@ -182,7 +182,7 @@ pub async fn init_embedding_service(
     
     // Try different providers in order of preference
     let mut last_error = String::new();
-    let mut provider_used = String::new();
+    let provider_used: String;
     
     // Try Ollama first with the correct URL and a model that exists
     println!("🔍 Trying to initialize Ollama embedding service...");
