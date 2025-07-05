@@ -2,7 +2,7 @@
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Stellar",
   "version": "0.0.1",
-  "identifier": "com.stellar.app",
+  "identifier": "com.stellar.stellar",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:1420",
