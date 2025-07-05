@@ -61,7 +61,7 @@ pub fn run() {
             let window_menu = Submenu::with_items(app, "Window", true, &[&close])?;
             let menu = Menu::with_items(app, &[&app_menu, &window_menu])?;
             
-            app.set_menu(menu)?;
+            // app.set_menu(menu)?;
             
             Ok(())
         })
