@@ -5,7 +5,16 @@
   "description": "A modern study and research application with advanced PDF processing, AI integration, and document management",
   "author": "mask",
   "license": "MIT",
-  "keywords": ["tauri", "react", "typescript", "pdf", "ai", "study", "research", "document-management"],
+  "keywords": [
+    "tauri",
+    "react",
+    "typescript",
+    "pdf",
+    "ai",
+    "study",
+    "research",
+    "document-management"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/maskdotdev/stellar"
@@ -48,6 +57,7 @@
     "@radix-ui/react-tooltip": "^1.2.7",
     "@tailwindcss/vite": "^4.1.11",
     "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-clipboard-manager": "~2",
     "@tauri-apps/plugin-dialog": "^2.3.0",
     "@tauri-apps/plugin-fs": "^2",
     "@tauri-apps/plugin-opener": "^2",
