@@ -17,7 +17,28 @@ import {
 import { Check, ChevronDown } from "lucide-react"
 import { cn } from "@/lib/utils/utils"
 import { DynamicIcon } from "./dynamic-icon"
-import { dynamicIconImports } from "lucide-react/dynamic"
+
+// Curated list of commonly used icons instead of importing all icons
+const availableIcons = [
+  "folder", "code", "calculator", "beaker", "book-marked", "globe", "palette",
+  "book", "heart", "star", "home", "user", "settings", "search", "mail", 
+  "phone", "calendar", "clock", "tag", "bookmark", "camera", "image", 
+  "music", "video", "database", "server", "shield", "lock", "key",
+  "file-text", "folder-open", "graduation-cap", "brain", "lightbulb",
+  "target", "trending-up", "activity", "bar-chart", "pie-chart",
+  "layers", "grid", "list", "map", "compass", "award", "trophy",
+  "gift", "package", "shopping-cart", "credit-card", "dollar-sign",
+  "users", "user-check", "user-plus", "message-circle", "phone-call",
+  "wifi", "bluetooth", "cpu", "hard-drive", "smartphone", "laptop",
+  "monitor", "printer", "headphones", "mouse", "keyboard", "gamepad",
+  "play", "pause", "skip-forward", "skip-back", "volume-2",
+  "edit", "copy", "trash", "download", "upload",
+  "save", "refresh-cw", "rotate-ccw", "undo", "redo", "zoom-in",
+  "zoom-out", "maximize", "minimize", "eye", "eye-off", "bell",
+  "bell-off", "flag", "bookmark", "share", "external-link", "link",
+  "paperclip", "scissors", "rulers", "pen-tool", "type", "bold",
+  "italic", "underline", "align-left", "align-center", "align-right"
+]
 
 const popularIcons = [
   "folder", "code", "calculator", "beaker", "book-marked", "globe", "palette",
@@ -37,24 +58,22 @@ export function IconCombobox({ selectedIcon, onIconSelect, selectedColor }: Icon
   const [searchQuery, setSearchQuery] = useState("")
 
   const filteredIcons = useMemo(() => {
-    const allIconNames = Object.keys(dynamicIconImports)
-    
     if (!searchQuery.trim()) {
       // Show popular icons first, then others
-      const popular = popularIcons.filter(name => allIconNames.includes(name))
-      const remaining = allIconNames
+      const popular = popularIcons.filter(name => availableIcons.includes(name))
+      const remaining = availableIcons
         .filter(name => !popularIcons.includes(name))
         .slice(0, 50) // Limit for performance
       return [...popular, ...remaining]
     }
     
     const query = searchQuery.toLowerCase()
-    return allIconNames
+    return availableIcons
       .filter(name => 
         name.toLowerCase().includes(query) || 
         name.replace(/[-_]/g, ' ').toLowerCase().includes(query)
       )
-      .slice(0, 100) // Limit results for performance
+      .slice(0, 50) // Limit results for performance
   }, [searchQuery])
 
   const handleIconSelect = (iconKey: string) => {

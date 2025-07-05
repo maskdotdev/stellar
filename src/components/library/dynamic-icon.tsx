@@ -1,5 +1,23 @@
-import { Folder } from "lucide-react"
-import { DynamicIcon as LucideDynamicIcon, dynamicIconImports } from "lucide-react/dynamic"
+import { 
+  Folder, Code, Calculator, Beaker, BookMarked, Globe, Palette,
+  Book, Heart, Star, Home, User, Settings, Search, Mail, 
+  Phone, Calendar, Clock, Tag, Bookmark, Camera, Image, 
+  Music, Video, Database, Server, Shield, Lock, Key,
+  FileText, FolderOpen, GraduationCap, Brain, Lightbulb,
+  Target, TrendingUp, Activity, BarChart, PieChart,
+  Layers, Grid, List, Map, Compass, Award, Trophy,
+  Gift, Package, ShoppingCart, CreditCard, DollarSign,
+  Users, UserCheck, UserPlus, MessageCircle, PhoneCall,
+  Wifi, Bluetooth, Cpu, HardDrive, Smartphone, Laptop,
+  Monitor, Printer, Headphones, Mouse, Keyboard, Gamepad,
+  Play, Pause, SkipForward, SkipBack, Volume2,
+  Edit, Copy, Trash, Download, Upload,
+  Save, RefreshCw, RotateCcw, Undo, Redo, ZoomIn,
+  ZoomOut, Maximize, Minimize, Eye, EyeOff, Bell,
+  BellOff, Flag, Share, ExternalLink, Link,
+  Paperclip, Scissors, Ruler, PenTool, Type, Bold,
+  Italic, Underline, AlignLeft, AlignCenter, AlignRight
+} from "lucide-react"
 
 interface DynamicIconProps {
   iconKey: string
@@ -7,18 +25,117 @@ interface DynamicIconProps {
   style?: React.CSSProperties
 }
 
+// Map of icon keys to components for tree-shakeable imports
+const iconMap: Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
+  "folder": Folder,
+  "code": Code,
+  "calculator": Calculator,
+  "beaker": Beaker,
+  "book-marked": BookMarked,
+  "globe": Globe,
+  "palette": Palette,
+  "book": Book,
+  "heart": Heart,
+  "star": Star,
+  "home": Home,
+  "user": User,
+  "settings": Settings,
+  "search": Search,
+  "mail": Mail,
+  "phone": Phone,
+  "calendar": Calendar,
+  "clock": Clock,
+  "tag": Tag,
+  "bookmark": Bookmark,
+  "camera": Camera,
+  "image": Image,
+  "music": Music,
+  "video": Video,
+  "database": Database,
+  "server": Server,
+  "shield": Shield,
+  "lock": Lock,
+  "key": Key,
+  "file-text": FileText,
+  "folder-open": FolderOpen,
+  "graduation-cap": GraduationCap,
+  "brain": Brain,
+  "lightbulb": Lightbulb,
+  "target": Target,
+  "trending-up": TrendingUp,
+  "activity": Activity,
+  "bar-chart": BarChart,
+  "pie-chart": PieChart,
+  "layers": Layers,
+  "grid": Grid,
+  "list": List,
+  "map": Map,
+  "compass": Compass,
+  "award": Award,
+  "trophy": Trophy,
+  "gift": Gift,
+  "package": Package,
+  "shopping-cart": ShoppingCart,
+  "credit-card": CreditCard,
+  "dollar-sign": DollarSign,
+  "users": Users,
+  "user-check": UserCheck,
+  "user-plus": UserPlus,
+  "message-circle": MessageCircle,
+  "phone-call": PhoneCall,
+  "wifi": Wifi,
+  "bluetooth": Bluetooth,
+  "cpu": Cpu,
+  "hard-drive": HardDrive,
+  "smartphone": Smartphone,
+  "laptop": Laptop,
+  "monitor": Monitor,
+  "printer": Printer,
+  "headphones": Headphones,
+  "mouse": Mouse,
+  "keyboard": Keyboard,
+  "gamepad": Gamepad,
+  "play": Play,
+  "pause": Pause,
+  "skip-forward": SkipForward,
+  "skip-back": SkipBack,
+  "volume-2": Volume2,
+  "edit": Edit,
+  "copy": Copy,
+  "trash": Trash,
+  "download": Download,
+  "upload": Upload,
+  "save": Save,
+  "refresh-cw": RefreshCw,
+  "rotate-ccw": RotateCcw,
+  "undo": Undo,
+  "redo": Redo,
+  "zoom-in": ZoomIn,
+  "zoom-out": ZoomOut,
+  "maximize": Maximize,
+  "minimize": Minimize,
+  "eye": Eye,
+  "eye-off": EyeOff,
+  "bell": Bell,
+  "bell-off": BellOff,
+  "flag": Flag,
+  "share": Share,
+  "external-link": ExternalLink,
+  "link": Link,
+  "paperclip": Paperclip,
+  "scissors": Scissors,
+  "rulers": Ruler,
+  "pen-tool": PenTool,
+  "type": Type,
+  "bold": Bold,
+  "italic": Italic,
+  "underline": Underline,
+  "align-left": AlignLeft,
+  "align-center": AlignCenter,
+  "align-right": AlignRight,
+}
+
 export function DynamicIcon({ iconKey, className, style }: DynamicIconProps) {
-  // Check if the icon exists in the dynamic imports
-  if (dynamicIconImports[iconKey as keyof typeof dynamicIconImports]) {
-    return (
-      <LucideDynamicIcon 
-        name={iconKey as any} 
-        className={className} 
-        style={style}
-      />
-    )
-  }
-  
-  // Fallback to Folder icon if the icon doesn't exist
-  return <Folder className={className} style={style} />
+  const IconComponent = iconMap[iconKey] || Folder
+  return <IconComponent className={className} style={style} />
 } 
