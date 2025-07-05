@@ -335,9 +335,6 @@ export function App() {
         })
       }
       
-      // CRITICAL: Only handle shortcuts we've explicitly defined
-      // All other shortcuts (CMD+C, CMD+V, CMD+A, etc.) will pass through normally
-      
       // Handle keybindings
       for (const binding of keybindings) {
         if (matchesKeybinding(e, binding.currentKeys)) {
@@ -459,14 +456,11 @@ export function App() {
           // Toggle context bar visibility logic would go here
         }
       }
-      
-      // Unhandled shortcuts naturally pass through to the browser
-      // This ensures CMD+C, CMD+V, CMD+A, etc. work normally
     }
 
     // TEMPORARILY DISABLED - Testing if our event listener is causing copy/paste issues
-    // window.addEventListener("keydown", handleKeyDown)
-    // return () => window.removeEventListener("keydown", handleKeyDown)
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
     
     return () => {} // Empty cleanup function
   }, [
@@ -560,7 +554,7 @@ export function App() {
     <ThemeProvider
       defaultTheme="light-teal"
     >
-              <HotkeyProvider leaderKey=" " requireConfirmation={false} bufferTimeout={1500} enabled={false}>
+         <HotkeyProvider leaderKey=" " requireConfirmation={false} bufferTimeout={1500} enabled={true}>
         <TooltipProvider delayDuration={100}>
           <div className="h-screen bg-background text-foreground overflow-hidden spotlight-bg">
           {/* Main Layout Grid */}
