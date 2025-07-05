@@ -30,22 +30,22 @@ const defaultKeybindings: Keybinding[] = [
   { id: "history", action: "Open History", category: "Navigation", defaultKeys: "⌘4", currentKeys: "⌘4", description: "Navigate to history view" },
   
   // Quick Actions
-  { id: "import", action: "Import PDF", category: "Quick Actions", defaultKeys: "⌘I", currentKeys: "⌘I", description: "Import a PDF document" },
-  { id: "new-note", action: "New Note", category: "Quick Actions", defaultKeys: "⌘N", currentKeys: "⌘N", description: "Create a new note" },
+  { id: "import", action: "Import PDF", category: "Quick Actions", defaultKeys: "⌘⇧I", currentKeys: "⌘⇧I", description: "Import a PDF document" },
+  { id: "new-note", action: "New Note", category: "Quick Actions", defaultKeys: "⌘⇧N", currentKeys: "⌘⇧N", description: "Create a new note" },
   { id: "focus", action: "Focus Mode", category: "Quick Actions", defaultKeys: "⌘.", currentKeys: "⌘.", description: "Enter focus mode" },
   { id: "chat", action: "Ask AI", category: "Quick Actions", defaultKeys: "⇧Space", currentKeys: "⇧Space", description: "Open AI chat" },
-  { id: "flashcards", action: "Create Flashcards", category: "Quick Actions", defaultKeys: "⌘F", currentKeys: "⌘F", description: "Create flashcards from content" },
-  { id: "toggle-dark-mode", action: "Toggle Dark Mode", category: "Quick Actions", defaultKeys: "⌘D", currentKeys: "⌘D", description: "Toggle between light and dark mode" },
+  { id: "flashcards", action: "Create Flashcards", category: "Quick Actions", defaultKeys: "⌘⇧F", currentKeys: "⌘⇧F", description: "Create flashcards from content" },
+  { id: "toggle-dark-mode", action: "Toggle Dark Mode", category: "Quick Actions", defaultKeys: "⌘⇧T", currentKeys: "⌘⇧T", description: "Toggle between light and dark mode" },
   
   // Settings
   { id: "settings-providers", action: "AI Providers Settings", category: "Settings", defaultKeys: "⌘,P", currentKeys: "⌘,P", description: "Configure AI providers" },
   { id: "settings-models", action: "Models Settings", category: "Settings", defaultKeys: "⌘,M", currentKeys: "⌘,M", description: "Configure AI models" },
-  { id: "settings-chat", action: "Chat Settings", category: "Settings", defaultKeys: "⌘,C", currentKeys: "⌘,C", description: "Configure chat settings" },
-  { id: "settings-appearance", action: "Appearance Settings", category: "Settings", defaultKeys: "⌘,A", currentKeys: "⌘,A", description: "Configure appearance" },
+  // { id: "settings-chat", action: "Chat Settings", category: "Settings", defaultKeys: "⌘,C", currentKeys: "⌘,C", description: "Configure chat settings" },
+  // { id: "settings-appearance", action: "Appearance Settings", category: "Settings", defaultKeys: "⌘,A", currentKeys: "⌘,A", description: "Configure appearance" },
   { id: "settings-keybindings", action: "Keybindings Settings", category: "Settings", defaultKeys: "⌘,K", currentKeys: "⌘,K", description: "Configure keybindings" },
   
   // System
-  { id: "command-palette", action: "Command Palette", category: "System", defaultKeys: "⌘K", currentKeys: "⌘K", description: "Open command palette (also works with /)" },
+  { id: "command-palette", action: "Command Palette", category: "System", defaultKeys: "⌘⇧P", currentKeys: "⌘⇧P", description: "Open command palette (also works with /)" },
   { id: "debug-hotkeys", action: "Debug Hotkeys", category: "Development", defaultKeys: "⌘⇧D", currentKeys: "⌘⇧D", description: "Open hotkey debugging page" },
   { id: "escape", action: "Close/Cancel", category: "System", defaultKeys: "Escape", currentKeys: "Escape", description: "Close dialogs or cancel actions" },
   { id: "back", action: "Go Back", category: "Navigation", defaultKeys: "B", currentKeys: "B", description: "Navigate to previous page" },

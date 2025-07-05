@@ -113,6 +113,12 @@ export const HotkeyProvider: React.FC<HotkeyProviderProps> = ({
     if (!enabled) return;
 
     const handleKeyDown = (e: KeyboardEvent) => {
+      // IMMEDIATELY return for standard system shortcuts to avoid any interference
+      const systemShortcuts = ['c', 'v', 'a', 'x', 'z', 'y', 's', 'r', 'f', 't', 'w', 'n', 'q', 'l', 'j', 'k', 'i', 'b', 'u', 'h', 'g', 'p', 'o', 'e', 'd', 'm']
+      if (e.metaKey && systemShortcuts.includes(e.key.toLowerCase())) {
+        return
+      }
+      
       const target = e.target as HTMLElement;
       
       // Handle Escape key FIRST - it should work everywhere
@@ -134,11 +140,13 @@ export const HotkeyProvider: React.FC<HotkeyProviderProps> = ({
         return;
       }
       
+      // Allow all shortcuts to pass through when user is actively editing or using modifier keys
       if (isUserActivelyEditing(target) || e.metaKey || e.ctrlKey || e.altKey) {
         clearBuffer();
         return;
       }
 
+      // Handle leader key activation
       if (e.key === leaderKey && mode === 'inactive') {
         e.preventDefault();
         dispatch({ type: 'SET_MODE', payload: 'leader' });
@@ -146,8 +154,8 @@ export const HotkeyProvider: React.FC<HotkeyProviderProps> = ({
         return;
       }
 
+      // Handle Enter key when in active mode
       if (e.key === 'Enter' && mode === 'active' && currentBuffer) {
-        e.preventDefault();
         const match = itemsRef.current.find(item => 
           prefixesRef.current[item.label] === currentBuffer &&
           item.ref.current &&
@@ -155,6 +163,7 @@ export const HotkeyProvider: React.FC<HotkeyProviderProps> = ({
         );
         
         if (match) {
+          e.preventDefault();
           // Defer action to next tick to avoid conflicts with other keydown handlers
           setTimeout(() => {
             match.action ? match.action() : match.ref.current?.click?.();
@@ -164,34 +173,49 @@ export const HotkeyProvider: React.FC<HotkeyProviderProps> = ({
         return;
       }
 
+      // Handle alphanumeric keys when in leader/active mode
       if (e.key.length === 1 && /[a-zA-Z0-9]/.test(e.key) && (mode === 'leader' || mode === 'active')) {
-        e.preventDefault();
         const newBuffer = currentBuffer + e.key.toLowerCase();
-        dispatch({ type: 'SET_BUFFER', payload: newBuffer });
-        dispatch({ type: 'SET_MODE', payload: 'active' });
         
-        clearTimeout(bufferTimeoutRef.current);
-        bufferTimeoutRef.current = setTimeout(clearBuffer, bufferTimeout);
-
-        const match = itemsRef.current.find(item => 
-          prefixesRef.current[item.label] === newBuffer &&
+        // Check if this key sequence could potentially match any hotkey
+        const potentialMatches = itemsRef.current.filter(item => 
+          prefixesRef.current[item.label] && 
+          prefixesRef.current[item.label].startsWith(newBuffer) &&
           item.ref.current &&
           isElementInteractive(item.ref.current)
         );
+        
+        // Only prevent default if this key sequence has potential matches
+        if (potentialMatches.length > 0) {
+          e.preventDefault();
+          dispatch({ type: 'SET_BUFFER', payload: newBuffer });
+          dispatch({ type: 'SET_MODE', payload: 'active' });
+          
+          clearTimeout(bufferTimeoutRef.current);
+          bufferTimeoutRef.current = setTimeout(clearBuffer, bufferTimeout);
 
-        if (match) {
-          if (requireConfirmation) {
-            // Defer focus to next tick to avoid conflicts with other keydown handlers
-            setTimeout(() => {
-              match.ref.current?.focus();
-            }, 0);
-          } else {
-            // Defer action to next tick to avoid conflicts with other keydown handlers  
-            setTimeout(() => {
-              match.action ? match.action() : match.ref.current?.click?.();
-            }, 0);
-            clearBuffer();
+          // Check for exact match
+          const exactMatch = potentialMatches.find(item => 
+            prefixesRef.current[item.label] === newBuffer
+          );
+
+          if (exactMatch) {
+            if (requireConfirmation) {
+              // Defer focus to next tick to avoid conflicts with other keydown handlers
+              setTimeout(() => {
+                exactMatch.ref.current?.focus();
+              }, 0);
+            } else {
+              // Defer action to next tick to avoid conflicts with other keydown handlers  
+              setTimeout(() => {
+                exactMatch.action ? exactMatch.action() : exactMatch.ref.current?.click?.();
+              }, 0);
+              clearBuffer();
+            }
           }
+        } else {
+          // No potential matches - clear buffer and let the key pass through naturally
+          clearBuffer();
         }
       }
     };
