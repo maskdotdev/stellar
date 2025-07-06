@@ -123,12 +123,10 @@ impl EmbeddingGenerator for OpenAICompatibleEmbeddings {
         // For OpenAI-compatible endpoints, we can't always predict dimensions
         // Common dimensions for popular models:
         match self.model.as_str() {
-            // OpenAI models
+            // OpenAI models (also used by Azure OpenAI)
             "text-embedding-ada-002" => 1536,
             "text-embedding-3-small" => 1536,
             "text-embedding-3-large" => 3072,
-            // Azure OpenAI models (same as OpenAI)
-            "text-embedding-ada-002" => 1536,
             // Other common embedding models
             "all-MiniLM-L6-v2" => 384,
             "all-mpnet-base-v2" => 768,
