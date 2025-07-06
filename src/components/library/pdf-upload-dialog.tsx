@@ -204,7 +204,7 @@ export function PdfUploadDialog({
           <div className="flex items-center gap-2">
             <Upload className="w-4 h-4 text-primary" />
             <h2 className="text-lg font-semibold text-foreground">
-              Upload PDF
+              Add PDF
             </h2>
           </div>
           <Button

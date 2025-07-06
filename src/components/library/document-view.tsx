@@ -101,10 +101,10 @@ export function DocumentView({
         </p>
         {documents.length === 0 && (
           <div className="flex space-x-2">
-            <Button onClick={onUploadPdf}>
-              <Upload className="h-4 w-4 mr-2" />
-              Upload PDF
-            </Button>
+                    <Button onClick={onUploadPdf}>
+          <Upload className="h-4 w-4 mr-2" />
+          Add PDF
+        </Button>
             <Button variant="outline" onClick={onCreateNote}>
               <Plus className="h-4 w-4 mr-2" />
               New Note

@@ -68,7 +68,7 @@ export function LibraryHeader({
                 onClick={onShowUploadDialog}
               >
                 <Upload className="h-4 w-4 mr-2" />
-                Upload PDF
+                Add PDF
               </Button>
               <Button 
                 variant="outline" 
