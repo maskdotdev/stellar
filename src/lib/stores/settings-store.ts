@@ -39,6 +39,8 @@ interface AppSettings {
   enableNotifications: boolean
   enableAnalytics: boolean
   documentMentionLimit: number // Number of documents to show in @ dropdown
+  onboardingCompleted: boolean
+  showOnboarding: boolean
 }
 
 // Search & Filter Settings
@@ -119,6 +121,8 @@ interface SettingsState {
   setEnableNotifications: (enabled: boolean) => void
   setEnableAnalytics: (enabled: boolean) => void
   setDocumentMentionLimit: (limit: number) => void
+  setOnboardingCompleted: (completed: boolean) => void
+  setShowOnboarding: (show: boolean) => void
   
   // Actions for Search Settings
   setDefaultSearchScope: (scope: "all" | "title" | "content" | "tags") => void
@@ -187,6 +191,8 @@ const defaultSettings = {
     enableNotifications: true,
     enableAnalytics: false,
     documentMentionLimit: 10,
+    onboardingCompleted: false,
+    showOnboarding: false,
   },
   search: {
     defaultSearchScope: "all" as const,
@@ -373,6 +379,18 @@ export const useSettingsStore = create<SettingsState>()(
       setDocumentMentionLimit: (limit) => 
         set((state) => ({ 
           app: { ...state.app, documentMentionLimit: limit },
+          lastUpdated: new Date().toISOString()
+        })),
+        
+      setOnboardingCompleted: (completed) => 
+        set((state) => ({ 
+          app: { ...state.app, onboardingCompleted: completed },
+          lastUpdated: new Date().toISOString()
+        })),
+        
+      setShowOnboarding: (show) => 
+        set((state) => ({ 
+          app: { ...state.app, showOnboarding: show },
           lastUpdated: new Date().toISOString()
         })),
       
@@ -623,6 +641,8 @@ export const useAppSettings = () => useSettingsStore((state) => ({
   setEnableNotifications: state.setEnableNotifications,
   setEnableAnalytics: state.setEnableAnalytics,
   setDocumentMentionLimit: state.setDocumentMentionLimit,
+  setOnboardingCompleted: state.setOnboardingCompleted,
+  setShowOnboarding: state.setShowOnboarding,
 }))
 
 export const useSearchSettings = () => useSettingsStore((state) => ({
