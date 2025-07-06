@@ -85,7 +85,7 @@ export class EmbeddingService {
       // Try the legacy initialization for backward compatibility with correct Ollama settings
       try {
         const result = await invoke<any>("init_embedding_service", {
-          chromaUrl: "http://localhost:11434" // Use Ollama URL, not ChromaDB
+          legacyUrl: "http://localhost:11434" // Legacy parameter for backward compatibility
         });
         
         this.initialized = result.success || false;
