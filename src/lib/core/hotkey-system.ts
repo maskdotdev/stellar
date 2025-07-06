@@ -1,4 +1,3 @@
-// Core hotkey system with trie-based prefix generation
 import { createContext } from 'react';
 
 export type HotItem = { 
@@ -6,27 +5,27 @@ export type HotItem = {
   ref: React.RefObject<HTMLElement>;
   action?: () => void;
   group?: string;
-  priority?: number; // Higher priority = shorter prefix when possible
+  priority?: number; // higher priority = shorter prefix when possible
 };
 
 export type HotkeyMode = 'inactive' | 'active' | 'showing' | 'leader';
 
-// Trie-based prefix generation (from your design)
+// trie-based prefix generation
 export function buildPrefixes(labels: string[]): Record<string, string> {
-  // Phase 1: walk a trie counting how many labels share each prefix
+  // walk a trie counting how many labels share each prefix
   const counter: Record<string, number> = {};
   
-  labels.forEach(label => {
+  for (const label of labels) {
     const normalized = normalizeLabel(label);
     for (let i = 1; i <= normalized.length; i++) {
       const prefix = normalized.slice(0, i);
       counter[prefix] = (counter[prefix] ?? 0) + 1;
     }
-  });
+  };
 
-  // Phase 2: first prefix whose count === 1 is guaranteed unique
+  // first prefix whose count === 1 is guaranteed unique
   const result: Record<string, string> = {};
-  labels.forEach(label => {
+  for (const label of labels) {
     const normalized = normalizeLabel(label);
     for (let i = 1; i <= normalized.length; i++) {
       const prefix = normalized.slice(0, i);
@@ -35,11 +34,11 @@ export function buildPrefixes(labels: string[]): Record<string, string> {
         break; 
       }
     }
-    // Fallback: use full normalized label if no unique prefix found
+    // fallback: use full normalized label if no unique prefix found
     if (!result[label]) {
       result[label] = normalized;
     }
-  });
+  };
   
   return result;
 }

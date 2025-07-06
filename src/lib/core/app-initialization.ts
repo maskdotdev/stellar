@@ -24,13 +24,13 @@ export class AppInitializationService {
       const libraryService = LibraryService.getInstance()
       await libraryService.initialize()
 
-      // Initialize embedding service (ChromaDB)
+      // Initialize embedding service (sqlite-vec)
       console.log('🔍 Initializing embedding service...')
       const embeddingService = EmbeddingService.getInstance()
       const embeddingInitialized = await embeddingService.initialize()
       
       if (embeddingInitialized) {
-        console.log('✅ ChromaDB connected successfully!')
+        console.log('✅ Embedding service connected successfully!')
         
         // Initialize document context parser with embeddings
         const contextParser = DocumentContextParser.getInstance()
@@ -38,8 +38,8 @@ export class AppInitializationService {
         
         console.log('✅ Document context enhanced with semantic search')
       } else {
-        console.warn('⚠️  ChromaDB not available - using basic document context')
-        console.log('💡 To enable advanced features, see: docs/chromadb-setup.md')
+        console.warn('⚠️  Embedding service not available - using basic document context')
+        console.log('💡 To enable advanced features, configure embedding provider in settings')
       }
 
       this.initialized = true
