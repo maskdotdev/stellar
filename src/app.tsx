@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, Suspense, lazy } from "react"
+import { useEffect, Suspense, lazy, useState } from "react"
 import { SlimNavRail } from "@/components/home/slim-nav-rail"
 import { ContextBar } from "@/components/home/context-bar"
 import { FloatingChat } from "@/components/home/floating-chat"
@@ -13,6 +13,8 @@ import { useStudyStore } from "@/lib/stores/study-store"
 import { HotkeyProvider, HotkeyOverlay, useHotkeyContext } from "@/components/hotkey"
 import { AppInitializationService } from "@/lib/core/app-initialization"
 import { useSettingsStore } from "@/lib/stores/settings-store"
+import { OnboardingDialog } from "@/components/onboarding"
+import { OnboardingService } from "@/lib/services/onboarding-service"
 import { MessageCircle } from "lucide-react"
 
 // Lazy load heavy components to enable code splitting
@@ -257,6 +259,21 @@ export function App() {
   } = useStudyStore()
   
   const { theme, setTheme } = useTheme()
+  const [showOnboarding, setShowOnboarding] = useState(false)
+
+  // Check if onboarding should be shown
+  useEffect(() => {
+    const onboardingService = OnboardingService.getInstance()
+    const shouldShow = onboardingService.shouldShowOnboarding()
+    setShowOnboarding(shouldShow)
+  }, [])
+
+  // Handle onboarding completion
+  const handleOnboardingComplete = () => {
+    const onboardingService = OnboardingService.getInstance()
+    onboardingService.completeOnboarding()
+    setShowOnboarding(false)
+  }
 
   // Restore custom fonts if they were previously set by the user
   useEffect(() => {
@@ -615,6 +632,12 @@ export function App() {
 
           {/* Hotkey Overlay */}
           <HotkeyOverlay />
+          
+          {/* Onboarding Dialog */}
+          <OnboardingDialog 
+            open={showOnboarding} 
+            onClose={handleOnboardingComplete}
+          />
           
           </div>
           <Toaster />
