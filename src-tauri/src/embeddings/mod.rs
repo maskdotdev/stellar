@@ -24,6 +24,8 @@ pub struct EmbeddingConfig {
 pub enum EmbeddingProvider {
     #[serde(rename = "openai")]
     OpenAI,
+    #[serde(rename = "openai-compatible")]
+    OpenAICompatible, // Custom OpenAI-compatible endpoints
     #[serde(rename = "local")]
     LocalModel,
     #[serde(rename = "ollama")]
@@ -50,6 +52,21 @@ pub fn create_embedding_generator(config: &EmbeddingConfig) -> Result<Box<dyn Em
                 }
                 None => {
                     eprintln!("OpenAI API key not provided, falling back to rust-bert");
+                    Ok(Box::new(local::RustBertEmbeddings::new()?))
+                }
+            }
+        }
+        EmbeddingProvider::OpenAICompatible => {
+            match (config.api_key.as_ref(), config.base_url.as_ref()) {
+                (Some(api_key), Some(base_url)) => {
+                    Ok(Box::new(cloud::OpenAICompatibleEmbeddings::new(
+                        api_key.clone(),
+                        base_url.clone(),
+                        config.model.clone(),
+                    )?))
+                }
+                _ => {
+                    eprintln!("OpenAI-compatible provider requires both API key and base URL, falling back to rust-bert");
                     Ok(Box::new(local::RustBertEmbeddings::new()?))
                 }
             }

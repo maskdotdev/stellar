@@ -19,6 +19,7 @@ pub async fn init_vector_service(
 ) -> Result<bool, String> {
     let provider = match embedding_provider.as_str() {
         "openai" => EmbeddingProvider::OpenAI,
+        "openai-compatible" => EmbeddingProvider::OpenAICompatible,
         "local" => EmbeddingProvider::LocalModel,
         "ollama" => EmbeddingProvider::Ollama,
         _ => return Err("Invalid embedding provider".to_string()),
@@ -164,7 +165,7 @@ pub async fn check_embedding_health(
 #[tauri::command]
 pub async fn init_embedding_service(
     state: State<'_, VectorServiceState>,
-    _chroma_url: Option<String>,
+    _legacy_url: Option<String>,
 ) -> Result<serde_json::Value, String> {
     // Use the same data directory as the main database
     let app_data_dir = std::env::current_dir()
