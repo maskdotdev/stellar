@@ -6,7 +6,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { FileText, Split, Loader2, ArrowLeft } from "lucide-react"
 import { useStudyStore } from "@/lib/stores/study-store"
 import { LibraryService, type Document } from "@/lib/services/library-service"
-import { DocumentRenderer } from "@/components/library/document-renderer"
+import { DocumentRenderer } from "@/components/library"
 import { TextSelectionPopover } from "./text-selection-popover"
 import { useActionsStore, ActionsService, ActionType } from "@/lib/services/actions-service"
 

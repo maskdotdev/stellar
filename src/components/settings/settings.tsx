@@ -7,6 +7,7 @@ import { AIModelsSettings } from "./models"
 import { ChatSettings } from "./chat-settings"
 import { AppearanceSettings } from "./appearance-settings"
 import { KeybindingsSettings } from "./keybindings-settings"
+import { DataCleanupSettings } from "./data-cleanup-settings"
 import { useStudyStore } from "@/lib/stores/study-store"
 
 export function Settings() {
@@ -25,12 +26,13 @@ export function Settings() {
             </div>
 
             <Tabs value={settingsTab} onValueChange={(value) => setSettingsTab(value as any)} className="w-full">
-              <TabsList className="grid w-full grid-cols-5">
+              <TabsList className="grid w-full grid-cols-6">
                 <TabsTrigger value="providers">AI Providers</TabsTrigger>
                 <TabsTrigger value="models">AI Models</TabsTrigger>
                 <TabsTrigger value="chat">Chat Settings</TabsTrigger>
                 <TabsTrigger value="appearance">Appearance</TabsTrigger>
                 <TabsTrigger value="keybindings">Keybindings</TabsTrigger>
+                <TabsTrigger value="data">Data Cleanup</TabsTrigger>
               </TabsList>
 
               <TabsContent value="providers" className="space-y-4">
@@ -51,6 +53,10 @@ export function Settings() {
 
               <TabsContent value="keybindings" className="space-y-4">
                 <KeybindingsSettings />
+              </TabsContent>
+
+              <TabsContent value="data" className="space-y-4">
+                <DataCleanupSettings />
               </TabsContent>
             </Tabs>
           </div>

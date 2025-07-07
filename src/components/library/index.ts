@@ -1,14 +1,12 @@
-export { Library } from "./library"
-export { useLibrary } from "./use-library"
-export { CategoryView } from "./category-view"
-export { DocumentView } from "./document-view"
-export { CategoryDialog } from "./category-dialog"
-export { DeleteConfirmationDialogs } from "./delete-confirmation-dialogs"
-export { LibraryHeader } from "./library-header"
-export { IconCombobox } from "./icon-combobox"
+// Export from core library components
+export { Library, LibraryHeader, useLibrary } from "./core"
+export * from "./core/library-constants"
 
-export { DynamicIcon } from "./dynamic-icon"
-export { PdfUploadDialog } from "./pdf-upload-dialog"
-export { PdfViewer } from "./pdf-viewer"
-export { DocumentRenderer } from "./document-renderer"
-export * from "./library-constants" 
+// Export from document components
+export { DocumentRenderer, DocumentView } from "./documents"
+
+// Export from category components
+export { CategoryView, CategoryDialog } from "./categories"
+
+// Export from shared utilities
+export { DynamicIcon, IconCombobox, DeleteConfirmationDialogs, PdfUploadDialog } from "./shared" 

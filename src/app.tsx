@@ -18,17 +18,17 @@ import { OnboardingService } from "@/lib/services/onboarding-service"
 import { MessageCircle } from "lucide-react"
 
 // Lazy load heavy components to enable code splitting
-const FocusPane = lazy(() => import("@/components/focus").then(module => ({ default: module.FocusPane })))
-const NoteEditor = lazy(() => import("@/components/focus").then(module => ({ default: module.NoteEditor })))
+const FocusPane = lazy(() => import("@/components/focus/focus-pane").then(module => ({ default: module.FocusPane })))
+const NoteEditor = lazy(() => import("@/components/focus/note-editor").then(module => ({ default: module.NoteEditor })))
 const GraphView = lazy(() => import("@/components/home/graph-view").then(module => ({ default: module.GraphView })))
-const Library = lazy(() => import("@/components/library").then(module => ({ default: module.Library })))
+const Library = lazy(() => import("@/components/library/core/library").then(module => ({ default: module.Library })))
 const Workspace = lazy(() => import("@/components/home/workspace").then(module => ({ default: module.Workspace })))
-const History = lazy(() => import("@/components/history").then(module => ({ default: module.History })))
-const Settings = lazy(() => import("@/components/settings").then(module => ({ default: module.Settings })))
+const History = lazy(() => import("@/components/history/history").then(module => ({ default: module.History })))
+const Settings = lazy(() => import("@/components/settings/settings").then(module => ({ default: module.Settings })))
 const ActionsDashboard = lazy(() => import("@/components/home/actions-dashboard").then(module => ({ default: module.ActionsDashboard })))
-const SessionsManagement = lazy(() => import("@/components/session").then(module => ({ default: module.SessionsManagement })))
+const SessionsManagement = lazy(() => import("@/components/session/sessions-management").then(module => ({ default: module.SessionsManagement })))
 const FlashcardDashboard = lazy(() => import("@/components/flashcards/flashcard-dashboard").then(module => ({ default: module.FlashcardDashboard })))
-const DebugHotkeyTest = lazy(() => import("@/components/hotkey/dev").then(module => ({ default: module.DebugHotkeyTest })))
+const DebugHotkeyTest = lazy(() => import("@/components/hotkey/dev/debug-hotkey-test").then(module => ({ default: module.DebugHotkeyTest })))
 
 // Loading fallback component
 const LoadingSpinner = () => (

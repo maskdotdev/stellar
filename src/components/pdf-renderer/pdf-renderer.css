@@ -1,0 +1,391 @@
+@import '../../styles/themes.css';
+/* PDF Renderer Theme Styles - Enhanced for Comprehensive Theme Integration */
+.pdf-viewer-container {
+  font-family: var(--font-sans);
+  /* Apply theme-aware shadows and spacing */
+  --pdf-font-mono: var(--font-mono);
+  --pdf-font-serif: var(--font-serif);
+  /* Ensure proper height and overflow for scrolling */
+  height: 100%;
+  overflow: hidden;
+}
+
+.rpv-default-layout__container {
+  border: none;
+}
+
+/* Override React PDF Viewer default colors with enhanced theming */
+.pdf-viewer-container .rpv-core__viewer {
+  background-color: var(--background);
+  color: var(--foreground);
+  /* Ensure proper scrolling behavior */
+  height: 100%;
+  overflow: auto;
+}
+
+/* Fix scrolling container height */
+.pdf-viewer-container .rpv-core__inner-pages {
+  min-height: 100%;
+  padding: 1rem;
+}
+
+/* Ensure proper height for PDF pages container */
+.pdf-viewer-container .rpv-core__inner-container {
+  height: 100%;
+  overflow: auto;
+}
+
+/* Enhanced toolbar styling with theme-aware shadows and spacing */
+.pdf-viewer-container .rpv-toolbar {
+  background-color: var(--card);
+  color: var(--foreground);
+}
+
+.pdf-viewer-container .rpv-default-layout__toolbar {
+  background-color: var(--card);
+  color: var(--foreground);
+}
+
+.pdf-viewer-container .rpv-toolbar__item {
+  color: var(--muted-foreground);
+  border-radius: var(--radius);
+  /* Enhanced hover effects */
+  transition: all 0.2s ease;
+}
+
+.pdf-viewer-container .rpv-toolbar__item:hover {
+  background-color: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.pdf-viewer-container .rpv-toolbar__item--active {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+}
+
+/* Enhanced sidebar styling with theme depth */
+.pdf-viewer-container .rpv-core__sidebar {
+  background-color: var(--card);
+  border-right: 1px solid var(--border);
+  /* Add theme-aware backdrop blur */
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.pdf-viewer-container .rpv-core__sidebar-content {
+  background-color: var(--card);
+  color: var(--foreground);
+}
+
+.pdf-viewer-container .rpv-core__sidebar-tab {
+  background-color: var(--accent);
+  color: var(--accent-foreground);
+  border-radius: var(--radius);
+  /* Theme-aware transitions */
+  transition: all 0.2s ease;
+}
+
+.pdf-viewer-container .rpv-core__sidebar-tab:hover {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  /* box-shadow: var(--pdf-shadow-xs); */
+  transform: translateY(-1px);
+}
+
+.pdf-viewer-container .rpv-core__sidebar-tab--active {
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+  /* box-shadow: var(--pdf-shadow-sm); */
+}
+
+/* Enhanced document area styling */
+.pdf-viewer-container .rpv-core__doc {
+  background-color: var(--background);
+}
+
+.pdf-viewer-container .rpv-core__page {
+  /* Use theme-aware shadows for better depth */
+  /* box-shadow: var(--pdf-shadow-md); */
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  /* Smooth transitions */
+  transition: all 0.3s ease;
+}
+
+.pdf-viewer-container .rpv-core__page:hover {
+  /* box-shadow: var(--pdf-shadow-lg); */
+  transform: translateY(-2px);
+}
+
+/* Enhanced search plugin styling */
+.pdf-viewer-container .rpv-search__input {
+  background-color: var(--input);
+  border: 1px solid var(--border);
+  color: var(--foreground);
+  border-radius: var(--radius);
+  /* Theme-aware typography */
+  font-family: var(--font-sans);
+  transition: all 0.2s ease;
+}
+
+.pdf-viewer-container .rpv-search__input:focus {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+  /* box-shadow: var(--pdf-shadow-sm); */
+}
+
+.pdf-viewer-container .rpv-search__highlight {
+  background-color: var(--accent);
+  color: var(--accent-foreground);
+  border-radius: calc(var(--radius) * 0.5);
+  /* Add subtle animation */
+  animation: highlight-pulse 2s ease-in-out infinite;
+}
+
+@keyframes highlight-pulse {
+  0%, 100% { opacity: 0.8; }
+  50% { opacity: 1; }
+}
+
+/* Enhanced zoom plugin styling */
+.pdf-viewer-container .rpv-zoom__level {
+  background-color: var(--secondary);
+  color: var(--secondary-foreground);
+  border-radius: var(--radius);
+  border: 1px solid var(--border);
+  /* Theme-aware typography */
+  font-family: var(--pdf-font-mono);
+  font-weight: 500;
+  /* box-shadow: var(--pdf-shadow-xs); */
+}
+
+/* Enhanced thumbnails styling */
+.pdf-viewer-container .rpv-thumbnail__item {
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  transition: all 0.2s ease;
+  overflow: hidden;
+}
+
+.pdf-viewer-container .rpv-thumbnail__item:hover {
+  border-color: var(--primary);
+  /* box-shadow: var(--pdf-shadow-md); */
+  transform: scale(1.02);
+}
+
+.pdf-viewer-container .rpv-thumbnail__item--active {
+  border-color: var(--primary);
+  /* box-shadow: var(--pdf-shadow-sm); */
+}
+
+/* Enhanced scrollbar styling with theme awareness */
+.pdf-viewer-container .rpv-core__viewer::-webkit-scrollbar {
+  width: 8px;
+}
+
+.pdf-viewer-container .rpv-core__viewer::-webkit-scrollbar-track {
+  background: var(--muted);
+  border-radius: var(--radius);
+}
+
+.pdf-viewer-container .rpv-core__viewer::-webkit-scrollbar-thumb {
+  background: var(--muted-foreground);
+  border-radius: var(--radius);
+  transition: background-color 0.2s ease;
+}
+
+.pdf-viewer-container .rpv-core__viewer::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+/* Enhanced loading state */
+.pdf-viewer-container .rpv-core__loading {
+  background-color: var(--background);
+  color: var(--muted-foreground);
+  border-radius: var(--pdf-radius);
+  padding: 2rem;
+  /* Theme-aware typography */
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+/* Enhanced error state */
+.pdf-viewer-container .rpv-core__error {
+  background-color: var(--destructive);
+  color: var(--destructive-foreground);
+  border-radius: var(--pdf-radius);
+  padding: 1.5rem;
+  margin: 1rem;
+  border: 1px solid var(--destructive);
+  /* Typography */
+  font-family: var(--font-sans);
+  font-weight: 500;
+}
+
+/* Enhanced responsive adjustments */
+@media (max-width: 768px) {
+  .pdf-viewer-container .rpv-core__sidebar {
+    width: 100%;
+    position: absolute;
+    left: 0;
+    top: 0;
+    z-index: 10;
+    /* Enhanced mobile backdrop */
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+  
+  .pdf-viewer-container .rpv-toolbar {
+    padding: 0.5rem;
+  }
+  
+  .pdf-viewer-container .rpv-toolbar__item {
+    padding: 0.25rem;
+    font-size: 0.875rem;
+    /* Reduce animation on mobile */
+    transition: background-color 0.1s ease;
+  }
+  .pdf-viewer-container .rpv-core__page:hover {
+    /* Disable hover effects on mobile */
+    transform: none;
+  }
+}
+
+/* Dark mode specific adjustments with theme awareness */
+.dark .pdf-viewer-container .rpv-core__page {
+  filter: brightness(0.95) contrast(1.05);
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .pdf-viewer-container .rpv-core__page {
+    border: 2px solid var(--border);
+  }
+  
+  .pdf-viewer-container .rpv-toolbar__item {
+    border: 1px solid var(--border);
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  .pdf-viewer-container * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
+
+/* Enhanced animation for smooth transitions */
+.pdf-viewer-container * {
+  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+/* Focus styles for accessibility with theme awareness */
+.pdf-viewer-container *:focus {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Print styles */
+@media print {
+  .pdf-viewer-container .rpv-toolbar,
+  .pdf-viewer-container .rpv-core__sidebar {
+    display: none !important;
+  }
+  
+  .pdf-viewer-container .rpv-core__page {
+    box-shadow: none !important;
+    border: none !important;
+  }
+}
+
+/* Custom loading animation with theme colors */
+.pdf-viewer-container .rpv-core__loading::after {
+  content: '';
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--muted);
+  border-radius: 50%;
+  border-top-color: var(--primary);
+  animation: spin 1s ease-in-out infinite;
+  margin-left: 0.5rem;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Enhanced button styles for better theme integration */
+.pdf-viewer-container .rpv-toolbar__button {
+  background-color: var(--secondary);
+  color: var(--secondary-foreground);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 0.375rem 0.75rem;
+  font-family: var(--font-sans);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.pdf-viewer-container .rpv-toolbar__button:hover {
+  background-color: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.pdf-viewer-container .rpv-toolbar__button:active {
+  transform: translateY(0);
+}
+
+/* Enhanced tooltip styles */
+.pdf-viewer-container .rpv-core__tooltip {
+  background-color: var(--popover);
+  color: var(--popover-foreground);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-family: var(--font-sans);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  padding: 0.375rem 0.75rem;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+} 
+
+.rpv-default-layout__sidebar-headers {
+  background-color: var(--card);
+  color: var(--foreground);
+}
+
+.rpv-core__minimal-button {
+  color: var(--foreground);
+  border-radius: var(--radius);
+  padding: 0.375rem 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.rpv-core__minimal-button:hover {
+  background-color: var(--accent);
+  color: var(--accent-foreground);
+}
+
+.rpv-core__minimal-button:active {
+  transform: translateY(0);
+}
+.rpv-core__icon {
+  color: var(--foreground);
+  width: 24px;
+  height: 24px;
+  border-radius: var(--radius);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}

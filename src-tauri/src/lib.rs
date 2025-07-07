@@ -27,6 +27,7 @@ pub use commands::{
     get_flashcard_deck, get_flashcard_decks, update_flashcard_deck, delete_flashcard_deck,
     record_flashcard_review, get_due_flashcards, get_new_flashcards, get_flashcard_review_session,
     get_flashcard_stats, get_flashcard_reviews, get_flashcard_reviews_by_session,
+    cleanup_all_data, cleanup_database_only, get_data_usage_info,
 };
 pub use commands::embeddings::*;
 pub use database::{Database, Document, CreateDocumentRequest, Category, CreateCategoryRequest};
@@ -126,6 +127,9 @@ pub fn run() {
             get_embedding_database_info,
             bulk_reprocess_documents_for_embeddings,
             copy_document_embeddings,
+            cleanup_all_data,
+            cleanup_database_only,
+            get_data_usage_info,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

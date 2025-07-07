@@ -4,11 +4,11 @@ import { Loader2 } from "lucide-react"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { useLibrary } from "./use-library"
 import { LibraryHeader } from "./library-header"
-import { CategoryView } from "./category-view"
-import { DocumentView } from "./document-view"
-import { CategoryDialog } from "./category-dialog"
-import { DeleteConfirmationDialogs } from "./delete-confirmation-dialogs"
-import { PdfUploadDialog } from "./pdf-upload-dialog"
+import { CategoryView } from "../categories/category-view"
+import { DocumentView } from "../documents/document-view"
+import { CategoryDialog } from "../categories/category-dialog"
+import { DeleteConfirmationDialogs } from "../shared/delete-confirmation-dialogs"
+import { PdfUploadDialog } from "../shared/pdf-upload-dialog"
 
 export function Library() {
   const {

@@ -12,10 +12,8 @@ import {
   Loader2,
   X,
   Upload,
-  Sparkles,
   Link,
   HardDrive,
-  FileText,
   Plus,
 } from "lucide-react";
 
@@ -32,7 +30,6 @@ interface PdfUploadDialogProps {
 }
 
 type UploadType = "file" | "url";
-type ConversionMethod = "standard" | "enhanced" | "markitdown" | "marker";
 
 export function PdfUploadDialog({
   open,
@@ -46,8 +43,6 @@ export function PdfUploadDialog({
   const [tagInput, setTagInput] = useState("");
   const [uploadType, setUploadType] = useState<UploadType>("file");
   const [url, setUrl] = useState("");
-  const [conversionMethod, setConversionMethod] =
-    useState<ConversionMethod>("enhanced");
   const [isUploading, setIsUploading] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | undefined>(
@@ -87,7 +82,6 @@ export function PdfUploadDialog({
     setTagInput("");
     setUrl("");
     setUploadType("file");
-    setConversionMethod("enhanced");
     setFile(null);
     setSelectedCategoryId(currentCategoryId || undefined);
     
@@ -104,23 +98,6 @@ export function PdfUploadDialog({
 
       let document: Document | null = null;
 
-      // Determine the processing options based on conversion method
-      const getProcessingOptions = () => {
-        switch (conversionMethod) {
-          case "marker":
-            return { useMarker: true, useEnhanced: false, useMarkItDown: false };
-          case "markitdown":
-            return { useMarker: false, useEnhanced: false, useMarkItDown: true };
-          case "enhanced":
-            return { useMarker: false, useEnhanced: true, useMarkItDown: false };
-          case "standard":
-          default:
-            return { useMarker: false, useEnhanced: false, useMarkItDown: false };
-        }
-      };
-
-      const processingOptions = getProcessingOptions();
-
       if (uploadType === "file") {
         // Check if we have a pre-selected file
         if (file) {
@@ -128,9 +105,6 @@ export function PdfUploadDialog({
           document = await libraryService.uploadPdfFileWithOptions(file, {
             title: title.trim() || undefined,
             tags: tags,
-            useMarker: processingOptions.useMarker,
-            useEnhanced: processingOptions.useEnhanced,
-            useMarkItDown: processingOptions.useMarkItDown,
             categoryId: selectedCategoryId,
           });
         } else {
@@ -138,14 +112,11 @@ export function PdfUploadDialog({
           document = await libraryService.uploadPdfWithOptions({
             title: title.trim() || undefined,
             tags: tags,
-            useMarker: processingOptions.useMarker,
-            useEnhanced: processingOptions.useEnhanced,
-            useMarkItDown: processingOptions.useMarkItDown,
             categoryId: selectedCategoryId,
           });
         }
       } else {
-        // Use URL upload method with enhanced options
+        // Use URL upload method
         if (!url.trim()) {
           toast({
             title: "Error",
@@ -159,9 +130,6 @@ export function PdfUploadDialog({
           url: url.trim(),
           title: title.trim() || undefined,
           tags: tags,
-          useMarker: processingOptions.useMarker,
-          useEnhanced: processingOptions.useEnhanced,
-          useMarkItDown: processingOptions.useMarkItDown,
           categoryId: selectedCategoryId,
         });
       }
@@ -173,7 +141,7 @@ export function PdfUploadDialog({
 
         toast({
           title: "Success",
-          description: `PDF "${document.title}" uploaded and processed successfully using ${conversionMethod} method!`,
+          description: `PDF "${document.title}" uploaded successfully!`,
         });
       }
     } catch (error) {
@@ -183,7 +151,7 @@ export function PdfUploadDialog({
         description:
           uploadType === "file"
             ? "Failed to upload PDF. Please try again."
-            : "Failed to download and process PDF from URL. Please check the URL and try again.",
+            : "Failed to download PDF from URL. Please check the URL and try again.",
         variant: "destructive",
       });
     } finally {
@@ -270,61 +238,7 @@ export function PdfUploadDialog({
             />
           )}
 
-          {/* Processing Method - Enhanced Options */}
-          <div className="space-y-1">
-            <Label className="text-xs font-medium text-muted-foreground">Processing Method</Label>
-            <Tabs value={conversionMethod} onValueChange={(value) => setConversionMethod(value as ConversionMethod)}>
-              <TabsList className="h-8 grid grid-cols-2 w-full">
-                <div className="grid grid-cols-2 gap-1 w-full">
-                  <TabsTrigger value="standard" className="text-xs h-6 px-2">
-                    <FileText className="w-3 h-3" />
-                    Basic
-                  </TabsTrigger>
-                  <TabsTrigger value="enhanced" className="text-xs h-6 px-2">
-                    <FileText className="w-3 h-3" />
-                    Enhanced
-                  </TabsTrigger>
-                </div>
-                <div className="grid grid-cols-2 gap-1 w-full">
-                  <TabsTrigger value="markitdown" className="text-xs h-6 px-2">
-                    <FileText className="w-3 h-3 text-blue-500" />
-                    MarkItDown
-                  </TabsTrigger>
-                  <TabsTrigger value="marker" className="text-xs h-6 px-2">
-                    <Sparkles className="w-3 h-3 text-amber-500" />
-                    Marker
-                    <Badge variant="secondary" className="text-xs px-1 py-0 ml-1">
-                      95.6%
-                    </Badge>
-                  </TabsTrigger>
-                </div>
-              </TabsList>
-            </Tabs>
-          </div>
 
-          {/* Method Description */}
-          <div className="text-xs text-muted-foreground">
-            {conversionMethod === "standard" && (
-              <div className="p-2 bg-gray-50 border border-gray-200 rounded">
-                <strong>Basic:</strong> Fast text extraction with minimal processing. Good for simple documents.
-              </div>
-            )}
-            {conversionMethod === "enhanced" && (
-              <div className="p-2 bg-blue-50 border border-blue-200 rounded">
-                <strong>Enhanced:</strong> Improved text processing with better structure detection, lists, and headings.
-              </div>
-            )}
-            {conversionMethod === "markitdown" && (
-              <div className="p-2 bg-green-50 border border-green-200 rounded">
-                <strong>MarkItDown:</strong> Microsoft's lightweight tool. Good balance of speed and quality for most documents.
-              </div>
-            )}
-            {conversionMethod === "marker" && (
-              <div className="p-2 bg-primary/5 border border-primary/10 rounded text-primary">
-                <strong>Marker:</strong> Highest quality with 95.6% accuracy. Excellent for complex layouts, tables, and academic papers. Takes longer but provides superior results.
-              </div>
-            )}
-          </div>
 
           {/* Category Selection */}
           <div className="space-y-1 pt-2 border-t border-border">

@@ -10,9 +10,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
+import { ColorPicker } from "@/components/ui/color-picker"
 import { type Category, type CreateCategoryRequest } from "@/lib/services/library-service"
-import { suggestedCategories } from "./library-constants"
-import { IconCombobox } from "./icon-combobox"
+import { suggestedCategories } from "../core/library-constants"
+import { IconCombobox } from "../shared/icon-combobox"
 
 interface CategoryDialogProps {
   open: boolean
@@ -48,7 +49,7 @@ export function CategoryDialog({
         </DialogHeader>
         
         <div className="space-y-4">
-          <div>
+          <div className="flex flex-col gap-2">
             <Label htmlFor="category-name">Name</Label>
             <Input
               id="category-name"
@@ -59,7 +60,7 @@ export function CategoryDialog({
             />
           </div>
           
-          <div>
+          <div className="flex flex-col gap-2">
             <Label htmlFor="category-description">Description (optional)</Label>
             <Textarea
               className="placeholder:text-foreground/30 text-foreground"
@@ -71,23 +72,13 @@ export function CategoryDialog({
             />
           </div>
 
-          <div>
+          <div className="flex flex-col gap-2">
             <Label htmlFor="category-color">Color</Label>
-            <div className="flex items-center space-x-2">
-              <Input
-                id="category-color"
-                type="color"
-                value={categoryForm.color}
-                onChange={(e) => setCategoryForm(prev => ({ ...prev, color: e.target.value }))}
-                className="w-12 h-10 rounded placeholder:text-foreground/30 text-foreground"
-              />
-              <Input
-                value={categoryForm.color}
-                onChange={(e) => setCategoryForm(prev => ({ ...prev, color: e.target.value }))}
-                placeholder="#3b82f6"
-                className="flex-1 placeholder:text-foreground/30 text-foreground"
-              />
-            </div>
+            <ColorPicker
+              value={categoryForm.color}
+              onChange={(color) => setCategoryForm(prev => ({ ...prev, color }))}
+              defaultValue="#3b82f6"
+            />
           </div>
 
           <IconCombobox

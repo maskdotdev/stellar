@@ -243,7 +243,7 @@ export function TextSelectionPopover({
       <div
         ref={popoverRef}
         className={cn(
-          "fixed z-50 bg-popover text-popover-foreground rounded-md border shadow-lg",
+          "fixed z-50 bg-background text-foreground rounded-md border shadow-lg",
           "animate-in fade-in-0 zoom-in-95 duration-200",
           "flex items-center gap-1 p-1"
         )}

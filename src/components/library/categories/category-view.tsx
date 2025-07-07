@@ -2,7 +2,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { FolderPlus, Edit, Trash2, GraduationCap } from "lucide-react"
 import { type Category } from "@/lib/services/library-service"
-import { DynamicIcon } from "./dynamic-icon"
+import { DynamicIcon } from "../shared/dynamic-icon"
 import { useEffect, useRef } from "react"
 
 interface CategoryViewProps {

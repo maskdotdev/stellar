@@ -3,7 +3,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Loader2, FileText, Calendar, Tag, Edit, Trash2, Check, X, Upload, Plus } from "lucide-react"
 import { type Document } from "@/lib/services/library-service"
-import { typeIcons } from "./library-constants"
+import { typeIcons } from "../core/library-constants"
 import { useEffect, useRef } from "react"
 
 interface DocumentViewProps {

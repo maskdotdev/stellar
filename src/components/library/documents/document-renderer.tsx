@@ -5,14 +5,15 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
-import { FileText, Eye, Code, Loader2, Globe, MessageCircle, Sparkles } from 'lucide-react'
-import { PdfViewer } from './pdf-viewer'
+import { FileText, Eye, Code, Loader2, MessageCircle, Sparkles } from 'lucide-react'
+import { PdfRenderer } from '../../pdf-renderer'
 import { type Document } from '@/lib/services/library-service'
 import { LibraryService } from '@/lib/services/library-service'
 import { useStudyStore } from '@/lib/stores/study-store'
 import { useAIStore, type DocumentReference } from '@/lib/stores/ai-store'
 import { useActionsStore } from '@/lib/services/actions-service'
 import { cn } from '@/lib/utils/utils'
+import { useToast } from '@/hooks/use-toast'
 
 
 interface DocumentRendererProps {
@@ -21,7 +22,7 @@ interface DocumentRendererProps {
   onTextSelection?: (text: string) => void
 }
 
-type ViewMode = 'markdown' | 'pdf' | 'iframe'
+type ViewMode = 'markdown' | 'pdf'
 
 export function DocumentRenderer({ 
   document, 
@@ -41,6 +42,7 @@ export function DocumentRenderer({
   const { setShowFloatingChat, setInitialChatText } = useStudyStore()
   const { createConversationWithContext } = useAIStore()
   const { currentSessionId } = useActionsStore()
+  const { toast } = useToast()
 
   // Load PDF file path when component mounts or document changes
   useEffect(() => {
@@ -134,16 +136,21 @@ export function DocumentRenderer({
     setShowFloatingChat(true)
   }, [selectedText, document, createConversationWithContext, currentSessionId, setInitialChatText, setShowFloatingChat])
 
-  // Memoize the callback functions to prevent PdfViewer rerenders
-  const onLoadSuccess = useCallback((numPages: any) => {
+  // Memoize the callback functions to prevent PdfRenderer rerenders
+  const onDocumentLoadSuccess = useCallback((numPages: number) => {
     console.log('PDF loaded with', numPages, 'pages')
   }, [])
 
-  const onLoadError = useCallback((error: Error) => {
+  const onDocumentLoadError = useCallback((error: Error) => {
     console.error('PDF load error:', error)
     console.error('Failed to load PDF from path:', pdfFilePath)
     setPdfError('Failed to load PDF file')
-  }, [pdfFilePath])
+    toast({
+      title: "Error",
+      description: "Failed to load PDF file",
+      variant: "destructive",
+    })
+  }, [pdfFilePath, toast])
 
   // Render markdown content as HTML
   const renderMarkdownContent = (content: string) => {
@@ -226,78 +233,16 @@ export function DocumentRenderer({
     }
 
     return (
-      <PdfViewer
-        filePath={pdfFilePath}
-        className="h-full"
-        onLoadSuccess={onLoadSuccess}
-        onLoadError={onLoadError}
-        onTextSelection={handleTextSelection}
-      />
-    )
-  }, [hasPdfFile, document.file_path, isPdfLoading, pdfError, pdfFilePath, onLoadSuccess, onLoadError, handleTextSelection])
-
-  const IframeView = () => {
-    if (!hasPdfFile || !document.file_path) {
-      return (
-        <div className="flex flex-col items-center justify-center h-full p-8">
-          <FileText className="h-16 w-16 text-muted-foreground mb-4" />
-          <h3 className="text-lg font-medium mb-2">PDF file not available</h3>
-          <p className="text-muted-foreground text-center">
-            The original PDF file for this document is not available.
-            You can view the extracted text content in the Markdown tab.
-          </p>
-        </div>
-      )
-    }
-
-    if (isPdfLoading) {
-      return (
-        <div className="flex flex-col items-center justify-center h-full p-8">
-          <Loader2 className="h-8 w-8 animate-spin mb-4" />
-          <h3 className="text-lg font-medium mb-2">Loading PDF...</h3>
-          <p className="text-muted-foreground text-center">
-            Please wait while we prepare the PDF for viewing.
-          </p>
-        </div>
-      )
-    }
-
-    if (pdfError || !pdfFilePath) {
-      return (
-        <div className="flex flex-col items-center justify-center h-full p-8">
-          <FileText className="h-16 w-16 text-muted-foreground mb-4" />
-          <h3 className="text-lg font-medium mb-2">PDF file not available</h3>
-          <p className="text-muted-foreground text-center mb-4">
-            {pdfError || 'The PDF file could not be loaded.'}
-            <br />
-            You can view the extracted text content in the Markdown tab.
-          </p>
-          <Button variant="outline" onClick={() => {
-            setViewMode('markdown')
-          }}>
-            View Text Content
-          </Button>
-        </div>
-      )
-    }
-
-    return (
-      <div className="h-full w-full bg-background">
-        <iframe
-          src={pdfFilePath}
-          className="w-full h-full border-0 pdf-iframe"
-          title={`PDF Viewer - ${document.title}`}
-          onLoad={() => {
-            console.log('Iframe PDF loaded:', pdfFilePath)
-          }}
-          onError={(error) => {
-            console.error('Iframe PDF load error:', error)
-            setPdfError('Failed to load PDF in iframe')
-          }}
+      <div onMouseUp={handleTextSelection}>
+        <PdfRenderer
+          fileUrl={pdfFilePath}
+          className="h-full"
+          onDocumentLoadSuccess={onDocumentLoadSuccess}
+          onError={onDocumentLoadError}
         />
       </div>
     )
-  }
+  }, [hasPdfFile, document.file_path, isPdfLoading, pdfError, pdfFilePath, onDocumentLoadSuccess, onDocumentLoadError, handleTextSelection])
 
   return (
     <div className={cn("flex flex-col h-full", className)}>
@@ -314,7 +259,6 @@ export function DocumentRenderer({
           </span>
         </div>
         
-        {/* 🔥 NEW: Chat Actions */}
         <div className="flex items-center space-x-2">
           {selectedText && (
             <Button 
@@ -343,7 +287,7 @@ export function DocumentRenderer({
       {hasPdfFile ? (
         <Tabs value={viewMode} onValueChange={(value) => setViewMode(value as ViewMode)} className="flex flex-col h-full">
           <div className="border-b">
-            <TabsList className="grid w-full grid-cols-3 h-10">
+            <TabsList className="grid w-full grid-cols-2 h-10">
               <TabsTrigger value="markdown" className="flex items-center gap-2">
                 <Code className="h-4 w-4" />
                 Markdown
@@ -351,10 +295,6 @@ export function DocumentRenderer({
               <TabsTrigger value="pdf" className="flex items-center gap-2">
                 <Eye className="h-4 w-4" />
                 PDF
-              </TabsTrigger>
-              <TabsTrigger value="iframe" className="flex items-center gap-2">
-                <Globe className="h-4 w-4" />
-                Browser
               </TabsTrigger>
             </TabsList>
           </div>
@@ -364,11 +304,9 @@ export function DocumentRenderer({
           </TabsContent>
 
           <TabsContent value="pdf" className="flex-1 h-0 m-0">
-            {PdfView}
-          </TabsContent>
-
-          <TabsContent value="iframe" className="flex-1 h-0 m-0">
-            <IframeView />
+            <div className='p-6'>
+              {PdfView}
+            </div>
           </TabsContent>
         </Tabs>
       ) : (

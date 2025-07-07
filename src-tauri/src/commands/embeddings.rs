@@ -168,12 +168,10 @@ pub async fn init_embedding_service(
     _legacy_url: Option<String>,
 ) -> Result<serde_json::Value, String> {
     // Use the same data directory as the main database
-    let app_data_dir = std::env::current_dir()
-        .map_err(|e| format!("Failed to get current directory: {}", e))?
-        .parent()
-        .unwrap_or_else(|| std::path::Path::new("."))
-        .join("stellar_data");
+    let home_dir = dirs::home_dir()
+        .ok_or("Could not find home directory")?;
     
+    let app_data_dir = home_dir.join("stellar_data");
     let db_path = app_data_dir.join("embeddings.db");
     
     // Ensure directory exists

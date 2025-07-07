@@ -14,7 +14,13 @@
       {
         "title": "Stellar",
         "width": 1200,
-        "height": 800
+        "height": 800,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": true,
+        "alwaysOnTop": false,
+        "skipTaskbar": false,
+        "center": true
       }
     ],
     "security": {
@@ -34,7 +40,19 @@
       "icons/128x128.png",
       "icons/128x128@2x.png",
       "icons/icon.icns",
-      "icons/icon.ico"
-    ]
+      "icons/icon.ico",
+      "icons/icon.png"
+    ],
+    "resources": [],
+    "copyright": "Copyright © 2024 Stellar",
+    "category": "Education",
+    "shortDescription": "AI-powered study companion",
+    "longDescription": "Your AI-powered study companion for focused learning and knowledge management. Process PDFs, create flashcards, and enhance your learning experience with advanced AI integration.",
+    "macOS": {
+      "minimumSystemVersion": "10.13"
+    },
+    "windows": {
+      "digestAlgorithm": "sha256"
+    }
   }
 }

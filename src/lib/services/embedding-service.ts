@@ -51,6 +51,11 @@ export class EmbeddingService {
    * Initialize the embedding service with sqlite-vec
    */
   async initialize(config?: EmbeddingConfig): Promise<boolean> {
+    // Return early if already initialized
+    if (this.initialized) {
+      return true;
+    }
+    
     try {
       // Default configuration - use Ollama with the correct URL and model
       const defaultConfig: EmbeddingConfig = {

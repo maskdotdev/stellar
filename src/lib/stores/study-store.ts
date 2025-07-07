@@ -19,7 +19,7 @@ interface NavigationState {
   currentDocument?: string | null
   editingNoteId?: string | null
   currentCategory?: string | null
-  settingsTab?: "providers" | "models" | "chat" | "appearance" | "keybindings"
+  settingsTab?: "providers" | "models" | "chat" | "appearance" | "keybindings" | "data"
 }
 
 const defaultKeybindings: Keybinding[] = [
@@ -63,7 +63,7 @@ interface StudyState {
   currentTags: string[]
   documents: Document[]
   isLoadingDocuments: boolean
-  settingsTab: "providers" | "models" | "chat" | "appearance" | "keybindings"
+  settingsTab: "providers" | "models" | "chat" | "appearance" | "keybindings" | "data"
   keybindings: Keybinding[]
   
   // Navigation history
@@ -113,7 +113,7 @@ interface StudyState {
 export const useStudyStore = create<StudyState>()(
   persist(
     (set, get) => ({
-      currentView: "focus",
+      currentView: "library",
       focusMode: false,
       showCommandPalette: false,
       showInteractionDrawer: false,

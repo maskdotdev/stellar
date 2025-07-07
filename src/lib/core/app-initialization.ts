@@ -14,7 +14,10 @@ export class AppInitializationService {
   }
 
   async initialize(): Promise<void> {
-    if (this.initialized) return
+    if (this.initialized) {
+      console.log('🔄 App already initialized, skipping...')
+      return
+    }
 
     console.log('🚀 Initializing Stellar...')
 
