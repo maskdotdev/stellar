@@ -1,6 +1,6 @@
 [package]
 name = "stellar"
-version = "0.1.0-alpha.1"
+version = "0.0.2"
 description = "A modern study and research application with advanced PDF processing, AI integration, and document management"
 authors = ["mask"]
 license = "MIT"
