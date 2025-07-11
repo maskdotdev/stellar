@@ -2,7 +2,7 @@ import { invoke } from "@tauri-apps/api/core"
 import { path } from "@tauri-apps/api"
 
 export interface EmbeddingConfig {
-  provider: 'openai' | 'local' | 'ollama';
+  provider: 'openai' | 'openai-compatible' | 'local' | 'ollama';
   model: string;
   apiKey?: string;
   baseUrl?: string;
@@ -115,7 +115,28 @@ export class EmbeddingService {
         return this.initialized;
       } catch (legacyError) {
         console.error("Both new and legacy embedding initialization failed:", legacyError);
-        return false;
+        
+        // Try one more time with the smart fallback system
+        try {
+          const result = await invoke<{
+            success: boolean;
+            provider: string;
+            model: string;
+            message: string;
+            fallback_used: boolean;
+            last_error?: string;
+          }>("init_embedding_service", {});
+          
+          this.initialized = result.success;
+          if (result.success) {
+            console.log(`✅ Embedding service initialized with smart fallback: ${result.provider}`);
+          }
+          
+          return this.initialized;
+        } catch (fallbackError) {
+          console.error("Smart fallback also failed:", fallbackError);
+          return false;
+        }
       }
     }
   }
@@ -254,11 +275,43 @@ export class EmbeddingService {
   }
 
   /**
+   * Mark the service as initialized (used by app initialization)
+   */
+  markAsInitialized(): void {
+    this.initialized = true
+  }
+
+  /**
    * Configure embedding provider settings
    */
   async configure(config: EmbeddingConfig): Promise<boolean> {
-    // This will reinitialize with new config
-    return await this.initialize(config)
+    try {
+      // Use the same data directory structure as the main database
+      const dataDir = await path.dataDir();
+      const stellarDataDir = await path.join(dataDir, "stellar_data");
+      const dbPath = await path.join(stellarDataDir, "embeddings.db");
+      
+      // Initialize with the specific config
+      const success = await invoke<boolean>("init_vector_service", {
+        dbPath,
+        embeddingProvider: config.provider,
+        model: config.model,
+        apiKey: config.apiKey,
+        baseUrl: config.baseUrl,
+      });
+      
+      if (success) {
+        this.initialized = true;
+        console.log(`✅ Embedding service configured with ${config.provider} using model ${config.model}`);
+      }
+      
+      return success;
+    } catch (error) {
+      console.error("Failed to configure embedding service:", error);
+      // Reset and try with the smart fallback system
+      this.initialized = false;
+      return await this.initialize(config);
+    }
   }
 
   /**
@@ -275,6 +328,11 @@ export class EmbeddingService {
         provider: 'openai',
         name: 'OpenAI',
         description: 'High-quality embeddings from OpenAI (requires API key)'
+      },
+      {
+        provider: 'openai-compatible',
+        name: 'OpenAI Compatible',
+        description: 'Custom OpenAI-compatible endpoints (requires API key and base URL)'
       },
       // Local models temporarily disabled
       // {
@@ -382,6 +440,29 @@ export class EmbeddingService {
     } catch (error) {
       console.error("Failed to copy document embeddings:", error)
       throw error
+    }
+  }
+
+  /**
+   * Test which embedding providers are available
+   */
+  async testProviderAvailability(): Promise<{
+    available_providers: string[];
+    recommended_provider: string;
+    test_results: Array<{
+      provider: string;
+      available: boolean;
+      error?: string;
+      model?: string;
+      has_api_key?: boolean;
+    }>;
+    fallback_order: string[];
+  }> {
+    try {
+      return await invoke("test_embedding_provider_availability");
+    } catch (error) {
+      console.error("Failed to test provider availability:", error);
+      throw error;
     }
   }
 }

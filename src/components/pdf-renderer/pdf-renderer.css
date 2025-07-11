@@ -20,7 +20,36 @@
   color: var(--foreground);
   /* Ensure proper scrolling behavior */
   height: 100%;
-  overflow: auto;
+  overflow: auto !important;
+  position: relative;
+}
+
+/* Ensure the default layout container allows scrolling */
+.pdf-viewer-container .rpv-default-layout__container {
+  height: 100% !important;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Make sure the main content area is scrollable */
+.pdf-viewer-container .rpv-default-layout__main {
+  overflow: auto !important;
+  height: 100%;
+  flex: 1;
+  position: relative;
+}
+
+/* Ensure document container is scrollable */
+.pdf-viewer-container .rpv-core__doc {
+  overflow: auto !important;
+  height: 100%;
+}
+
+/* Fix the pages container */
+.pdf-viewer-container .rpv-core__pages-container {
+  overflow: auto !important;
+  height: 100%;
 }
 
 /* Fix scrolling container height */

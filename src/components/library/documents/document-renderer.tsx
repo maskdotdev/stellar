@@ -233,10 +233,10 @@ export function DocumentRenderer({
     }
 
     return (
-      <div onMouseUp={handleTextSelection}>
+      <div onMouseUp={handleTextSelection} className="h-full w-full">
         <PdfRenderer
           fileUrl={pdfFilePath}
-          className="h-full"
+          className="h-full w-full"
           onDocumentLoadSuccess={onDocumentLoadSuccess}
           onError={onDocumentLoadError}
         />
@@ -303,10 +303,8 @@ export function DocumentRenderer({
             <MarkdownView />
           </TabsContent>
 
-          <TabsContent value="pdf" className="flex-1 h-0 m-0">
-            <div className='p-6'>
-              {PdfView}
-            </div>
+          <TabsContent value="pdf" className="flex-1 m-0">
+            {PdfView}
           </TabsContent>
         </Tabs>
       ) : (

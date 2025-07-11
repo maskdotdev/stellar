@@ -139,7 +139,19 @@ pub async fn upload_and_process_pdf(
     
     println!("DEBUG: Document saved to database: {}", document.id);
     
-    // Process embeddings if service is available and not a duplicate
+    // Process embeddings with proper fallback logic
+    process_document_embeddings_with_fallback(&vector_state, &db_state, &document, &duplicate_check).await?;
+    
+    Ok(document)
+}
+
+// Helper function to process embeddings for a document with proper fallback
+async fn process_document_embeddings_with_fallback(
+    vector_state: &State<'_, VectorServiceState>,
+    db_state: &State<'_, DatabaseState>,
+    document: &crate::database::types::Document,
+    duplicate_check: &Option<crate::database::types::Document>,
+) -> Result<(), String> {
     let mut vector_guard = vector_state.lock().await;
     if let Some(vector_service) = vector_guard.as_mut() {
         // Check if we found a duplicate earlier
@@ -170,17 +182,38 @@ pub async fn upload_and_process_pdf(
             };
             
             if !has_embeddings {
-                process_document_embeddings_internal(vector_service, &document).await?;
+                process_document_embeddings_internal(vector_service, document).await?;
             }
         } else {
             // No duplicate found, process normally
-            process_document_embeddings_internal(vector_service, &document).await?;
+            process_document_embeddings_internal(vector_service, document).await?;
         }
     } else {
-        println!("DEBUG: Vector service not available, skipping embedding generation");
+        println!("DEBUG: Vector service not available, attempting to initialize with fallback...");
+        // Try to initialize the vector service with smart fallback
+        drop(vector_guard); // Release the lock before calling the init service
+        
+        match crate::commands::embeddings::init_embedding_service(
+            vector_state.clone(),
+            db_state.clone(),
+            None
+        ).await {
+            Ok(init_result) => {
+                println!("✅ Vector service initialized: {:?}", init_result);
+                // Now try to process embeddings with the newly initialized service
+                let mut vector_guard = vector_state.lock().await;
+                if let Some(vector_service) = vector_guard.as_mut() {
+                    process_document_embeddings_internal(vector_service, document).await?;
+                }
+            }
+            Err(e) => {
+                println!("❌ Failed to initialize vector service: {}", e);
+                println!("DEBUG: Skipping embedding generation");
+            }
+        }
     }
     
-    Ok(document)
+    Ok(())
 }
 
 // Helper function to process embeddings for a document
@@ -340,46 +373,8 @@ pub async fn upload_and_process_pdf_from_data(
     
     println!("DEBUG: Document saved to database: {}", document.id);
     
-    // Process embeddings if service is available and not a duplicate
-    let mut vector_guard = vector_state.lock().await;
-    if let Some(vector_service) = vector_guard.as_mut() {
-        // Check if we found a duplicate earlier
-        if let Some(ref existing_doc) = duplicate_check {
-            println!("🔄 Attempting to reuse embeddings from existing document: {}", existing_doc.id);
-            
-            // Check if the existing document has embeddings
-            let has_embeddings = {
-                match vector_service.get_document_embedding_info(&existing_doc.id) {
-                    Ok(embedding_info) => {
-                        let chunks_count: i64 = embedding_info.get("total_chunks")
-                            .and_then(|v| v.as_i64())
-                            .unwrap_or(0);
-                        
-                        if chunks_count > 0 {
-                            println!("♻️ Found {} existing chunks, skipping embedding generation for duplicate", chunks_count);
-                            true
-                        } else {
-                            println!("⚠️ Existing document has no embeddings, processing new ones");
-                            false
-                        }
-                    }
-                    Err(_) => {
-                        println!("⚠️ Could not check existing embeddings, processing new ones");
-                        false
-                    }
-                }
-            };
-            
-            if !has_embeddings {
-                process_document_embeddings_internal(vector_service, &document).await?;
-            }
-        } else {
-            // No duplicate found, process normally
-            process_document_embeddings_internal(vector_service, &document).await?;
-        }
-    } else {
-        println!("DEBUG: Vector service not available, skipping embedding generation");
-    }
+    // Process embeddings with proper fallback logic
+    process_document_embeddings_with_fallback(&vector_state, &db_state, &document, &duplicate_check).await?;
     
     Ok(document)
 }
@@ -511,46 +506,8 @@ pub async fn upload_and_process_pdf_from_url(
     
     println!("DEBUG: Document saved to database: {}", document.id);
     
-    // Process embeddings if service is available and not a duplicate
-    let mut vector_guard = vector_state.lock().await;
-    if let Some(vector_service) = vector_guard.as_mut() {
-        // Check if we found a duplicate earlier
-        if let Some(ref existing_doc) = duplicate_check {
-            println!("🔄 Attempting to reuse embeddings from existing document: {}", existing_doc.id);
-            
-            // Check if the existing document has embeddings
-            let has_embeddings = {
-                match vector_service.get_document_embedding_info(&existing_doc.id) {
-                    Ok(embedding_info) => {
-                        let chunks_count: i64 = embedding_info.get("total_chunks")
-                            .and_then(|v| v.as_i64())
-                            .unwrap_or(0);
-                        
-                        if chunks_count > 0 {
-                            println!("♻️ Found {} existing chunks, skipping embedding generation for duplicate", chunks_count);
-                            true
-                        } else {
-                            println!("⚠️ Existing document has no embeddings, processing new ones");
-                            false
-                        }
-                    }
-                    Err(_) => {
-                        println!("⚠️ Could not check existing embeddings, processing new ones");
-                        false
-                    }
-                }
-            };
-            
-            if !has_embeddings {
-                process_document_embeddings_internal(vector_service, &document).await?;
-            }
-        } else {
-            // No duplicate found, process normally
-            process_document_embeddings_internal(vector_service, &document).await?;
-        }
-    } else {
-        println!("DEBUG: Vector service not available, skipping embedding generation");
-    }
+    // Process embeddings with proper fallback logic
+    process_document_embeddings_with_fallback(&vector_state, &db_state, &document, &duplicate_check).await?;
     
     Ok(document)
 }

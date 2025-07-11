@@ -1,374 +1,389 @@
-# PDF Renderer Component
+# PDF Renderer with Custom Toolbar
 
-A theme-aware PDF renderer component built on top of React PDF Viewer that seamlessly integrates with the application's comprehensive theming system from `themes.css`.
+This directory contains a custom PDF renderer implementation using React PDF Viewer with a custom toolbar based on the toolbar slot pattern.
 
-## Features
+## Components
 
-- 🎨 **Full Theme Integration**: Automatically adapts to all themes from `themes.css` including stellar, space, aurora, pluto, and more
-- 🌟 **Theme-Specific Enhancements**: Each theme category gets unique styling (cosmic glow, stellar effects, minimal styling, etc.)
-- 🔍 **Search Functionality**: Built-in text search with highlighting that matches your theme
-- 🔄 **Zoom Controls**: Theme-aware zoom controls with consistent styling
-- 📱 **Responsive Design**: Mobile-friendly with adaptive layouts and theme-aware breakpoints
-- 📄 **Page Navigation**: Navigate through pages with themed thumbnails and controls
-- 🔄 **Rotation**: Rotate pages with theme-consistent controls
-- ⚡ **Loading States**: Beautiful loading indicators that match your active theme
-- ♿ **Accessibility**: Focus management and keyboard navigation with theme-aware focus rings
-- 🎭 **Dynamic Theme Detection**: Automatically detects and adapts to theme changes in real-time
+### `PdfRenderer`
+The main PDF renderer component that displays PDFs with a custom toolbar.
 
-## Theme Integration System
+**Props:**
+- `fileUrl`: URL or path to the PDF file
+- `title`: Optional title to display above the PDF
+- `className`: Optional CSS classes
+- `onError`: Error callback
+- `onDocumentLoadSuccess`: Success callback with page count
 
-### Comprehensive Theme Support
+### `CustomPdfToolbar`
+A custom toolbar component that uses the React PDF Viewer toolbar slot pattern.
 
-The PDF renderer supports all themes from your `themes.css`:
-
-**Cosmic Themes** (with special glow effects):
-- `space` - Deep cosmic background with purple glow
-- `starfield` - Stellar background with electric glow
-- `aurora` - Electric aurora effects
-- `cosmos` / `dark-cosmos` - Cosmic purple with enhanced shadows
-- `nebula` / `dark-nebula` - Nebular effects with colorful highlights
-
-**Stellar Themes** (with cyan/teal styling):
-- `stellar` / `light-teal` - Clean cyan accent with subtle glow
-- `dark-teal` - Dark variant with enhanced contrast
-
-**Artistic Themes** (with unique aesthetic touches):
-- `starry-night` / `dark-starry-night` - Van Gogh inspired styling
-- `solar-flare` / `dark-solar-flare` - Warm solar color schemes
-
-**Minimal Themes** (clean and reduced styling):
-- `pluto` / `dark-pluto` - Stark shadows with no radius
-- `infinity` / `dark-infinity` - Ultra-clean monospace styling
-
-**Colorful Themes** (vibrant and expressive):
-- `catppuccin` / `dark-catppuccin` - Pastel color scheme
-- `rose` - Warm rose tones
-- `t3-chat` / `dark-t3-chat` - Modern chat-inspired colors
-
-### Theme Utilities
-
-The PDF renderer comes with a comprehensive theme utility system that you can use in other components:
-
-```tsx
-import { 
-  useThemeIntegration, 
-  useThemeDetection, 
-  getThemeCategory, 
-  createThemeStyle 
-} from '@/components/pdf-renderer';
-
-// Full theme integration hook
-function MyComponent() {
-  const { 
-    theme,           // Current theme name
-    category,        // Theme category (cosmic, stellar, minimal, etc.)
-    isDark,          // Whether current theme is dark
-    variables,       // CSS variables object
-    shadows,         // Theme-specific shadow styles
-    animations,      // Theme-specific animation settings
-    getClasses,      // Function to get theme classes
-    createStyle      // Function to create theme-aware styles
-  } = useThemeIntegration('my-component');
-
-  return (
-    <div 
-      className={cn(...getClasses(['base-class']))}
-      style={createStyle({ customProperty: 'value' })}
-    >
-      Content styled with current theme
-    </div>
-  );
-}
-```
-
-## Installation
-
-The component requires the following React PDF Viewer packages (already included in the project):
-
-```bash
-npm install @react-pdf-viewer/core @react-pdf-viewer/default-layout @react-pdf-viewer/search @react-pdf-viewer/rotate @react-pdf-viewer/zoom @react-pdf-viewer/toolbar
-```
+**Props:**
+- `className`: Optional CSS classes to customize the toolbar appearance
 
 ## Usage
 
-### Basic Usage with Automatic Theme Integration
+### Basic Usage
 
 ```tsx
-import { PdfRenderer } from '@/components/pdf-renderer';
+import { PdfRenderer } from './components/pdf-renderer/pdf-renderer';
 
-function MyComponent() {
-  return (
-    <div className="h-96">
-      <PdfRenderer
-        fileUrl="https://example.com/document.pdf"
-        title="My Document"
-      />
-    </div>
-  );
-}
-```
-
-The component automatically:
-- Detects the current theme from `document.documentElement.classList`
-- Applies theme-specific styling and effects
-- Updates in real-time when themes change
-- Uses appropriate colors, shadows, and animations for the active theme
-
-### Advanced Usage with Theme Integration
-
-```tsx
-import { PdfRenderer, useThemeIntegration } from '@/components/pdf-renderer';
-import { useToast } from '@/hooks/use-toast';
-
-function MyComponent() {
-  const { toast } = useToast();
-  const { theme, category, isDark } = useThemeIntegration();
-
-  const handleError = (error: Error) => {
-    toast({
-      title: "PDF Error",
-      description: error.message,
-      variant: "destructive",
-    });
-  };
-
-  const handleLoadSuccess = (numPages: number) => {
-    console.log(`PDF loaded with ${numPages} pages in ${theme} theme (${category})`);
-  };
-
+function App() {
   return (
     <div className="h-screen">
       <PdfRenderer
-        fileUrl="/documents/sample.pdf"
-        title={`Sample Document - ${theme} theme`}
-        onError={handleError}
-        onDocumentLoadSuccess={handleLoadSuccess}
-        className={cn(
-          "border rounded-lg",
-          // Add conditional styling based on theme category
-          category === 'cosmic' && "shadow-xl",
-          category === 'minimal' && "border-2",
-        )}
+        fileUrl="/path/to/document.pdf"
+        title="My Document"
+        onDocumentLoadSuccess={(pages) => console.log(`Loaded ${pages} pages`)}
+        onError={(error) => console.error('Failed to load PDF:', error)}
       />
     </div>
   );
 }
 ```
 
-### Using Theme Utilities in Other Components
+### Custom Toolbar Usage
 
 ```tsx
-import { createThemeStyle, getThemeClasses, useThemeDetection } from '@/components/pdf-renderer';
+import { toolbarPlugin } from '@react-pdf-viewer/toolbar';
+import { CustomPdfToolbar } from './components/pdf-renderer/pdf-custom-toolbar';
 
-function ThemedCard() {
-  const currentTheme = useThemeDetection();
-  
-  return (
-    <div
-      className={cn(...getThemeClasses(currentTheme, ['card', 'p-4']))}
-      style={createThemeStyle(currentTheme, {
-        '--custom-glow': '0 0 20px hsl(var(--primary)/0.3)',
-      })}
-    >
-      This card adapts to the current theme automatically!
-    </div>
-  );
-}
+const toolbarPluginInstance = toolbarPlugin();
+const { Toolbar } = toolbarPluginInstance;
+
+// Use the custom toolbar
+<Toolbar>
+  {CustomPdfToolbar({ className: 'my-custom-styles' })}
+</Toolbar>
 ```
 
-## Props
+### Customizing Individual Toolbar Buttons
 
-### PdfRendererProps
-
-| Prop | Type | Required | Description |
-|------|------|----------|-------------|
-| `fileUrl` | `string` | Yes | URL or path to the PDF file |
-| `title` | `string` | No | Title to display in the header |
-| `className` | `string` | No | Additional CSS classes |
-| `onError` | `(error: Error) => void` | No | Error callback |
-| `onDocumentLoadSuccess` | `(numPages: number) => void` | No | Success callback |
-
-## Advanced Theming Features
-
-### Theme-Specific Enhancements
-
-Different theme categories get unique visual enhancements:
-
-**Cosmic Themes:**
-- Glowing effects around PDF pages
-- Enhanced shadows with color bleeding
-- Smooth floating animations
-- Starfield-inspired backgrounds
-
-**Stellar Themes:**
-- Subtle cyan glow effects
-- Clean, professional styling
-- Teal accent colors throughout
-
-**Minimal Themes:**
-- Reduced visual effects for clarity
-- Clean, geometric shadows (especially for Pluto theme)
-- Monospace typography integration
-
-**Artistic Themes:**
-- Unique color combinations
-- Enhanced visual flair
-- Theme-specific shadow patterns
-
-### CSS Custom Properties
-
-The PDF renderer automatically maps your theme variables to PDF-viewer-specific properties:
-
-```css
-/* Automatically applied based on current theme */
-.pdf-viewer-container {
-  --rpv-color-primary: hsl(var(--primary));
-  --rpv-color-background: hsl(var(--background));
-  --rpv-border-radius: var(--radius);
-  --rpv-font-family: var(--font-sans);
-  --rpv-shadow-sm: var(--shadow-sm);
-  /* ... and many more */
-}
-```
-
-### Theme Categories and Behavior
+You can customize individual buttons using the slot render props:
 
 ```tsx
-// Theme categories automatically detected
-const THEME_CATEGORIES = {
-  cosmic: ['space', 'starfield', 'aurora', 'cosmos', 'dark-cosmos', 'nebula', 'dark-nebula'],
-  stellar: ['stellar', 'light-teal', 'dark-teal'],
-  artistic: ['starry-night', 'dark-starry-night', 'solar-flare', 'dark-solar-flare'],
-  minimal: ['pluto', 'dark-pluto', 'infinity', 'dark-infinity'],
-  colorful: ['catppuccin', 'dark-catppuccin', 'rose', 't3-chat', 'dark-t3-chat'],
+import { CustomPdfToolbar } from './components/pdf-renderer/pdf-custom-toolbar';
+
+// Create a custom toolbar with some customized buttons
+const MyCustomToolbar = ({ className }) => {
+  return (slots) => {
+    return (
+      <div className={cn("flex items-center gap-2 px-4 py-2 bg-card", className)}>
+        {/* Custom styled navigation */}
+        <slots.GoToFirstPage>
+          {(props) => (
+            <button
+              onClick={props.onClick}
+              disabled={props.isDisabled}
+              className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+              First
+            </button>
+          )}
+        </slots.GoToFirstPage>
+        
+        <slots.GoToPreviousPage>
+          {(props) => (
+            <button
+              onClick={props.onClick}
+              disabled={props.isDisabled}
+              className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+              Previous
+            </button>
+          )}
+        </slots.GoToPreviousPage>
+        
+        {/* Use default styles for other buttons */}
+        <slots.GoToNextPage />
+        <slots.GoToLastPage />
+        
+        {/* Page info */}
+        <div className="flex items-center gap-2 ml-4">
+          <slots.CurrentPageInput />
+          <span>of</span>
+          <slots.NumberOfPages />
+        </div>
+        
+        {/* Zoom controls */}
+        <div className="flex items-center gap-1 ml-4">
+          <slots.ZoomOut />
+          <slots.Zoom />
+          <slots.ZoomIn />
+        </div>
+      </div>
+    );
+  };
 };
 ```
 
-### Real-time Theme Detection
+## Custom Icons and Tooltips
 
-The component uses a `MutationObserver` to detect theme changes in real-time:
+Yes! You can easily pass custom icons and tooltips to the toolbar buttons. The `pdf-toolbar-examples.tsx` file contains multiple examples showing different approaches:
+
+### Example 1: Custom Navigation Icons
 
 ```tsx
-// Automatically detects when you change themes
-document.documentElement.classList.add('dark-space'); // Detected instantly
-document.documentElement.classList.remove('stellar'); // Updates immediately
+import { NavigationToolbarExample } from './pdf-toolbar-examples';
+
+<Toolbar>
+  {NavigationToolbarExample()}
+</Toolbar>
 ```
 
-## Responsive Behavior
+This example shows:
+- 🏠 Home icon for "Go to first page"
+- ⬅️ MoveLeft icon for "Previous page"
+- ➡️ MoveRight icon for "Next page"
+- ⭐ Star icon for "Go to last page"
+- Custom tooltips with emojis
 
-The component includes theme-aware responsive design:
+### Example 2: Custom Action Icons
 
-- **Desktop**: Full toolbar with theme-appropriate styling
-- **Tablet**: Condensed toolbar maintaining theme consistency
-- **Mobile**: Collapsible sidebar with enhanced backdrop blur and theme colors
+```tsx
+import { ActionToolbarExample } from './pdf-toolbar-examples';
 
-## Performance Optimizations
+<Toolbar>
+  {ActionToolbarExample()}
+</Toolbar>
+```
 
-### Theme-Based Optimizations
+This example shows:
+- 👁️ Eye icon for "Search"
+- 💾 FileDown icon for "Download"
+- 🖨️ FileText icon for "Print"
+- 🖥️ Expand icon for "Fullscreen"
 
-- **Mobile**: Reduced shadows and animations for better performance
-- **Cosmic themes**: GPU-accelerated glow effects
-- **Minimal themes**: Simplified rendering pipeline
-- **Reduced motion**: Respects `prefers-reduced-motion` setting
+### Example 3: Themed Toolbar
 
-### Memory Management
+```tsx
+import { ThemedToolbarExample } from './pdf-toolbar-examples';
 
-- Automatic cleanup of theme observers
-- Efficient CSS variable management
-- Optimized re-renders based on theme changes
+<Toolbar>
+  {ThemedToolbarExample()}
+</Toolbar>
+```
 
-## Accessibility
+Features:
+- Purple gradient background
+- Rounded buttons with custom hover effects
+- Colored separators and badges
+- Custom tooltip styling
 
-Theme-aware accessibility features:
+### Example 4: Minimal Toolbar
 
-- **High Contrast**: Enhanced borders and outlines for supported themes
-- **Focus Management**: Theme-consistent focus rings using `--ring` color
-- **Screen Readers**: Proper ARIA labels with theme context
-- **Keyboard Navigation**: Theme-appropriate visual feedback
+```tsx
+import { MinimalToolbarExample } from './pdf-toolbar-examples';
 
-## Browser Support
+<Toolbar>
+  {MinimalToolbarExample()}
+</Toolbar>
+```
 
-- Chrome 60+ (full theme support)
-- Firefox 60+ (full theme support)
-- Safari 12+ (partial CSS custom property support)
-- Edge 79+ (full theme support)
+Features:
+- Clean layout with outline buttons
+- Smaller icons (h-3 w-3)
+- Positioned layout (left, center, right)
+- Minimal tooltip styling
 
-## Performance Tips
+### Using the Examples
 
-1. **Theme Switching**: Use CSS transitions for smooth theme changes
-2. **Large PDFs**: Cosmic themes may impact performance on very large documents
-3. **Mobile**: Minimal themes perform best on mobile devices
-4. **Custom Themes**: Follow the established CSS custom property patterns
+You can use any of the pre-built examples:
 
-## Troubleshooting
+```tsx
+import { PDF_TOOLBAR_EXAMPLES } from './pdf-toolbar-examples';
 
-### Theme Not Applying
+// Use different examples
+<Toolbar>{PDF_TOOLBAR_EXAMPLES.navigation()}</Toolbar>
+<Toolbar>{PDF_TOOLBAR_EXAMPLES.actions()}</Toolbar>
+<Toolbar>{PDF_TOOLBAR_EXAMPLES.themed()}</Toolbar>
+<Toolbar>{PDF_TOOLBAR_EXAMPLES.minimal()}</Toolbar>
+```
 
-1. Ensure theme class is applied to `document.documentElement`
-2. Check that CSS custom properties are defined in your theme
-3. Verify theme name matches those in `THEME_CLASSES`
+### Creating Your Own Custom Icons
 
-### Performance Issues
+```tsx
+import { Heart, Coffee, Zap } from 'lucide-react';
 
-1. Try switching to a minimal theme for large PDFs
-2. Disable animations with `prefers-reduced-motion`
-3. Check console for theme detection errors
+const MyCustomToolbar = () => {
+  return (slots: ToolbarSlot) => (
+    <div className="flex items-center gap-2 px-4 py-2 bg-card">
+      <slots.GoToFirstPage>
+        {(props) => (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={props.onClick}
+                  disabled={props.isDisabled}
+                  className="h-8 w-8 p-0"
+                >
+                  <Heart className="h-4 w-4 text-red-500" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>❤️ Go to favorite page</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+      </slots.GoToFirstPage>
+      
+      <slots.ShowSearchPopover>
+        {(props) => (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={props.onClick}
+                  className="h-8 w-8 p-0"
+                >
+                  <Zap className="h-4 w-4 text-yellow-500" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>⚡ Quick search</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+      </slots.ShowSearchPopover>
+    </div>
+  );
+};
+```
 
-### Styling Conflicts
+### Tooltip Customization
 
-1. Ensure CSS specificity is correct for overrides
-2. Use theme utilities instead of hard-coded values
-3. Check that theme variables are properly scoped
+You can customize tooltips in several ways:
+
+```tsx
+// Different positions
+<TooltipContent side="bottom">
+<TooltipContent side="top">
+<TooltipContent side="left">
+<TooltipContent side="right">
+
+// Custom styling
+<TooltipContent className="bg-purple-500 text-white">
+<TooltipContent className="bg-gradient-to-r from-blue-500 to-purple-500">
+
+// With HTML content
+<TooltipContent>
+  <div className="text-center">
+    <p className="font-bold">Download PDF</p>
+    <p className="text-xs opacity-75">Ctrl+S</p>
+  </div>
+</TooltipContent>
+```
+
+### Icon Libraries
+
+You can use any icon library:
+
+```tsx
+// Lucide React (recommended)
+import { Download, Search, Print } from 'lucide-react';
+
+// React Icons
+import { FaDownload, FaSearch, FaPrint } from 'react-icons/fa';
+
+// Heroicons
+import { ArrowDownTrayIcon } from '@heroicons/react/24/outline';
+
+// Custom SVG
+const CustomIcon = () => (
+  <svg className="h-4 w-4" viewBox="0 0 24 24">
+    <path d="..." />
+  </svg>
+);
+```
+
+## Available Toolbar Slots
+
+The following slots are available for customization:
+
+### Navigation
+- `GoToFirstPage` - Navigate to first page
+- `GoToPreviousPage` - Navigate to previous page  
+- `GoToNextPage` - Navigate to next page
+- `GoToLastPage` - Navigate to last page
+
+### Page Information
+- `CurrentPageInput` - Input field for current page number
+- `CurrentPageLabel` - Label showing current page number
+- `NumberOfPages` - Total number of pages
+
+### Zoom Controls
+- `ZoomOut` - Zoom out button
+- `Zoom` - Current zoom level display/button
+- `ZoomIn` - Zoom in button
+- `CurrentScale` - Current scale level
+
+### Document Actions
+- `Download` - Download the PDF
+- `Print` - Print the PDF
+- `ShowSearchPopover` - Show search interface
+- `EnterFullScreen` - Enter fullscreen mode
+
+### Layout Controls
+- `SwitchScrollMode` - Switch between scroll modes
+- `SwitchSelectionMode` - Switch selection mode
+- `SwitchTheme` - Switch between light/dark theme
+
+### Advanced
+- `Open` - Open file dialog
+- `ShowProperties` - Show document properties
+- `Rotate` - Rotate document
+- `RotateBackwardMenuItem` - Rotate counterclockwise
+- `RotateForwardMenuItem` - Rotate clockwise
+
+## Styling
+
+The custom toolbar uses your application's design system through CSS classes. You can customize the appearance by:
+
+1. **CSS Classes**: Pass custom classes via the `className` prop
+2. **CSS Variables**: Override CSS custom properties for React PDF Viewer
+3. **Tailwind Classes**: Use Tailwind utility classes for quick styling
+4. **Render Props**: Use render props on individual slots for complete control
+
+### CSS Custom Properties
+
+The PDF renderer supports theme-aware styling through CSS custom properties:
+
+```css
+.pdf-viewer-container {
+  --rpv-color-primary: hsl(var(--primary));
+  --rpv-color-background: hsl(var(--background));
+  --rpv-color-border: hsl(var(--border));
+  /* ... more variables */
+}
+```
+
+## TypeScript Support
+
+All components are fully typed with TypeScript. The main types are:
+
+- `PdfRendererProps` - Props for the main renderer
+- `CustomToolbarProps` - Props for the custom toolbar
+- `ToolbarSlot` - Available toolbar slots from React PDF Viewer
 
 ## Examples
 
-### Theme-Aware Loading States
+Check out the React PDF Viewer documentation for more examples:
+- [Toolbar slot examples](https://react-pdf-viewer.dev/examples/toolbar-slot/)
+- [Custom toolbar examples](https://react-pdf-viewer.dev/examples/create-a-custom-toolbar/)
 
-```tsx
-function ThemedLoader() {
-  const { shadows, animations } = useThemeIntegration();
-  
-  return (
-    <div 
-      className="animate-spin rounded-full border-2 border-muted border-t-primary"
-      style={{
-        boxShadow: shadows.small,
-        animationDuration: animations.duration,
-        animationTimingFunction: animations.easing,
-      }}
-    />
-  );
-}
-```
+## Dependencies
 
-### Dynamic Theme Switching
-
-```tsx
-function ThemeSwitcher() {
-  const { theme } = useThemeIntegration();
-  
-  const switchTheme = (newTheme: string) => {
-    document.documentElement.className = newTheme;
-  };
-  
-  return (
-    <div>
-      <p>Current theme: {theme}</p>
-      <button onClick={() => switchTheme('space')}>Space Theme</button>
-      <button onClick={() => switchTheme('stellar')}>Stellar Theme</button>
-    </div>
-  );
-}
-```
-
-See the `PdfRendererDemo` component for complete working examples including theme integration, error handling, and responsive behavior.
-
-## Contributing
-
-When contributing to the PDF renderer or theme system:
-
-1. Test across all theme categories
-2. Maintain backward compatibility with existing themes
-3. Follow accessibility guidelines for new themes
-4. Update theme utilities when adding new theme variables
-5. Test performance impact of visual enhancements 
+This implementation requires:
+- `@react-pdf-viewer/core`
+- `@react-pdf-viewer/default-layout`
+- `@react-pdf-viewer/toolbar`
+- `@react-pdf-viewer/zoom`
+- `@react-pdf-viewer/search`
+- `@react-pdf-viewer/rotate`
+- Your UI component library (Button, Input, etc.) 

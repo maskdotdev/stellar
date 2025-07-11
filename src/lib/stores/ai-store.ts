@@ -130,7 +130,7 @@ interface AIState {
   findBestModel: (criteria: any) => Promise<AIModel | null>
   getModelRecommendations: (task: string) => any[]
   
-  addConversation: (conversation: Omit<AIConversation, "id">) => void
+  addConversation: (conversation: Omit<AIConversation, "id">) => string
   updateConversation: (id: string, updates: Partial<AIConversation>) => void
   removeConversation: (id: string) => void
   setActiveConversation: (conversationId: string | null) => void
@@ -530,21 +530,25 @@ export const useAIStore = create<AIState>()(
         }
       },
       
-      addConversation: (conversation) => set((state) => ({
-        conversations: [...state.conversations, { 
-          ...conversation, 
-          id: crypto.randomUUID(),
-          // Set defaults for new fields
-          documentReferences: conversation.documentReferences || [],
-          categoryTags: conversation.categoryTags || [],
-          conversationType: conversation.conversationType || 'general',
-          studyContext: conversation.studyContext || {
-            relatedConversations: [],
-            conceptsCovered: [],
-            knowledgeGaps: []
-          }
-        }]
-      })),
+      addConversation: (conversation) => {
+        const conversationId = crypto.randomUUID()
+        set((state) => ({
+          conversations: [...state.conversations, { 
+            ...conversation, 
+            id: conversationId,
+            // Set defaults for new fields
+            documentReferences: conversation.documentReferences || [],
+            categoryTags: conversation.categoryTags || [],
+            conversationType: conversation.conversationType || 'general',
+            studyContext: conversation.studyContext || {
+              relatedConversations: [],
+              conceptsCovered: [],
+              knowledgeGaps: []
+            }
+          }]
+        }))
+        return conversationId
+      },
       
       updateConversation: (id, updates) => set((state) => ({
         conversations: state.conversations.map(c => c.id === id ? { ...c, ...updates } : c)
@@ -587,7 +591,8 @@ export const useAIStore = create<AIState>()(
         }
         
         set((state) => ({
-          conversations: [...state.conversations, { ...conversation, id: conversationId }]
+          conversations: [...state.conversations, { ...conversation, id: conversationId }],
+          activeConversationId: conversationId  // 🔥 FIX: Set the new conversation as active
         }))
         
         return conversationId

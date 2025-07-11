@@ -16,6 +16,7 @@ import { useSettingsStore } from "@/lib/stores/settings-store"
 import { OnboardingDialog } from "@/components/onboarding"
 import { OnboardingService } from "@/lib/services/onboarding-service"
 import { MessageCircle } from "lucide-react"
+import { useFeatureFlags } from "@/lib/utils/feature-flags"
 
 // Lazy load heavy components to enable code splitting
 const FocusPane = lazy(() => import("@/components/focus/focus-pane").then(module => ({ default: module.FocusPane })))
@@ -259,6 +260,7 @@ export function App() {
   } = useStudyStore()
   
   const { theme, setTheme } = useTheme()
+  const { isFeatureEnabled } = useFeatureFlags()
   const [showOnboarding, setShowOnboarding] = useState(false)
 
   // Check if onboarding should be shown
@@ -372,10 +374,14 @@ export function App() {
               setCurrentView("library")
               break
             case "graph":
-              setCurrentView("graph")
+              if (isFeatureEnabled("showGraphView")) {
+                setCurrentView("graph")
+              }
               break
             case "workspace":
-              setCurrentView("workspace")
+              if (isFeatureEnabled("showWorkspace")) {
+                setCurrentView("workspace")
+              }
               break
             case "history":
               setCurrentView("history")

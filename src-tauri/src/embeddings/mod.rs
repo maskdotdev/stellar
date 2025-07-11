@@ -82,11 +82,10 @@ pub fn create_embedding_generator(config: &EmbeddingConfig) -> Result<Box<dyn Em
         }
         EmbeddingProvider::Ollama => {
             let base_url = config.base_url.as_ref().unwrap_or(&"http://localhost:11434".to_string()).clone();
-            match cloud::OllamaEmbeddings::new(base_url, config.model.clone()) {
+            match cloud::OllamaEmbeddings::new(base_url.clone(), config.model.clone()) {
                 Ok(embeddings) => Ok(Box::new(embeddings)),
                 Err(e) => {
-                    eprintln!("Failed to connect to Ollama at {}: {}, falling back to rust-bert", 
-                             config.base_url.as_ref().unwrap_or(&"http://localhost:11434".to_string()), e);
+                    eprintln!("Failed to create Ollama embeddings at {}: {}, falling back to rust-bert", base_url, e);
                     Ok(Box::new(local::RustBertEmbeddings::new()?))
                 }
             }

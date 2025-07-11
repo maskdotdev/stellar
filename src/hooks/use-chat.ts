@@ -87,15 +87,11 @@ export function useChat(options: UseChatOptions = {}) {
           knowledgeGaps: []
         }
       }
-      addConversation(newConversation)
-      // Get the newly created conversation ID (would need to modify store to return it)
-      targetConversationId = conversations[conversations.length - 1]?.id
-      if (targetConversationId) {
-        setActiveConversation(targetConversationId)
-        // Link to current session if available
-        if (currentSessionId) {
-          linkConversationToSession(targetConversationId, currentSessionId)
-        }
+      targetConversationId = addConversation(newConversation)
+      setActiveConversation(targetConversationId)
+      // Link to current session if available
+      if (currentSessionId) {
+        linkConversationToSession(targetConversationId, currentSessionId)
       }
     }
 

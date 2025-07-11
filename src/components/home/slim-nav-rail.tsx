@@ -10,11 +10,13 @@ import { useTheme } from "@/components/theme-provider"
 import { ThemeManager } from "@/lib/config/theme-config"
 import { HotkeyWrapper } from "@/components/hotkey"
 import { useActionsStore, ActionsService, ActionType } from "@/lib/services/actions-service"
+import { useFeatureFlags } from "@/lib/utils/feature-flags"
 
 export function SlimNavRail() {
   const { currentView, setCurrentView, keybindings } = useStudyStore()
   const { theme, setTheme } = useTheme()
   const [darkMode, setDarkMode] = useState(false)
+  const { isFeatureEnabled } = useFeatureFlags()
   
   // Actions tracking
   const actionsService = ActionsService.getInstance()
@@ -48,11 +50,11 @@ export function SlimNavRail() {
   const navItems = [
     { id: "library", icon: Library, label: "Library", shortcut: getKeybindingShortcut("library") },
     { id: "flashcards", icon: Zap, label: "Flashcards", shortcut: getKeybindingShortcut("flashcards") },
-    { id: "graph", icon: Network, label: "Graph", shortcut: getKeybindingShortcut("graph") },
-    { id: "workspace", icon: FileText, label: "Workspace", shortcut: getKeybindingShortcut("workspace") },
+    ...(isFeatureEnabled("showGraphView") ? [{ id: "graph", icon: Network, label: "Graph", shortcut: getKeybindingShortcut("graph") }] : []),
+    ...(isFeatureEnabled("showWorkspace") ? [{ id: "workspace", icon: FileText, label: "Workspace", shortcut: getKeybindingShortcut("workspace") }] : []),
     { id: "history", icon: History, label: "History", shortcut: getKeybindingShortcut("history") },
-    { id: "sessions", icon: Calendar, label: "Sessions", shortcut: "⌘7" },
-    { id: "analytics", icon: BarChart3, label: "Analytics", shortcut: "⌘6" },
+    ...(isFeatureEnabled("showSessions") ? [{ id: "sessions", icon: Calendar, label: "Sessions", shortcut: "⌘7" }] : []),
+    ...(isFeatureEnabled("showAnalytics") ? [{ id: "analytics", icon: BarChart3, label: "Analytics", shortcut: "⌘6" }] : []),
     { id: "settings", icon: Settings, label: "Settings", shortcut: "⌘5" }, // This one doesn't exist in keybindings yet
   ]
 
@@ -129,7 +131,7 @@ export function SlimNavRail() {
         <div className="flex-1" />
 
         {/* Debug Hotkeys Button (Development) */}
-        {process.env.NODE_ENV === 'development' && (
+        {isFeatureEnabled("showDebugHotkeys") && (
           <HotkeyWrapper
             hotkey="Debug Hotkeys"
             onAction={() => handleNavigation("debug-hotkeys", "Debug Hotkeys")}

@@ -29,7 +29,14 @@ pub use commands::{
     get_flashcard_stats, get_flashcard_reviews, get_flashcard_reviews_by_session,
     cleanup_all_data, cleanup_database_only, get_data_usage_info,
 };
-pub use commands::embeddings::*;
+pub use commands::embeddings::{
+    init_vector_service, init_embedding_service, process_document_embeddings,
+    search_document_embeddings, delete_document_embeddings, get_embedding_stats,
+    check_embedding_health, debug_embedding_service, list_embedded_documents,
+    get_document_embedding_info, get_embedding_database_info, 
+    bulk_reprocess_documents_for_embeddings, copy_document_embeddings,
+    test_embedding_provider_availability
+};
 pub use database::{Database, Document, CreateDocumentRequest, Category, CreateCategoryRequest};
 pub use pdf_processor::{PdfProcessor, MarkerOptions, ExtractOptions, ExtractionMethod};
 pub use embeddings::VectorService;
@@ -127,6 +134,7 @@ pub fn run() {
             get_embedding_database_info,
             bulk_reprocess_documents_for_embeddings,
             copy_document_embeddings,
+            test_embedding_provider_availability,
             cleanup_all_data,
             cleanup_database_only,
             get_data_usage_info,

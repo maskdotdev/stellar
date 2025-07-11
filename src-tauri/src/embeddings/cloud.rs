@@ -153,6 +153,8 @@ impl OllamaEmbeddings {
             model,
         })
     }
+    
+
 }
 
 #[async_trait]

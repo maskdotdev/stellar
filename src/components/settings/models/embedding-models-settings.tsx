@@ -42,6 +42,15 @@ const EMBEDDING_PROVIDERS: EmbeddingProvider[] = [
     models: ['text-embedding-ada-002', 'text-embedding-3-small', 'text-embedding-3-large'],
     requiresApiKey: true,
     supportsCustomUrl: false
+  },
+  {
+    id: 'openai-compatible',
+    name: 'OpenAI Compatible',
+    description: 'Custom OpenAI-compatible endpoints (requires API key and base URL)',
+    models: ['text-embedding-ada-002', 'text-embedding-3-small', 'text-embedding-3-large', 'custom-model'],
+    requiresApiKey: true,
+    supportsCustomUrl: true,
+    defaultUrl: 'https://api.your-provider.com/v1'
   }
 ]
 

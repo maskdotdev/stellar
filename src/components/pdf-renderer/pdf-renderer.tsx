@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { Worker, Viewer } from '@react-pdf-viewer/core';
+import { Worker, Viewer, ScrollMode } from '@react-pdf-viewer/core';
 import { defaultLayoutPlugin } from '@react-pdf-viewer/default-layout';
 import { searchPlugin } from '@react-pdf-viewer/search';
 import { rotatePlugin } from '@react-pdf-viewer/rotate';
@@ -7,6 +7,8 @@ import { zoomPlugin } from '@react-pdf-viewer/zoom';
 import { toolbarPlugin } from '@react-pdf-viewer/toolbar';
 import { cn } from '@/lib/utils/utils';
 import { useToast } from '@/hooks/use-toast';
+import { CustomPdfToolbar } from './pdf-custom-toolbar';
+import { NavigationToolbarExample, PDF_TOOLBAR_EXAMPLES } from './pdf-toolbar-examples';
 
 import type { PdfRendererProps } from './types';
 
@@ -33,9 +35,12 @@ export function PdfRenderer({
   const searchPluginInstance = searchPlugin();
   const rotatePluginInstance = rotatePlugin();
   const zoomPluginInstance = zoomPlugin();
+  
+  // Create toolbar plugin instance
   const toolbarPluginInstance = toolbarPlugin();
+  const { Toolbar } = toolbarPluginInstance;
 
-  // Initialize default layout plugin with theme-aware styling
+  // Initialize default layout plugin without custom toolbar
   const defaultLayoutPluginInstance = defaultLayoutPlugin({
     // Customize the sidebar
     sidebarTabs: (defaultTabs) => [
@@ -125,7 +130,7 @@ export function PdfRenderer({
   }, [getClasses]);
 
   return (
-    <div className={cn(...themeClasses, className)}>
+    <div className={cn(...themeClasses, className, "h-full")}>
       {/* Enhanced Header with theme-aware styling */}
       {title && (
         <div className={cn(
@@ -148,8 +153,15 @@ export function PdfRenderer({
         </div>
       )}
 
+      {/* Custom PDF Toolbar with Icons and Tooltips */}
+      <div className="border-b border-border">
+        <Toolbar>
+          {PDF_TOOLBAR_EXAMPLES.customInput()}
+        </Toolbar>
+      </div>
+
       {/* PDF Viewer with enhanced theming */}
-      <div className="flex-1 relative">
+      <div className="relative h-[calc(100vh-100px)]" >
         {isLoading && (
           <div className={cn(
             "absolute inset-0 flex items-center justify-center",
@@ -193,6 +205,8 @@ export function PdfRenderer({
               ]}
               onDocumentLoad={handleDocumentLoadSuccess}
               theme={isDark ? 'dark' : 'light'}
+              defaultScale={1.0}
+              scrollMode={ScrollMode.Vertical}
               renderError={(error) => (
                 <div className={cn(
                   "flex items-center justify-center h-full",

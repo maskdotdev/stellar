@@ -1,6 +1,7 @@
 import { LibraryService } from "@/lib/services/library-service"
 import { EmbeddingService } from "@/lib/services/embedding-service"
 import { DocumentContextParser } from './document-context'
+import { invoke } from "@tauri-apps/api/core"
 
 export class AppInitializationService {
   private static instance: AppInitializationService
@@ -27,22 +28,48 @@ export class AppInitializationService {
       const libraryService = LibraryService.getInstance()
       await libraryService.initialize()
 
-      // Initialize embedding service (sqlite-vec)
-      console.log('🔍 Initializing embedding service...')
-      const embeddingService = EmbeddingService.getInstance()
-      const embeddingInitialized = await embeddingService.initialize()
+      // Initialize embedding service with smart fallback (sqlite-vec)
+      console.log('🔍 Initializing embedding service with fallback logic...')
       
-      if (embeddingInitialized) {
-        console.log('✅ Embedding service connected successfully!')
+      try {
+        // Use the smart initialization service that handles fallbacks
+        const embeddingService = EmbeddingService.getInstance()
+        const result = await invoke<{
+          success: boolean;
+          provider: string;
+          model: string;
+          message: string;
+          fallback_used: boolean;
+          last_error?: string;
+        }>("init_embedding_service", {});
         
-        // Initialize document context parser with embeddings
-        const contextParser = DocumentContextParser.getInstance()
-        await contextParser.initializeEmbeddings()
-        
-        console.log('✅ Document context enhanced with semantic search')
-      } else {
-        console.warn('⚠️  Embedding service not available - using basic document context')
-        console.log('💡 To enable advanced features, configure embedding provider in settings')
+        if (result.success) {
+          // Mark the service as initialized so it knows it's ready
+          embeddingService.markAsInitialized()
+          
+          if (result.fallback_used) {
+            console.log(`⚠️ Embedding service initialized with fallback: ${result.provider}`)
+            console.log('💡 Consider setting up Ollama for better performance: https://ollama.ai')
+          } else {
+            console.log(`✅ Embedding service initialized with ${result.provider}`)
+          }
+          
+          if (result.last_error) {
+            console.log(`📝 Fallback details: ${result.last_error}`)
+          }
+          
+          // Initialize document context parser with embeddings
+          const contextParser = DocumentContextParser.getInstance()
+          await contextParser.initializeEmbeddings()
+          
+          console.log('✅ Document context enhanced with semantic search')
+        } else {
+          console.warn('⚠️ All embedding providers failed - using basic document context')
+          console.log('💡 To enable advanced features, configure an embedding provider in settings')
+        }
+      } catch (error) {
+        console.error('❌ Embedding service initialization failed:', error)
+        console.warn('⚠️ Using basic document context without semantic search')
       }
 
       this.initialized = true

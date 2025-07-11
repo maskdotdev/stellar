@@ -8,6 +8,7 @@ import { ChatSettings } from "./chat-settings"
 import { AppearanceSettings } from "./appearance-settings"
 import { KeybindingsSettings } from "./keybindings-settings"
 import { DataCleanupSettings } from "./data-cleanup-settings"
+import { DeveloperSettings } from "./developer-settings"
 import { useStudyStore } from "@/lib/stores/study-store"
 
 export function Settings() {
@@ -26,13 +27,16 @@ export function Settings() {
             </div>
 
             <Tabs value={settingsTab} onValueChange={(value) => setSettingsTab(value as any)} className="w-full">
-              <TabsList className="grid w-full grid-cols-6">
+              <TabsList className={`grid w-full ${process.env.NODE_ENV === 'development' ? 'grid-cols-7' : 'grid-cols-6'}`}>
                 <TabsTrigger value="providers">AI Providers</TabsTrigger>
                 <TabsTrigger value="models">AI Models</TabsTrigger>
                 <TabsTrigger value="chat">Chat Settings</TabsTrigger>
                 <TabsTrigger value="appearance">Appearance</TabsTrigger>
                 <TabsTrigger value="keybindings">Keybindings</TabsTrigger>
                 <TabsTrigger value="data">Data Cleanup</TabsTrigger>
+                {process.env.NODE_ENV === 'development' && (
+                  <TabsTrigger value="developer">Developer</TabsTrigger>
+                )}
               </TabsList>
 
               <TabsContent value="providers" className="space-y-4">
@@ -58,6 +62,12 @@ export function Settings() {
               <TabsContent value="data" className="space-y-4">
                 <DataCleanupSettings />
               </TabsContent>
+
+              {process.env.NODE_ENV === 'development' && (
+                <TabsContent value="developer" className="space-y-4">
+                  <DeveloperSettings />
+                </TabsContent>
+              )}
             </Tabs>
           </div>
         </div>

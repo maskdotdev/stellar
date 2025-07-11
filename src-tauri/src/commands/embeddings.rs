@@ -1,4 +1,4 @@
-use crate::embeddings::{VectorService, EmbeddingConfig, EmbeddingProvider, DocumentChunk, EmbeddingSearchResult};
+use crate::embeddings::{VectorService, EmbeddingConfig, EmbeddingProvider, DocumentChunk, EmbeddingSearchResult, create_embedding_generator};
 use crate::commands::database::DatabaseState;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -165,6 +165,7 @@ pub async fn check_embedding_health(
 #[tauri::command]
 pub async fn init_embedding_service(
     state: State<'_, VectorServiceState>,
+    db_state: State<'_, DatabaseState>,
     _legacy_url: Option<String>,
 ) -> Result<serde_json::Value, String> {
     // Use the same data directory as the main database
@@ -194,29 +195,192 @@ pub async fn init_embedding_service(
         Some("http://localhost:11434".to_string()), // Force correct Ollama URL
     ).await {
         Ok(_) => {
-            provider_used = "ollama".to_string();
-            println!("✅ Ollama embedding service initialized successfully");
-        },
-        Err(e) => {
-            last_error = format!("Ollama failed: {}", e);
-            println!("⚠️ Ollama failed: {}, trying rust-bert fallback...", e);
-            
-            // Fallback to rust-bert
-            match init_vector_service(
-                state,
-                db_path.to_string_lossy().to_string(),
-                "rust-bert".to_string(),
-                "fallback".to_string(),
-                None,
+            // Test the connection by trying to generate a simple embedding
+            println!("✅ Ollama service initialized, testing connection...");
+            match process_document_embeddings(
+                state.clone(),
+                "connection_test".to_string(),
+                "Connection Test".to_string(),
+                "This is a test embedding to verify Ollama connectivity.".to_string(),
+                "test".to_string(),
                 None,
             ).await {
                 Ok(_) => {
-                    provider_used = "rust-bert".to_string();
-                    println!("✅ Rust-bert fallback embedding service initialized");
+                    // Connection test successful, clean up the test document
+                    let _ = delete_document_embeddings(state.clone(), "connection_test".to_string()).await;
+                    provider_used = "ollama".to_string();
+                    println!("✅ Ollama connection test successful");
                 },
-                Err(e2) => {
-                    last_error = format!("Ollama failed: {}, Rust-bert failed: {}", last_error, e2);
-                    return Err(format!("All embedding providers failed. {}", last_error));
+                Err(e) => {
+                    // Connection test failed, clean up and fallback
+                    let _ = delete_document_embeddings(state.clone(), "connection_test".to_string()).await;
+                    last_error = format!("Ollama connection test failed: {}", e);
+                    println!("⚠️ Ollama connection test failed: {}, trying OpenAI fallback...", e);
+                    
+                    // Try OpenAI as fallback if API key is available
+                    let db_guard = db_state.lock().await;
+                    let openai_api_key = if let Some(database) = db_guard.as_ref() {
+                        database.get_api_key("openai-default").await
+                            .unwrap_or(None)
+                    } else {
+                        None
+                    };
+                    drop(db_guard);
+                    
+                    if let Some(api_key) = openai_api_key {
+                        println!("🔍 Found OpenAI API key, trying OpenAI embeddings...");
+                        match init_vector_service(
+                            state.clone(),
+                            db_path.to_string_lossy().to_string(),
+                            "openai".to_string(),
+                            "text-embedding-3-small".to_string(), // Efficient OpenAI model
+                            Some(api_key),
+                            None,
+                        ).await {
+                            Ok(_) => {
+                                provider_used = "openai".to_string();
+                                println!("✅ OpenAI embedding service initialized successfully");
+                            },
+                            Err(e2) => {
+                                last_error = format!("Ollama failed: {}, OpenAI failed: {}", last_error, e2);
+                                println!("⚠️ OpenAI failed: {}, trying rust-bert fallback...", e2);
+                                
+                                // Final fallback to rust-bert
+                                match init_vector_service(
+                                    state,
+                                    db_path.to_string_lossy().to_string(),
+                                    "rust-bert".to_string(),
+                                    "fallback".to_string(),
+                                    None,
+                                    None,
+                                ).await {
+                                    Ok(_) => {
+                                        provider_used = "rust-bert".to_string();
+                                        println!("✅ Rust-bert fallback embedding service initialized");
+                                    },
+                                    Err(e3) => {
+                                        last_error = format!("Ollama failed: {}, OpenAI failed: {}, Rust-bert failed: {}", last_error, e2, e3);
+                                        return Err(format!("All embedding providers failed. {}", last_error));
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        println!("⚠️ No OpenAI API key found, trying rust-bert fallback...");
+                        
+                        // Fallback to rust-bert
+                        match init_vector_service(
+                            state,
+                            db_path.to_string_lossy().to_string(),
+                            "rust-bert".to_string(),
+                            "fallback".to_string(),
+                            None,
+                            None,
+                        ).await {
+                            Ok(_) => {
+                                provider_used = "rust-bert".to_string();
+                                println!("✅ Rust-bert fallback embedding service initialized");
+                            },
+                            Err(e2) => {
+                                last_error = format!("Ollama failed: {}, Rust-bert failed: {}", last_error, e2);
+                                return Err(format!("All embedding providers failed. {}", last_error));
+                            }
+                        }
+                    }
+                    
+                    // Early return since we've handled the fallback
+                    return Ok(serde_json::json!({
+                        "success": true,
+                        "provider": provider_used,
+                        "model": match provider_used.as_str() {
+                            "ollama" => "mxbai-embed-large",
+                            "openai" => "text-embedding-3-small",
+                            _ => "fallback"
+                        },
+                        "base_url": match provider_used.as_str() {
+                            "ollama" => "http://localhost:11434",
+                            "openai" => "https://api.openai.com/v1",
+                            _ => "local"
+                        },
+                        "message": format!("Embedding service initialized with {}", provider_used),
+                        "fallback_used": provider_used != "ollama",
+                        "last_error": if !last_error.is_empty() { Some(last_error) } else { None }
+                    }));
+                }
+            }
+        },
+        Err(e) => {
+            last_error = format!("Ollama initialization failed: {}", e);
+            println!("⚠️ Ollama initialization failed: {}, trying OpenAI fallback...", e);
+            
+            // Try OpenAI as fallback if API key is available
+            let db_guard = db_state.lock().await;
+            let openai_api_key = if let Some(database) = db_guard.as_ref() {
+                database.get_api_key("openai-default").await
+                    .unwrap_or(None)
+            } else {
+                None
+            };
+            drop(db_guard);
+            
+            if let Some(api_key) = openai_api_key {
+                println!("🔍 Found OpenAI API key, trying OpenAI embeddings...");
+                match init_vector_service(
+                    state.clone(),
+                    db_path.to_string_lossy().to_string(),
+                    "openai".to_string(),
+                    "text-embedding-3-small".to_string(), // Efficient OpenAI model
+                    Some(api_key),
+                    None,
+                ).await {
+                    Ok(_) => {
+                        provider_used = "openai".to_string();
+                        println!("✅ OpenAI embedding service initialized successfully");
+                    },
+                    Err(e2) => {
+                        last_error = format!("Ollama failed: {}, OpenAI failed: {}", last_error, e2);
+                        println!("⚠️ OpenAI failed: {}, trying rust-bert fallback...", e2);
+                        
+                        // Final fallback to rust-bert
+                        match init_vector_service(
+                            state,
+                            db_path.to_string_lossy().to_string(),
+                            "rust-bert".to_string(),
+                            "fallback".to_string(),
+                            None,
+                            None,
+                        ).await {
+                            Ok(_) => {
+                                provider_used = "rust-bert".to_string();
+                                println!("✅ Rust-bert fallback embedding service initialized");
+                            },
+                            Err(e3) => {
+                                last_error = format!("Ollama failed: {}, OpenAI failed: {}, Rust-bert failed: {}", last_error, e2, e3);
+                                return Err(format!("All embedding providers failed. {}", last_error));
+                            }
+                        }
+                    }
+                }
+            } else {
+                println!("⚠️ No OpenAI API key found, trying rust-bert fallback...");
+                
+                // Fallback to rust-bert
+                match init_vector_service(
+                    state,
+                    db_path.to_string_lossy().to_string(),
+                    "rust-bert".to_string(),
+                    "fallback".to_string(),
+                    None,
+                    None,
+                ).await {
+                    Ok(_) => {
+                        provider_used = "rust-bert".to_string();
+                        println!("✅ Rust-bert fallback embedding service initialized");
+                    },
+                    Err(e2) => {
+                        last_error = format!("Ollama failed: {}, Rust-bert failed: {}", last_error, e2);
+                        return Err(format!("All embedding providers failed. {}", last_error));
+                    }
                 }
             }
         }
@@ -225,8 +389,16 @@ pub async fn init_embedding_service(
     Ok(serde_json::json!({
         "success": true,
         "provider": provider_used,
-        "model": if provider_used == "ollama" { "mxbai-embed-large" } else { "fallback" },
-        "base_url": if provider_used == "ollama" { "http://localhost:11434" } else { "local" },
+        "model": match provider_used.as_str() {
+            "ollama" => "mxbai-embed-large",
+            "openai" => "text-embedding-3-small",
+            _ => "fallback"
+        },
+        "base_url": match provider_used.as_str() {
+            "ollama" => "http://localhost:11434",
+            "openai" => "https://api.openai.com/v1",
+            _ => "local"
+        },
         "message": format!("Embedding service initialized with {}", provider_used),
         "fallback_used": provider_used == "rust-bert",
         "last_error": if !last_error.is_empty() { Some(last_error) } else { None }
@@ -450,4 +622,134 @@ pub async fn copy_document_embeddings(
     println!("📋 Would copy {} chunks from {} to {}", source_chunks, source_document_id, target_document_id);
     
     Ok(true)
+} 
+
+#[tauri::command]
+pub async fn test_embedding_provider_availability(
+    db_state: State<'_, DatabaseState>,
+) -> Result<serde_json::Value, String> {
+    let mut available_providers = Vec::new();
+    let mut test_results = Vec::new();
+    
+    // Test Ollama
+    println!("🔍 Testing Ollama availability...");
+    let ollama_config = EmbeddingConfig {
+        provider: EmbeddingProvider::Ollama,
+        model: "mxbai-embed-large".to_string(),
+        api_key: None,
+        base_url: Some("http://localhost:11434".to_string()),
+        dimensions: 1024,
+    };
+    
+    match create_embedding_generator(&ollama_config) {
+        Ok(_) => {
+            available_providers.push("ollama");
+            test_results.push(serde_json::json!({
+                "provider": "ollama",
+                "available": true,
+                "model": "mxbai-embed-large",
+                "base_url": "http://localhost:11434"
+            }));
+        }
+        Err(e) => {
+            test_results.push(serde_json::json!({
+                "provider": "ollama",
+                "available": false,
+                "error": e.to_string()
+            }));
+        }
+    }
+    
+    // Test OpenAI
+    println!("🔍 Testing OpenAI availability...");
+    let db_guard = db_state.lock().await;
+    let openai_api_key = if let Some(database) = db_guard.as_ref() {
+        database.get_api_key("openai-default").await
+            .unwrap_or(None)
+    } else {
+        None
+    };
+    drop(db_guard);
+    
+    if let Some(api_key) = openai_api_key {
+        let openai_config = EmbeddingConfig {
+            provider: EmbeddingProvider::OpenAI,
+            model: "text-embedding-3-small".to_string(),
+            api_key: Some(api_key),
+            base_url: None,
+            dimensions: 1536,
+        };
+        
+        match create_embedding_generator(&openai_config) {
+            Ok(_) => {
+                available_providers.push("openai");
+                test_results.push(serde_json::json!({
+                    "provider": "openai",
+                    "available": true,
+                    "model": "text-embedding-3-small",
+                    "has_api_key": true
+                }));
+            }
+            Err(e) => {
+                test_results.push(serde_json::json!({
+                    "provider": "openai",
+                    "available": false,
+                    "error": e.to_string(),
+                    "has_api_key": true
+                }));
+            }
+        }
+    } else {
+        test_results.push(serde_json::json!({
+            "provider": "openai",
+            "available": false,
+            "error": "No API key configured",
+            "has_api_key": false
+        }));
+    }
+    
+    // Test rust-bert fallback
+    println!("🔍 Testing rust-bert fallback...");
+    let rustbert_config = EmbeddingConfig {
+        provider: EmbeddingProvider::RustBert,
+        model: "fallback".to_string(),
+        api_key: None,
+        base_url: None,
+        dimensions: 384,
+    };
+    
+    match create_embedding_generator(&rustbert_config) {
+        Ok(_) => {
+            available_providers.push("rust-bert");
+            test_results.push(serde_json::json!({
+                "provider": "rust-bert",
+                "available": true,
+                "model": "fallback"
+            }));
+        }
+        Err(e) => {
+            test_results.push(serde_json::json!({
+                "provider": "rust-bert",
+                "available": false,
+                "error": e.to_string()
+            }));
+        }
+    }
+    
+    let recommended_provider = if available_providers.contains(&"ollama") {
+        "ollama"
+    } else if available_providers.contains(&"openai") {
+        "openai"
+    } else if available_providers.contains(&"rust-bert") {
+        "rust-bert"
+    } else {
+        "none"
+    };
+    
+    Ok(serde_json::json!({
+        "available_providers": available_providers,
+        "recommended_provider": recommended_provider,
+        "test_results": test_results,
+        "fallback_order": ["ollama", "openai", "rust-bert"]
+    }))
 } 

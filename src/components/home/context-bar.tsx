@@ -28,6 +28,8 @@ export function ContextBar() {
     navigateBackToCategories 
   } = useStudyStore()
   
+
+  
   // Actions tracking
   const actionsService = ActionsService.getInstance()
   const { currentSessionId } = useActionsStore()

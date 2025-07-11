@@ -16,6 +16,7 @@ import { useStudyStore } from "@/lib/stores/study-store"
 import { useTheme } from "@/components/theme-provider"
 import { themes, ThemeManager } from "@/lib/config/theme-config"
 import { useActionsStore, ActionsService, ActionType } from "@/lib/services/actions-service"
+import { useFeatureFlags } from "@/lib/utils/feature-flags"
 
 interface Command {
   id: string
@@ -29,6 +30,7 @@ export function CommandPalette() {
   const [search, setSearch] = useState("")
   const { currentView, setCurrentView, keybindings, showCommandPalette, setShowCommandPalette } = useStudyStore()
   const { theme, setTheme } = useTheme()
+  const { isFeatureEnabled } = useFeatureFlags()
   
   // Actions tracking
   const actionsService = ActionsService.getInstance()
@@ -48,15 +50,13 @@ export function CommandPalette() {
     { id: "focus", label: "Focus Pane", icon: Focus, shortcut: getKeybindingShortcut(keybindings, "focus") },
     { id: "library", label: "Library", icon: Library, shortcut: getKeybindingShortcut(keybindings, "library") },
     { id: "flashcards", label: "Flashcards", icon: Zap, shortcut: getKeybindingShortcut(keybindings, "flashcards") },
-    { id: "workspace", label: "Workspace", icon: FileText, shortcut: getKeybindingShortcut(keybindings, "workspace") },
-    { id: "graph", label: "Graph View", icon: Network, shortcut: getKeybindingShortcut(keybindings, "graph") },
+    ...(isFeatureEnabled("showWorkspace") ? [{ id: "workspace", label: "Workspace", icon: FileText, shortcut: getKeybindingShortcut(keybindings, "workspace") }] : []),
+    ...(isFeatureEnabled("showGraphView") ? [{ id: "graph", label: "Graph View", icon: Network, shortcut: getKeybindingShortcut(keybindings, "graph") }] : []),
     { id: "history", label: "History", icon: History, shortcut: getKeybindingShortcut(keybindings, "history") },
-    { id: "sessions", label: "Sessions", icon: Calendar, shortcut: "⌘7" },
-    { id: "analytics", label: "Analytics", icon: BarChart3, shortcut: "⌘6" },
+    ...(isFeatureEnabled("showSessions") ? [{ id: "sessions", label: "Sessions", icon: Calendar, shortcut: "⌘7" }] : []),
+    ...(isFeatureEnabled("showAnalytics") ? [{ id: "analytics", label: "Analytics", icon: BarChart3, shortcut: "⌘6" }] : []),
     { id: "settings", label: "Settings", icon: Settings, shortcut: getKeybindingShortcut(keybindings, "settings") },
-    ...(process.env.NODE_ENV === 'development' ? [
-      { id: "debug-hotkeys", label: "Debug Hotkeys", icon: Bug, shortcut: getKeybindingShortcut(keybindings, "debug-hotkeys") }
-    ] : []),
+    ...(isFeatureEnabled("showDebugHotkeys") ? [{ id: "debug-hotkeys", label: "Debug Hotkeys", icon: Bug, shortcut: getKeybindingShortcut(keybindings, "debug-hotkeys") }] : []),
   ]
 
   // Quick actions

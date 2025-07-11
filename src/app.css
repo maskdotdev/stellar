@@ -4,7 +4,6 @@
 @import './styles/_keyframe-animations.scss';
 @import './styles/_variables.scss';
 
-
 @custom-variant dark (&:is(.dark *));
 
 @theme {
@@ -52,33 +51,33 @@
   * {
     @apply border-border outline-ring/50;
   }
-  
+
   /* Initialize font variables */
   :root {
     --font-sans: system-ui, -apple-system, sans-serif;
     --font-serif: ui-serif, Georgia, serif;
     --font-mono: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Monaco, Consolas, 'Courier New', monospace;
   }
-  
+
   /* Apply theme fonts to the entire document */
   html {
     font-family: var(--font-sans);
   }
-  
+
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
   }
-  
+
   /* Ensure serif and mono fonts are also properly applied */
   .font-serif {
     font-family: var(--font-serif) !important;
   }
-  
+
   .font-mono {
     font-family: var(--font-mono) !important;
   }
-  
+
   /* Apply to code elements specifically */
   code, pre, kbd, samp {
     font-family: var(--font-mono);
@@ -91,7 +90,7 @@
     position: relative;
     overflow: hidden;
   }
-  
+
   /* Main spotlight diffusion layer */
   .spotlight-bg::before {
     content: '';
@@ -124,7 +123,7 @@
     pointer-events: none;
     z-index: 0;
   }
-  
+
   /* Secondary spotlight layer for more depth */
   .spotlight-bg::after {
     content: '';
@@ -144,12 +143,12 @@
     pointer-events: none;
     z-index: 0;
   }
-  
+
   .spotlight-content {
     position: relative;
     z-index: 1;
   }
-  
+
   /* Enhanced spotlight for dark themes */
   .dark .spotlight-bg::before {
     background: 
@@ -177,7 +176,7 @@
         transparent 40%
       );
   }
-  
+
   .dark .spotlight-bg::after {
     background: 
       radial-gradient(
@@ -191,7 +190,7 @@
         transparent 50%
       );
   }
-  
+
   /* Subtle breathing animation for the spotlights */
   @keyframes spotlight-breathe {
     0%, 100% { 
@@ -203,11 +202,11 @@
       transform: scale(1.02);
     }
   }
-  
+
   .spotlight-bg::before {
     animation: spotlight-breathe 12s ease-in-out infinite;
   }
-  
+
   .spotlight-bg::after {
     animation: spotlight-breathe 16s ease-in-out infinite reverse;
   }
@@ -223,4 +222,37 @@
   .titlebar {
     background-color: hsl(var(--background));
   }
+}
+
+:root {
+  --sidebar: hsl(0 0% 98%);
+  --sidebar-foreground: hsl(240 5.3% 26.1%);
+  --sidebar-primary: hsl(240 5.9% 10%);
+  --sidebar-primary-foreground: hsl(0 0% 98%);
+  --sidebar-accent: hsl(240 4.8% 95.9%);
+  --sidebar-accent-foreground: hsl(240 5.9% 10%);
+  --sidebar-border: hsl(220 13% 91%);
+  --sidebar-ring: hsl(217.2 91.2% 59.8%);
+}
+
+.dark {
+  --sidebar: hsl(240 5.9% 10%);
+  --sidebar-foreground: hsl(240 4.8% 95.9%);
+  --sidebar-primary: hsl(224.3 76.3% 48%);
+  --sidebar-primary-foreground: hsl(0 0% 100%);
+  --sidebar-accent: hsl(240 3.7% 15.9%);
+  --sidebar-accent-foreground: hsl(240 4.8% 95.9%);
+  --sidebar-border: hsl(240 3.7% 15.9%);
+  --sidebar-ring: hsl(217.2 91.2% 59.8%);
+}
+
+@theme inline {
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-ring: var(--sidebar-ring);
 }
