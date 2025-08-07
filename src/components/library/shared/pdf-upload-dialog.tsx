@@ -1,25 +1,29 @@
 "use client";
 
-import { useState } from "react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+// Removed unused Collapsible imports
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Badge } from "@/components/ui/badge";
+// Removed unused Switch import
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useState } from "react";
 
+import { HardDrive, Link, Loader2, Plus, Upload, X } from "lucide-react";
 
 import {
-  Loader2,
-  X,
-  Upload,
-  Link,
-  HardDrive,
-  Plus,
-} from "lucide-react";
-
-import { LibraryService, type Document, type Category } from "@/lib/services/library-service";
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  type Category,
+  type Document,
+  LibraryService,
+} from "@/lib/services/library-service";
 
 interface PdfUploadDialogProps {
   open: boolean;
@@ -45,9 +49,11 @@ export function PdfUploadDialog({
   const [url, setUrl] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [file, setFile] = useState<File | null>(null);
-  const [selectedCategoryId, setSelectedCategoryId] = useState<string | undefined>(
-    currentCategoryId || undefined
-  );
+  const [selectedCategoryId, setSelectedCategoryId] = useState<
+    string | undefined
+  >(currentCategoryId ?? undefined);
+  // Background processing toggle not yet implemented; removing unused state
+
   const { toast } = useToast();
 
   const libraryService = LibraryService.getInstance();
@@ -71,7 +77,7 @@ export function PdfUploadDialog({
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
+    if (e.target.files?.[0]) {
       setFile(e.target.files[0]);
     }
   };
@@ -83,10 +89,13 @@ export function PdfUploadDialog({
     setUrl("");
     setUploadType("file");
     setFile(null);
-    setSelectedCategoryId(currentCategoryId || undefined);
-    
+    setSelectedCategoryId(currentCategoryId ?? undefined);
+    // no-op for background processing toggle
+
     // Reset the file input element
-    const fileInput = document.getElementById("file-upload") as HTMLInputElement;
+    const fileInput = document.getElementById(
+      "file-upload"
+    ) as HTMLInputElement;
     if (fileInput) {
       fileInput.value = "";
     }
@@ -126,12 +135,26 @@ export function PdfUploadDialog({
           return;
         }
 
-        document = await libraryService.uploadPdfFromUrl({
-          url: url.trim(),
-          title: title.trim() || undefined,
-          tags: tags,
-          categoryId: selectedCategoryId,
+        // Download PDF and create document immediately (content processes in background)
+        const document =
+          await libraryService.downloadPdfFromUrlAndProcessBackground({
+            url: url.trim(),
+            title: title.trim() || undefined,
+            tags: tags,
+            categoryId: selectedCategoryId,
+          });
+
+        // Add document to library immediately
+        onSuccess(document);
+        onOpenChange(false);
+        resetForm();
+
+        toast({
+          title: "PDF Downloaded",
+          description: `"${document.title}" is now available in your library. Text content is being processed in the background.`,
         });
+
+        return;
       }
 
       if (document) {
@@ -146,12 +169,37 @@ export function PdfUploadDialog({
       }
     } catch (error) {
       console.error("Failed to upload PDF:", error);
+
+      // More specific error messages
+      let errorMessage = "An unexpected error occurred. Please try again.";
+
+      if (uploadType === "file") {
+        errorMessage = "Failed to upload PDF. Please try again.";
+      } else {
+        // URL upload error - check the error message for more details
+        const errorStr = error instanceof Error ? error.message : String(error);
+
+        if (errorStr.includes("Failed to download PDF: HTTP")) {
+          errorMessage =
+            "Failed to download PDF from URL. Please check the URL and try again.";
+        } else if (errorStr.includes("Failed to download PDF:")) {
+          errorMessage =
+            "Network error while downloading PDF. Please check your internet connection and try again.";
+        } else if (errorStr.includes("Failed to save PDF")) {
+          errorMessage =
+            "Downloaded PDF successfully but failed to save it. Please try again.";
+        } else if (errorStr.includes("Failed to create processing job")) {
+          errorMessage =
+            "Downloaded PDF successfully but failed to create processing job. Please try again.";
+        } else {
+          errorMessage =
+            "Failed to download PDF from URL. Please check the URL and try again.";
+        }
+      }
+
       toast({
         title: "Error",
-        description:
-          uploadType === "file"
-            ? "Failed to upload PDF. Please try again."
-            : "Failed to download PDF from URL. Please check the URL and try again.",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -160,7 +208,8 @@ export function PdfUploadDialog({
   };
 
   const isFormValid =
-    (uploadType === "file" && file !== null) || (uploadType === "url" && url.trim().length > 0);
+    (uploadType === "file" && file !== null) ||
+    (uploadType === "url" && url.trim().length > 0);
 
   if (!open) return null;
 
@@ -171,9 +220,7 @@ export function PdfUploadDialog({
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div className="flex items-center gap-2">
             <Upload className="w-4 h-4 text-primary" />
-            <h2 className="text-lg font-semibold text-foreground">
-              Add PDF
-            </h2>
+            <h2 className="text-lg font-semibold text-foreground">Add PDF</h2>
           </div>
           <Button
             variant="ghost"
@@ -189,8 +236,13 @@ export function PdfUploadDialog({
         <div className="p-4 space-y-3">
           {/* Upload Method - Tabs */}
           <div className="space-y-1">
-            <Label className="text-xs font-medium text-muted-foreground">Upload Method</Label>
-            <Tabs value={uploadType} onValueChange={(value) => setUploadType(value as UploadType)}>
+            <Label className="text-xs font-medium text-muted-foreground">
+              Upload Method
+            </Label>
+            <Tabs
+              value={uploadType}
+              onValueChange={(value) => setUploadType(value as UploadType)}
+            >
               <TabsList className="h-8">
                 <TabsTrigger value="file" className="text-xs h-6">
                   <HardDrive className="w-3 h-3" />
@@ -206,11 +258,12 @@ export function PdfUploadDialog({
 
           {/* File Upload or URL Input - Compact */}
           {uploadType === "file" ? (
-            <div className={`border border-dashed rounded p-2 text-center transition-colors ${
-              file 
-                ? "border-primary bg-primary/5" 
-                : "border-border hover:border-primary/50"
-            }`}>
+            <div
+              className={`border border-dashed rounded p-2 text-center transition-colors ${file
+                  ? "border-primary bg-primary/5"
+                  : "border-border hover:border-primary/50"
+                }`}
+            >
               <Input
                 id="file-upload"
                 type="file"
@@ -222,8 +275,14 @@ export function PdfUploadDialog({
                 htmlFor="file-upload"
                 className="cursor-pointer flex items-center justify-center gap-2"
               >
-                <Upload className={`w-4 h-4 ${file ? "text-primary" : "text-muted-foreground"}`} />
-                <p className={`text-xs ${file ? "text-primary font-medium" : "text-muted-foreground"}`}>
+                <Upload
+                  className={`w-4 h-4 ${file ? "text-primary" : "text-muted-foreground"
+                    }`}
+                />
+                <p
+                  className={`text-xs ${file ? "text-primary font-medium" : "text-muted-foreground"
+                    }`}
+                >
                   {file ? file.name : "Click to upload PDF"}
                 </p>
               </Label>
@@ -238,14 +297,17 @@ export function PdfUploadDialog({
             />
           )}
 
-
-
           {/* Category Selection */}
           <div className="space-y-1 pt-2 border-t border-border">
             <Label className="text-xs font-medium text-muted-foreground">
               Category <span className="text-muted-foreground">(optional)</span>
             </Label>
-            <Select value={selectedCategoryId || "none"} onValueChange={(value) => setSelectedCategoryId(value === "none" ? undefined : value)}>
+            <Select
+              value={selectedCategoryId || "none"}
+              onValueChange={(value) =>
+                setSelectedCategoryId(value === "none" ? undefined : value)
+              }
+            >
               <SelectTrigger className="h-8 text-xs">
                 <SelectValue placeholder="Select a category..." />
               </SelectTrigger>
@@ -254,8 +316,8 @@ export function PdfUploadDialog({
                 {categories.map((category) => (
                   <SelectItem key={category.id} value={category.id}>
                     <div className="flex items-center space-x-2">
-                      <div 
-                        className="w-3 h-3 rounded-full" 
+                      <div
+                        className="w-3 h-3 rounded-full"
                         style={{ backgroundColor: category.color }}
                       />
                       <span>{category.name}</span>
@@ -269,7 +331,10 @@ export function PdfUploadDialog({
           {/* Metadata - Compact */}
           <div className="space-y-2">
             <div>
-              <Label htmlFor="title" className="text-xs font-medium text-muted-foreground">
+              <Label
+                htmlFor="title"
+                className="text-xs font-medium text-muted-foreground"
+              >
                 Title <span className="text-muted-foreground">(optional)</span>
               </Label>
               <Input
@@ -282,7 +347,9 @@ export function PdfUploadDialog({
             </div>
 
             <div>
-              <Label className="text-xs font-medium text-muted-foreground">Tags</Label>
+              <Label className="text-xs font-medium text-muted-foreground">
+                Tags
+              </Label>
               <div className="flex gap-1 mt-1">
                 <Input
                   placeholder="Add tags..."
