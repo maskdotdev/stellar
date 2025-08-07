@@ -1,26 +1,29 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { ControlledSimpleEditor } from "@/components/ui/controlled-simple-editor"
-import { 
-  Save, 
-  ArrowLeft, 
-  Tag, 
-  FileText,
-  Loader2,
-  Plus,
-  X,
-  Clock
-} from "lucide-react"
-import { useStudyStore } from "@/lib/stores/study-store"
-import { LibraryService, type Document, type Category } from "@/lib/services/library-service"
-import { useToast } from "@/hooks/use-toast"
+import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { useActionsStore, ActionsService, ActionType } from "@/lib/services/actions-service"
 import { useDebouncedNoteAction } from "@/hooks/use-debounced-action"
+import { useToast } from "@/hooks/use-toast"
+import { ActionType, ActionsService, useActionsStore } from "@/lib/services/actions-service"
+import { type Category, type Document, LibraryService } from "@/lib/services/library-service"
+import { useStudyStore } from "@/lib/stores/study-store"
+import {
+  ArrowLeft,
+  Clock,
+  FileText,
+  Lightbulb,
+  Loader2,
+  MessageCircle,
+  Plus,
+  Save,
+  Tag,
+  X
+} from "lucide-react"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { TextSelectionPopover } from "./text-selection-popover"
 
 interface NoteEditorProps {
   documentId?: string
@@ -38,20 +41,23 @@ export function NoteEditor({ documentId, onBack, categories = [], currentCategor
   const [isLoading, setIsLoading] = useState(false)
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [document, setDocument] = useState<Document | null>(null)
+  const [selectedText, setSelectedText] = useState("")
+  const lastSavedContentRef = useRef<string>("")
+  const lastLoadedUpdatedAtRef = useRef<string | null>(null)
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | undefined>(
     currentCategoryId || undefined
   )
-  
+
   const { toast } = useToast()
-  const { addDocument, updateDocument, setEditingNoteId, setCurrentDocument, setCurrentView, documents } = useStudyStore()
-  const libraryService = LibraryService.getInstance()
-  
+  const { addDocument, updateDocument, setEditingNoteId, setCurrentDocument, setCurrentView, documents, setShowFloatingChat, setInitialChatText } = useStudyStore()
+  const libraryServiceRef = useRef(LibraryService.getInstance())
+
   // Actions tracking
   const actionsService = ActionsService.getInstance()
   const { currentSessionId } = useActionsStore()
   const { recordNoteEdit, finishEditingSession } = useDebouncedNoteAction()
 
-  // Load existing document if editing
+  // Load existing document if editing (fetch-first to avoid stale cache)
   useEffect(() => {
     const loadDocument = async () => {
       if (!documentId) {
@@ -68,34 +74,26 @@ export function NoteEditor({ documentId, onBack, categories = [], currentCategor
 
       try {
         setIsLoading(true)
-        
-        // First, try to get from store (for recent updates)
-        const storeDocument = documents.find(doc => doc.id === documentId)
-        
+
+        // Fetch-first from DB with retry to ensure freshest content
         let doc: Document | null = null
-        
-        if (storeDocument) {
-          // Use store data if available (likely more recent)
-          doc = storeDocument
-        } else {
-          // Fallback to database with retry logic for race conditions
-          let retries = 3
-          while (retries > 0 && !doc) {
-            doc = await libraryService.getDocument(documentId)
-            if (!doc && retries > 1) {
-              // Wait a bit and retry (handles race conditions)
-              await new Promise(resolve => setTimeout(resolve, 150))
-            }
-            retries--
+        let retries = 3
+        while (retries > 0 && !doc) {
+          doc = await libraryServiceRef.current.getDocument(documentId)
+          if (!doc && retries > 1) {
+            await new Promise(resolve => setTimeout(resolve, 150))
           }
+          retries--
         }
-        
+
         if (doc) {
           setDocument(doc)
           setTitle(doc.title)
           setContent(doc.content)
           setTags(doc.tags)
           setSelectedCategoryId(doc.category_id || undefined)
+          lastSavedContentRef.current = doc.content
+          lastLoadedUpdatedAtRef.current = doc.updated_at
         }
       } catch (error) {
         console.error('Failed to load document:', error)
@@ -110,35 +108,60 @@ export function NoteEditor({ documentId, onBack, categories = [], currentCategor
     }
 
     loadDocument()
+    // Ensure we always clear loading after a hard timeout to avoid spinner lock
+    const safety = setTimeout(() => setIsLoading(false), 5000)
+    return () => clearTimeout(safety)
   }, [documentId, currentCategoryId, toast])
 
-  // Watch for document updates in the store (e.g., when content is added from PDF viewer)
+  // Sync fetched document to store once per version, without causing a loop
+  const lastSyncedVersionRef = useRef<string | null>(null)
   useEffect(() => {
-    if (documentId && document) {
-      const storeDocument = documents.find(doc => doc.id === documentId)
-      
-      // If store document has newer content than current state, update it
-      if (storeDocument && storeDocument.updated_at !== document.updated_at) {
-        console.log('Note editor: Detected document update in store, reloading content')
-        setDocument(storeDocument)
-        setTitle(storeDocument.title)
-        setContent(storeDocument.content)
-        setTags(storeDocument.tags)
-        setSelectedCategoryId(storeDocument.category_id || undefined)
-      }
-    }
-  }, [documentId, document, documents]) // Re-run when documents array changes
+    if (!document) return
+    if (lastSyncedVersionRef.current === document.updated_at) return
+    updateDocument(document.id, document)
+    lastSyncedVersionRef.current = document.updated_at
+  }, [document, updateDocument])
 
-  // Auto-save functionality
+  // Watch for document updates in the store and load only meaningful external changes
   useEffect(() => {
-    if (!title || !content) return
+    if (!documentId) return
+    const storeDocument = documents.find(d => d.id === documentId)
+    if (!storeDocument) return
+
+    // If we've already loaded this version, skip
+    if (lastLoadedUpdatedAtRef.current === storeDocument.updated_at) return
+
+    const normalize = (html: string) => html.replace(/\s+/g, ' ').trim()
+    const storeContent = normalize(storeDocument.content || "")
+    const localContent = normalize(content || "")
+    const lastSavedContent = normalize(lastSavedContentRef.current || "")
+
+    // If contents match current editor or last saved, just sync the ref and skip heavy state updates
+    if (storeContent === localContent || storeContent === lastSavedContent) {
+      lastLoadedUpdatedAtRef.current = storeDocument.updated_at
+      return
+    }
+
+    // External change: update local editor state
+    setDocument(storeDocument)
+    setTitle(storeDocument.title)
+    setContent(storeDocument.content)
+    setTags(storeDocument.tags)
+    setSelectedCategoryId(storeDocument.category_id || undefined)
+    lastLoadedUpdatedAtRef.current = storeDocument.updated_at
+  }, [documentId, documents, content])
+
+  // Auto-save functionality (500ms idle)
+  useEffect(() => {
+    const hasChanges = title || content
+    if (!hasChanges) return
 
     const timeoutId = setTimeout(() => {
       handleSave(true)
-    }, 2000) // Auto-save after 2 seconds of inactivity
+    }, 500)
 
     return () => clearTimeout(timeoutId)
-  }, [title, content, tags])
+  }, [title, content])
 
   // Debounced action recording for content changes (only for existing notes)
   useEffect(() => {
@@ -173,15 +196,15 @@ export function NoteEditor({ documentId, onBack, categories = [], currentCategor
       if (target.classList.contains('document-link') || target.closest('.document-link')) {
         event.preventDefault()
         event.stopPropagation()
-        
+
         const linkElement = target.classList.contains('document-link') ? target : target.closest('.document-link')
         const documentId = linkElement?.getAttribute('data-document-id')
-        
+
         if (documentId && documentId.trim() !== '') {
           // Navigate to the source document
           setCurrentDocument(documentId)
           setCurrentView("focus")
-          
+
           toast({
             title: "Opening Document",
             description: "Navigating to the source document...",
@@ -204,12 +227,90 @@ export function NoteEditor({ documentId, onBack, categories = [], currentCategor
     }
   }, [setCurrentDocument, setCurrentView, toast])
 
+  // Selection handling within the editor
+  const editorContainerRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    let timeoutId: number | null = null
+
+    const isSelectionWithinContainer = (selection: Selection): boolean => {
+      if (!editorContainerRef.current || selection.rangeCount === 0) return false
+      const range = selection.getRangeAt(0)
+      const container = editorContainerRef.current
+      return !!container && container.contains(range.commonAncestorContainer)
+    }
+
+    const handleSelectionChange = () => {
+      if (timeoutId) window.clearTimeout(timeoutId)
+      timeoutId = window.setTimeout(() => {
+        const selection = window.getSelection()
+        if (!selection || selection.rangeCount === 0) return
+        if (!isSelectionWithinContainer(selection)) return
+        const text = selection.toString().trim()
+        if (!text) return
+        setSelectedText(text)
+      }, 120)
+    }
+
+    const docEl = window.document
+    docEl.addEventListener('selectionchange', handleSelectionChange)
+    return () => {
+      docEl.removeEventListener('selectionchange', handleSelectionChange)
+      if (timeoutId) window.clearTimeout(timeoutId)
+    }
+  }, [])
+
+  const handleClosePopover = () => {
+    setSelectedText("")
+    const selection = window.getSelection()
+    if (selection) selection.removeAllRanges()
+  }
+
+  const handleAsk = () => {
+    if (!selectedText.trim()) return
+    const contextualPrompt = `I selected this text from the note "${title}":\n\n"${selectedText}"\n\nPlease help me understand this or answer questions about it.`
+    setInitialChatText(contextualPrompt)
+    setShowFloatingChat(true)
+  }
+
+  const handleNoteFromSelection = async () => {
+    if (!selectedText.trim()) return
+    try {
+      const noteTitle = `Note from ${title || 'Note'}`
+      const noteContent = `<h2>Source Note</h2>
+<p><strong>${title || 'Untitled Note'}</strong></p>
+
+<h2>Selected Text</h2>
+<blockquote>
+<p>${selectedText}</p>
+</blockquote>
+
+<h2>My Notes</h2>
+<p>Add your thoughts here...</p>`
+
+      const newNote = await libraryServiceRef.current.createDocument({
+        title: noteTitle,
+        content: noteContent,
+        doc_type: "note",
+        tags: ["highlight", "note"],
+        status: "draft",
+        category_id: selectedCategoryId || undefined
+      })
+
+      addDocument(newNote)
+      setEditingNoteId(newNote.id)
+      setCurrentView("note-editor")
+      setSelectedText("")
+    } catch (error) {
+      console.error('Failed to create note from selection:', error)
+    }
+  }
+
   const handleSave = async (silent = false) => {
-    if (!title.trim() || !content.trim()) {
+    if (!content.trim()) {
       if (!silent) {
         toast({
           title: "Error",
-          description: "Please provide both a title and content for the note.",
+          description: "Please add some content before saving.",
           variant: "destructive",
         })
       }
@@ -219,9 +320,12 @@ export function NoteEditor({ documentId, onBack, categories = [], currentCategor
     try {
       setIsSaving(true)
 
-      if (documentId && document) {
+      // Prefer provided documentId, fallback to currently loaded/created document id
+      const targetId = documentId || document?.id
+
+      if (targetId) {
         // Update existing document
-        const updatedDocument = await libraryService.updateDocument(documentId, {
+        const updatedDocument = await libraryServiceRef.current.updateDocument(targetId, {
           title: title.trim(),
           content,
           doc_type: "note",
@@ -229,12 +333,14 @@ export function NoteEditor({ documentId, onBack, categories = [], currentCategor
           status: "draft",
           category_id: selectedCategoryId
         })
-        
+
         if (updatedDocument) {
-          updateDocument(documentId, updatedDocument)
+          updateDocument(targetId, updatedDocument)
           setDocument(updatedDocument)
           setLastSaved(new Date())
-          
+          lastSavedContentRef.current = content
+          lastLoadedUpdatedAtRef.current = updatedDocument.updated_at
+
           // Record note edit action (debounced)
           recordNoteEdit(
             updatedDocument.id,
@@ -247,7 +353,7 @@ export function NoteEditor({ documentId, onBack, categories = [], currentCategor
               isManualSave: !silent
             }
           )
-          
+
           if (!silent) {
             toast({
               title: "Success",
@@ -257,7 +363,7 @@ export function NoteEditor({ documentId, onBack, categories = [], currentCategor
         }
       } else {
         // Create new document
-        const newDocument = await libraryService.createDocument({
+        const newDocument = await libraryServiceRef.current.createDocument({
           title: title.trim(),
           content,
           doc_type: "note",
@@ -270,7 +376,9 @@ export function NoteEditor({ documentId, onBack, categories = [], currentCategor
         setDocument(newDocument)
         setEditingNoteId(newDocument.id) // Update to editing mode
         setLastSaved(new Date())
-        
+        lastSavedContentRef.current = content
+        lastLoadedUpdatedAtRef.current = newDocument.updated_at
+
         // Record note creation action (immediate for new notes)
         await actionsService.recordActionWithAutoContext(
           ActionType.NOTE_CREATE,
@@ -288,7 +396,7 @@ export function NoteEditor({ documentId, onBack, categories = [], currentCategor
             categoryIds: selectedCategoryId ? [selectedCategoryId] : undefined
           }
         )
-        
+
         if (!silent) {
           toast({
             title: "Success",
@@ -328,6 +436,18 @@ export function NoteEditor({ documentId, onBack, categories = [], currentCategor
     }
   }
 
+  // Memoize the editor so selection updates do not re-render the editor DOM
+  const editorElement = useMemo(() => (
+    <div ref={editorContainerRef} className="flex-1 p-4 max-h-[calc(100vh-10rem)] overflow-y-auto">
+      <ControlledSimpleEditor
+        content={content}
+        onChange={setContent}
+        placeholder="Start writing your note... Rich text editing with markdown support!"
+        className="h-full"
+      />
+    </div>
+  ), [content])
+
   if (isLoading) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -340,7 +460,7 @@ export function NoteEditor({ documentId, onBack, categories = [], currentCategor
   }
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col relative">
       {/* Header */}
       <div className="border-b bg-muted/20">
         <div className="p-4">
@@ -366,8 +486,8 @@ export function NoteEditor({ documentId, onBack, categories = [], currentCategor
                   <span>Saved {lastSaved.toLocaleTimeString()}</span>
                 </div>
               )}
-              <Button 
-                onClick={() => handleSave()} 
+              <Button
+                onClick={() => handleSave()}
                 disabled={isSaving}
                 size="sm"
               >
@@ -398,8 +518,8 @@ export function NoteEditor({ documentId, onBack, categories = [], currentCategor
                   {categories.map((category) => (
                     <SelectItem key={category.id} value={category.id}>
                       <div className="flex items-center space-x-2">
-                        <div 
-                          className="w-2 h-2 rounded-full" 
+                        <div
+                          className="w-2 h-2 rounded-full"
                           style={{ backgroundColor: category.color }}
                         />
                         <span>{category.name}</span>
@@ -452,14 +572,33 @@ export function NoteEditor({ documentId, onBack, categories = [], currentCategor
       </div>
 
       {/* Editor */}
-      <div className="flex-1 p-4 max-h-[calc(100vh-10rem)] overflow-y-auto">
-        <ControlledSimpleEditor
-          content={content}
-          onChange={setContent}
-          placeholder="Start writing your note... Rich text editing with markdown support!"
-          className="h-full"
-        />
-      </div>
+      {editorElement}
+
+      {/* Floating Selection Popover for NoteEditor with richer actions */}
+      <TextSelectionPopover
+        selectedText={selectedText}
+        onAsk={handleAsk}
+        onNote={handleNoteFromSelection}
+        onClose={handleClosePopover}
+        actions={[
+          { label: "Chat", onClick: handleAsk, icon: <MessageCircle className="h-3 w-3" /> },
+          {
+            label: "Explain", onClick: () => {
+              if (!selectedText.trim()) return
+              setInitialChatText(`Please explain this selection from my note "${title}":\n\n"${selectedText}"`)
+              setShowFloatingChat(true)
+            }
+          },
+          {
+            label: "Summarize", onClick: () => {
+              if (!selectedText.trim()) return
+              setInitialChatText(`Summarize this selection from my note "${title}":\n\n"${selectedText}"`)
+              setShowFloatingChat(true)
+            }
+          },
+          { label: "New Note", onClick: handleNoteFromSelection, icon: <Lightbulb className="h-3 w-3" /> },
+        ]}
+      />
     </div>
   )
 }
