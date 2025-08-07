@@ -1,28 +1,28 @@
-import React from 'react';
-import { 
+import { Button } from "@/components/ui/button";
+// removed unused Input import
+import { Separator } from "@/components/ui/separator";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+// removed unused cn import
+import { RotateDirection } from "@react-pdf-viewer/core";
+import type { ToolbarSlot } from "@react-pdf-viewer/toolbar";
+import {
   ChevronLeft,
   ChevronRight,
   ChevronsLeft,
   ChevronsRight,
   Download,
-  Search,
   Maximize,
+  RotateCw,
+  Search,
   ZoomIn,
   ZoomOut,
-  RotateCw
-} from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { 
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
-import { Separator } from '@/components/ui/separator';
-import { cn } from '@/lib/utils/utils';
-import type { ToolbarSlot } from '@react-pdf-viewer/toolbar';
-import { RotateDirection } from '@react-pdf-viewer/core';
+} from "lucide-react";
+// no explicit React import needed with automatic runtime
 
 /**
  * Simple PDF Toolbar with Navigation, Zoom, and Actions
@@ -54,7 +54,7 @@ export function CustomPdfToolbar() {
             </TooltipProvider>
           )}
         </slots.GoToFirstPage>
-        
+
         <slots.GoToPreviousPage>
           {(props) => (
             <TooltipProvider>
@@ -77,7 +77,7 @@ export function CustomPdfToolbar() {
             </TooltipProvider>
           )}
         </slots.GoToPreviousPage>
-        
+
         <slots.GoToNextPage>
           {(props) => (
             <TooltipProvider>
@@ -100,7 +100,7 @@ export function CustomPdfToolbar() {
             </TooltipProvider>
           )}
         </slots.GoToNextPage>
-        
+
         <slots.GoToLastPage>
           {(props) => (
             <TooltipProvider>
@@ -124,44 +124,19 @@ export function CustomPdfToolbar() {
           )}
         </slots.GoToLastPage>
       </div>
-      
+
       <Separator orientation="vertical" className="h-6" />
-      
+
       {/* Page Info */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <span>Page</span>
-        <slots.CurrentPageInput>
-          {(props) => (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={props.numberOfPages || 1}
-                    value={props.currentPage || 1}
-                    onChange={(e) => {
-                      const page = parseInt(e.target.value);
-                      if (page >= 1 && page <= (props.numberOfPages || 1)) {
-                        props.onChange?.(page - 1);
-                      }
-                    }}
-                    className="h-8 w-16 text-center text-sm"
-                  />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>Enter page number (1-{props.numberOfPages || 1})</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-        </slots.CurrentPageInput>
+        <slots.CurrentPageInput />
         <span>of</span>
         <slots.NumberOfPages />
       </div>
-      
+
       <Separator orientation="vertical" className="h-6" />
-      
+
       {/* Zoom Controls */}
       <div className="flex items-center gap-1">
         <slots.ZoomOut>
@@ -185,7 +160,7 @@ export function CustomPdfToolbar() {
             </TooltipProvider>
           )}
         </slots.ZoomOut>
-        
+
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -198,7 +173,7 @@ export function CustomPdfToolbar() {
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
-        
+
         <slots.ZoomIn>
           {(props) => (
             <TooltipProvider>
@@ -221,9 +196,9 @@ export function CustomPdfToolbar() {
           )}
         </slots.ZoomIn>
       </div>
-      
+
       <Separator orientation="vertical" className="h-6" />
-      
+
       {/* Action Buttons */}
       <div className="flex items-center gap-1">
         <slots.ShowSearchPopover>
@@ -247,7 +222,7 @@ export function CustomPdfToolbar() {
             </TooltipProvider>
           )}
         </slots.ShowSearchPopover>
-        
+
         <slots.Rotate direction={RotateDirection.Forward}>
           {(props) => (
             <TooltipProvider>
@@ -269,7 +244,7 @@ export function CustomPdfToolbar() {
             </TooltipProvider>
           )}
         </slots.Rotate>
-        
+
         <slots.Download>
           {(props) => (
             <TooltipProvider>
@@ -291,7 +266,7 @@ export function CustomPdfToolbar() {
             </TooltipProvider>
           )}
         </slots.Download>
-        
+
         <slots.EnterFullScreen>
           {(props) => (
             <TooltipProvider>

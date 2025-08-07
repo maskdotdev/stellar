@@ -1,37 +1,32 @@
-import React from 'react';
-import {
-  ChevronLeft,
-  ChevronRight,
-  ChevronsLeft,
-  ChevronsRight,
-  Download,
-  Search,
-  Maximize,
-  Printer,
-  Home,
-  ArrowLeft,
-  ArrowRight,
-  MoveLeft,
-  MoveRight,
-  FileDown,
-  Eye,
-  Expand,
-  FileText,
-  Star,
-  Heart
-} from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { 
+import { Separator } from '@/components/ui/separator';
+// removed unused Input import
+import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { Badge } from '@/components/ui/badge';
-import { Separator } from '@/components/ui/separator';
-import { cn } from '@/lib/utils/utils';
+// removed unused cn import
 import type { ToolbarSlot } from '@react-pdf-viewer/toolbar';
+// no explicit React import needed
+import {
+  ArrowLeft,
+  ArrowRight,
+  ChevronLeft,
+  ChevronsLeft,
+  Download,
+  Expand,
+  Eye,
+  FileDown,
+  FileText,
+  Home,
+  MoveLeft,
+  MoveRight,
+  Search,
+  Star
+} from 'lucide-react';
 
 /**
  * Example 1: Custom Icons and Tooltips for Navigation
@@ -63,7 +58,7 @@ export function NavigationToolbarExample() {
             </TooltipProvider>
           )}
         </slots.GoToFirstPage>
-        
+
         <slots.GoToPreviousPage>
           {(props) => (
             <TooltipProvider>
@@ -86,7 +81,7 @@ export function NavigationToolbarExample() {
             </TooltipProvider>
           )}
         </slots.GoToPreviousPage>
-        
+
         <slots.GoToNextPage>
           {(props) => (
             <TooltipProvider>
@@ -109,7 +104,7 @@ export function NavigationToolbarExample() {
             </TooltipProvider>
           )}
         </slots.GoToNextPage>
-        
+
         <slots.GoToLastPage>
           {(props) => (
             <TooltipProvider>
@@ -133,38 +128,13 @@ export function NavigationToolbarExample() {
           )}
         </slots.GoToLastPage>
       </div>
-      
+
       <Separator orientation="vertical" className="h-6" />
-      
+
       {/* Page Info with Custom Input */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <span>Page</span>
-        <slots.CurrentPageInput>
-          {(props) => (
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Input
-                    type="number"
-                    min={1}
-                    max={props.numberOfPages || 1}
-                    value={props.currentPage || 1}
-                    onChange={(e) => {
-                      const page = parseInt(e.target.value);
-                      if (page >= 1 && page <= (props.numberOfPages || 1)) {
-                        props.onChange?.(page - 1); // Convert to 0-based index
-                      }
-                    }}
-                    className="h-8 w-16 text-center text-sm border-2 border-primary/20 focus:border-primary"
-                  />
-                </TooltipTrigger>
-                <TooltipContent>
-                  <p>📄 Enter page number (1-{props.numberOfPages || 1})</p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-          )}
-        </slots.CurrentPageInput>
+        <slots.CurrentPageInput />
         <span>of</span>
         <slots.NumberOfPages />
       </div>
@@ -201,7 +171,7 @@ export function ActionToolbarExample() {
             </TooltipProvider>
           )}
         </slots.ShowSearchPopover>
-        
+
         <slots.Download>
           {(props) => (
             <TooltipProvider>
@@ -223,7 +193,7 @@ export function ActionToolbarExample() {
             </TooltipProvider>
           )}
         </slots.Download>
-        
+
         <slots.Print>
           {(props) => (
             <TooltipProvider>
@@ -245,7 +215,7 @@ export function ActionToolbarExample() {
             </TooltipProvider>
           )}
         </slots.Print>
-        
+
         <slots.EnterFullScreen>
           {(props) => (
             <TooltipProvider>
@@ -302,7 +272,7 @@ export function ThemedToolbarExample() {
             </TooltipProvider>
           )}
         </slots.GoToFirstPage>
-        
+
         <slots.GoToPreviousPage>
           {(props) => (
             <TooltipProvider>
@@ -326,9 +296,9 @@ export function ThemedToolbarExample() {
           )}
         </slots.GoToPreviousPage>
       </div>
-      
+
       <Separator orientation="vertical" className="h-6 bg-purple-300 dark:bg-purple-700" />
-      
+
       {/* Themed Page Info */}
       <div className="flex items-center gap-2 text-sm">
         <Badge variant="secondary" className="bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200">
@@ -372,7 +342,7 @@ export function MinimalToolbarExample() {
             </TooltipProvider>
           )}
         </slots.GoToPreviousPage>
-        
+
         <slots.GoToNextPage>
           {(props) => (
             <TooltipProvider>
@@ -396,14 +366,14 @@ export function MinimalToolbarExample() {
           )}
         </slots.GoToNextPage>
       </div>
-      
+
       {/* Center - Page Info */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <slots.CurrentPageInput />
         <span>/</span>
         <slots.NumberOfPages />
       </div>
-      
+
       {/* Right side - Actions */}
       <div className="flex items-center gap-1">
         <slots.ShowSearchPopover>
@@ -427,7 +397,7 @@ export function MinimalToolbarExample() {
             </TooltipProvider>
           )}
         </slots.ShowSearchPopover>
-        
+
         <slots.Download>
           {(props) => (
             <TooltipProvider>
@@ -475,7 +445,7 @@ export function CustomInputToolbarExample() {
             </Button>
           )}
         </slots.GoToPreviousPage>
-        
+
         <slots.GoToNextPage>
           {(props) => (
             <Button
@@ -498,40 +468,11 @@ export function CustomInputToolbarExample() {
         <Badge variant="outline" className="text-xs">
           Page
         </Badge>
-        
-        <slots.CurrentPageInput>
-          {(props) => (
-            <div className="relative">
-              <Input
-                type="number"
-                min={1}
-                max={props.numberOfPages || 1}
-                value={props.currentPage || 1}
-                onChange={(e) => {
-                  const page = parseInt(e.target.value);
-                  if (page >= 1 && page <= (props.numberOfPages || 1)) {
-                    props.onChange?.(page - 1);
-                  }
-                }}
-                className={cn(
-                  "h-8 w-20 text-center text-sm font-mono",
-                  "bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-950 dark:to-indigo-950",
-                  "border-2 border-blue-200 dark:border-blue-800",
-                  "focus:border-blue-500 focus:ring-2 focus:ring-blue-200",
-                  "transition-all duration-200"
-                )}
-                placeholder="Page"
-              />
-              {/* Custom validation indicator */}
-              {props.currentPage && (props.currentPage > (props.numberOfPages || 1) || props.currentPage < 1) && (
-                <div className="absolute -top-1 -right-1 h-2 w-2 bg-red-500 rounded-full animate-pulse" />
-              )}
-            </div>
-          )}
-        </slots.CurrentPageInput>
-        
+
+        <slots.CurrentPageInput />
+
         <span className="text-muted-foreground">/</span>
-        
+
         <slots.NumberOfPages>
           {(props) => (
             <Badge variant="secondary" className="font-mono text-xs">
@@ -583,7 +524,7 @@ export function FormInputToolbarExample() {
             </Button>
           )}
         </slots.GoToPreviousPage>
-        
+
         <slots.GoToNextPage>
           {(props) => (
             <Button
@@ -604,35 +545,8 @@ export function FormInputToolbarExample() {
         <label htmlFor="page-input" className="text-sm font-medium">
           Page:
         </label>
-        
-        <slots.CurrentPageInput>
-          {(props) => (
-            <div className="flex items-center gap-2">
-              <Input
-                id="page-input"
-                type="number"
-                min={1}
-                max={props.numberOfPages || 1}
-                value={props.currentPage || 1}
-                onChange={(e) => {
-                  const page = parseInt(e.target.value);
-                  if (page >= 1 && page <= (props.numberOfPages || 1)) {
-                    props.onChange?.(page - 1);
-                  }
-                }}
-                className="h-9 w-24 text-center"
-              />
-              <span className="text-sm text-muted-foreground">of</span>
-              <slots.NumberOfPages>
-                {(props) => (
-                  <span className="text-sm font-medium min-w-[2ch]">
-                    {props.numberOfPages}
-                  </span>
-                )}
-              </slots.NumberOfPages>
-            </div>
-          )}
-        </slots.CurrentPageInput>
+
+        <slots.CurrentPageInput />
       </div>
 
       {/* Actions */}

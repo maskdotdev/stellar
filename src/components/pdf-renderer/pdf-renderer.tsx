@@ -1,14 +1,14 @@
-import React, { useState, useCallback, useMemo } from 'react';
-import { Worker, Viewer, ScrollMode } from '@react-pdf-viewer/core';
-import { defaultLayoutPlugin } from '@react-pdf-viewer/default-layout';
-import { searchPlugin } from '@react-pdf-viewer/search';
-import { rotatePlugin } from '@react-pdf-viewer/rotate';
-import { zoomPlugin } from '@react-pdf-viewer/zoom';
-import { toolbarPlugin } from '@react-pdf-viewer/toolbar';
-import { cn } from '@/lib/utils/utils';
 import { useToast } from '@/hooks/use-toast';
-import { CustomPdfToolbar } from './pdf-custom-toolbar';
-import { NavigationToolbarExample, PDF_TOOLBAR_EXAMPLES } from './pdf-toolbar-examples';
+import { cn } from '@/lib/utils/utils';
+import { ScrollMode, Viewer, Worker } from '@react-pdf-viewer/core';
+import { defaultLayoutPlugin } from '@react-pdf-viewer/default-layout';
+import { rotatePlugin } from '@react-pdf-viewer/rotate';
+import { searchPlugin } from '@react-pdf-viewer/search';
+import { toolbarPlugin } from '@react-pdf-viewer/toolbar';
+import { zoomPlugin } from '@react-pdf-viewer/zoom';
+import type React from 'react';
+import { useCallback, useMemo, useState } from 'react';
+import { PDF_TOOLBAR_EXAMPLES } from './pdf-toolbar-examples';
 
 import type { PdfRendererProps } from './types';
 
@@ -19,12 +19,12 @@ import './pdf-renderer.css';
 
 import { useThemeIntegration } from './theme-utils';
 
-export function PdfRenderer({ 
-  fileUrl, 
-  title, 
-  className, 
-  onError, 
-  onDocumentLoadSuccess 
+export function PdfRenderer({
+  fileUrl,
+  title,
+  className,
+  onError,
+  onDocumentLoadSuccess
 }: PdfRendererProps) {
   const [numPages, setNumPages] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -35,7 +35,7 @@ export function PdfRenderer({
   const searchPluginInstance = searchPlugin();
   const rotatePluginInstance = rotatePlugin();
   const zoomPluginInstance = zoomPlugin();
-  
+
   // Create toolbar plugin instance
   const toolbarPluginInstance = toolbarPlugin();
   const { Toolbar } = toolbarPluginInstance;
@@ -92,14 +92,15 @@ export function PdfRenderer({
     });
   }, [currentTheme, createStyle]);
 
+  type DocumentLoadEvent = { doc: { numPages: number } }
   const handleDocumentLoadSuccess = useCallback(
-    (e: any) => {
+    (e: DocumentLoadEvent) => {
       try {
         const pages = e.doc.numPages;
         setNumPages(pages);
         setIsLoading(false);
         onDocumentLoadSuccess?.(pages);
-        
+
         toast({
           title: "PDF Loaded",
           description: `Successfully loaded ${pages} pages`,
@@ -108,7 +109,7 @@ export function PdfRenderer({
         setIsLoading(false);
         const errorMessage = error instanceof Error ? error.message : 'Failed to load PDF';
         onError?.(new Error(errorMessage));
-        
+
         toast({
           title: "Error Loading PDF",
           description: errorMessage,
@@ -172,7 +173,7 @@ export function PdfRenderer({
               <div className={cn(
                 "animate-spin rounded-full h-8 w-8 border-2 border-muted",
                 "border-t-primary transition-colors duration-200"
-              )}></div>
+              )} />
               <span className="text-sm text-muted-foreground font-medium">
                 Loading PDF...
               </span>
@@ -180,67 +181,67 @@ export function PdfRenderer({
           </div>
         )}
 
-        <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.4.120/build/pdf.worker.min.js">
-          <div 
-            className={cn(
-              "h-full pdf-viewer-container",
-              `pdf-theme-${currentTheme}`,
-              // Add theme-specific modifier classes
-              {
-                'pdf-cosmic-glow': ['space', 'starfield', 'aurora'].includes(currentTheme),
-                'pdf-minimal-style': ['pluto', 'dark-pluto'].includes(currentTheme),
-                'pdf-stellar-glow': ['stellar', 'light-teal'].includes(currentTheme),
-              }
-            )}
-            style={themeVariables as React.CSSProperties}
-          >
-            <Viewer
-              fileUrl={fileUrl}
-              plugins={[
-                defaultLayoutPluginInstance,
-                searchPluginInstance,
-                rotatePluginInstance,
-                zoomPluginInstance,
-                toolbarPluginInstance,
-              ]}
-              onDocumentLoad={handleDocumentLoadSuccess}
-              theme={isDark ? 'dark' : 'light'}
-              defaultScale={1.0}
-              scrollMode={ScrollMode.Vertical}
-              renderError={(error) => (
-                <div className={cn(
-                  "flex items-center justify-center h-full",
-                  "bg-destructive/10 border border-destructive/20 rounded-lg m-4",
-                  "text-destructive"
-                )}>
-                  <div className="text-center p-6">
-                    <div className="mb-4">
-                      <svg 
-                        className="mx-auto h-12 w-12 text-destructive/50" 
-                        fill="none" 
-                        viewBox="0 0 24 24" 
-                        stroke="currentColor"
-                      >
-                        <path 
-                          strokeLinecap="round" 
-                          strokeLinejoin="round" 
-                          strokeWidth={2} 
-                          d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.82 16.5c-.77.833.192 2.5 1.732 2.5z" 
-                        />
-                      </svg>
-                    </div>
-                    <h3 className="text-lg font-semibold text-destructive mb-2">
-                      Failed to load PDF
-                    </h3>
-                    <p className="text-sm text-destructive/80">
-                      {error.message || 'An error occurred while loading the PDF document.'}
-                    </p>
+        <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.4.120/build/pdf.worker.min.js" />
+        <div
+          className={cn(
+            "h-full pdf-viewer-container",
+            `pdf-theme-${currentTheme}`,
+            // Add theme-specific modifier classes
+            {
+              'pdf-cosmic-glow': ['space', 'starfield', 'aurora'].includes(currentTheme),
+              'pdf-minimal-style': ['pluto', 'dark-pluto'].includes(currentTheme),
+              'pdf-stellar-glow': ['stellar', 'light-teal'].includes(currentTheme),
+            }
+          )}
+          style={themeVariables as React.CSSProperties}
+        >
+          <Viewer
+            fileUrl={fileUrl}
+            plugins={[
+              defaultLayoutPluginInstance,
+              searchPluginInstance,
+              rotatePluginInstance,
+              zoomPluginInstance,
+              toolbarPluginInstance,
+            ]}
+            onDocumentLoad={handleDocumentLoadSuccess}
+            theme={isDark ? 'dark' : 'light'}
+            defaultScale={1.0}
+            scrollMode={ScrollMode.Vertical}
+            renderError={(error) => (
+              <div className={cn(
+                "flex items-center justify-center h-full",
+                "bg-destructive/10 border border-destructive/20 rounded-lg m-4",
+                "text-destructive"
+              )}>
+                <div className="text-center p-6">
+                  <div className="mb-4">
+                    <svg
+                      className="mx-auto h-12 w-12 text-destructive/50"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <title>PDF load error icon</title>
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.82 16.5c-.77.833.192 2.5 1.732 2.5z"
+                      />
+                    </svg>
                   </div>
+                  <h3 className="text-lg font-semibold text-destructive mb-2" aria-label="Failed to load PDF">
+                    Failed to load PDF
+                  </h3>
+                  <p className="text-sm text-destructive/80">
+                    {error.message || 'An error occurred while loading the PDF document.'}
+                  </p>
                 </div>
-              )}
-            />
-          </div>
-        </Worker>
+              </div>
+            )}
+          />
+        </div>
       </div>
     </div>
   );
