@@ -239,4 +239,61 @@ pub struct FlashcardReviewSession {
     pub estimated_time: i32, // in minutes
     #[serde(rename = "mixStrategy")]
     pub mix_strategy: String, // 'due_first', 'mixed', 'new_first'
+}
+
+// Background Processing Job Types
+#[derive(Debug, Serialize, Deserialize, Clone)]
+pub struct ProcessingJob {
+    pub id: String,
+    pub job_type: String, // 'pdf_processing', 'embedding_generation', etc.
+    pub status: String,   // 'pending', 'processing', 'completed', 'failed'
+    pub source_type: String, // 'file', 'url', 'data'
+    pub source_path: Option<String>, // File path or URL
+    pub original_filename: String,
+    pub title: Option<String>,
+    pub tags: Vec<String>,
+    pub category_id: Option<String>,
+    pub progress: i32, // 0-100
+    pub error_message: Option<String>,
+    pub result_document_id: Option<String>, // ID of created document when completed
+    pub processing_options: Option<serde_json::Value>, // JSON serialized processing options
+    pub created_at: DateTime<Utc>,
+    pub started_at: Option<DateTime<Utc>>,
+    pub completed_at: Option<DateTime<Utc>>,
+    pub metadata: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct CreateProcessingJobRequest {
+    pub job_type: String,
+    pub source_type: String,
+    pub source_path: Option<String>,
+    pub original_filename: String,
+    pub title: Option<String>,
+    pub tags: Vec<String>,
+    pub category_id: Option<String>,
+    pub processing_options: Option<serde_json::Value>,
+    pub metadata: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ProcessingJobUpdate {
+    pub id: String,
+    pub status: Option<String>,
+    pub progress: Option<i32>,
+    pub error_message: Option<String>,
+    pub result_document_id: Option<String>,
+    pub started_at: Option<DateTime<Utc>>,
+    pub completed_at: Option<DateTime<Utc>>,
+    pub metadata: Option<serde_json::Value>,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct ProcessingJobStats {
+    pub total_jobs: i64,
+    pub pending_jobs: i64,
+    pub processing_jobs: i64,
+    pub completed_jobs: i64,
+    pub failed_jobs: i64,
+    pub average_processing_time: f64, // in seconds
 } 

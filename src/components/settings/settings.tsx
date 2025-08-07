@@ -1,18 +1,19 @@
-"use client"
+"use client";
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { TooltipProvider } from "@/components/ui/tooltip"
-import { ProvidersSettings } from "./providers-settings"
-import { AIModelsSettings } from "./models"
-import { ChatSettings } from "./chat-settings"
-import { AppearanceSettings } from "./appearance-settings"
-import { KeybindingsSettings } from "./keybindings-settings"
-import { DataCleanupSettings } from "./data-cleanup-settings"
-import { DeveloperSettings } from "./developer-settings"
-import { useStudyStore } from "@/lib/stores/study-store"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { useStudyStore } from "@/lib/stores/study-store";
+import { AppearanceSettings } from "./appearance-settings";
+import { ChatSettings } from "./chat-settings";
+import { DataCleanupSettings } from "./data-cleanup-settings";
+import { DeveloperSettings } from "./developer-settings";
+import { KeybindingsSettings } from "./keybindings-settings";
+import { AIModelsSettings } from "./models";
+import { PDFProcessingSettings } from "./pdf-processing-settings";
+import { ProvidersSettings } from "./providers-settings";
 
 export function Settings() {
-  const { settingsTab, setSettingsTab } = useStudyStore()
+  const { settingsTab, setSettingsTab } = useStudyStore();
 
   return (
     <TooltipProvider>
@@ -26,15 +27,26 @@ export function Settings() {
               </p>
             </div>
 
-            <Tabs value={settingsTab} onValueChange={(value) => setSettingsTab(value as any)} className="w-full">
-              <TabsList className={`grid w-full ${process.env.NODE_ENV === 'development' ? 'grid-cols-7' : 'grid-cols-6'}`}>
+            <Tabs
+              value={settingsTab}
+              onValueChange={(value) => setSettingsTab(value as any)}
+              className="w-full"
+            >
+              <TabsList
+                className={`grid w-full ${
+                  process.env.NODE_ENV === "development"
+                    ? "grid-cols-8"
+                    : "grid-cols-7"
+                }`}
+              >
                 <TabsTrigger value="providers">AI Providers</TabsTrigger>
                 <TabsTrigger value="models">AI Models</TabsTrigger>
                 <TabsTrigger value="chat">Chat Settings</TabsTrigger>
                 <TabsTrigger value="appearance">Appearance</TabsTrigger>
                 <TabsTrigger value="keybindings">Keybindings</TabsTrigger>
+                <TabsTrigger value="pdf">PDF Processing</TabsTrigger>
                 <TabsTrigger value="data">Data Cleanup</TabsTrigger>
-                {process.env.NODE_ENV === 'development' && (
+                {process.env.NODE_ENV === "development" && (
                   <TabsTrigger value="developer">Developer</TabsTrigger>
                 )}
               </TabsList>
@@ -59,11 +71,15 @@ export function Settings() {
                 <KeybindingsSettings />
               </TabsContent>
 
+              <TabsContent value="pdf" className="space-y-4">
+                <PDFProcessingSettings />
+              </TabsContent>
+
               <TabsContent value="data" className="space-y-4">
                 <DataCleanupSettings />
               </TabsContent>
 
-              {process.env.NODE_ENV === 'development' && (
+              {process.env.NODE_ENV === "development" && (
                 <TabsContent value="developer" className="space-y-4">
                   <DeveloperSettings />
                 </TabsContent>
@@ -73,5 +89,5 @@ export function Settings() {
         </div>
       </div>
     </TooltipProvider>
-  )
-} 
+  );
+}

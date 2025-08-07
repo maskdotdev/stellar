@@ -1,5 +1,6 @@
 use tokio::sync::Mutex;
 use std::sync::Arc;
+use tauri::Manager;
 
 // Import our modules
 pub mod ai;
@@ -7,6 +8,12 @@ pub mod commands;
 pub mod database;
 pub mod pdf_processor;
 pub mod embeddings;
+pub mod background_processor;
+
+use commands::*;
+use database::Database;
+use embeddings::{VectorService, EmbeddingConfig, EmbeddingProvider};
+use background_processor::BackgroundProcessor;
 
 // Re-export types and functions
 pub use ai::*;
@@ -18,6 +25,7 @@ pub use commands::{
     get_documents_by_category, get_uncategorized_documents,
     upload_and_process_pdf, upload_and_process_pdf_from_data, upload_and_process_pdf_from_url,
     get_pdf_file_path, get_pdf_file_content, delete_pdf_file,
+    check_marker_availability, get_marker_config,
     create_study_session, get_active_session, end_study_session, get_study_session, get_study_sessions,
     record_user_action, get_actions_by_session, get_actions_by_document, get_recent_actions,
     get_action_statistics, start_new_session, record_simple_action, debug_database_state,
@@ -37,9 +45,8 @@ pub use commands::embeddings::{
     bulk_reprocess_documents_for_embeddings, copy_document_embeddings,
     test_embedding_provider_availability
 };
-pub use database::{Database, Document, CreateDocumentRequest, Category, CreateCategoryRequest};
+pub use database::{Document, CreateDocumentRequest, Category, CreateCategoryRequest};
 pub use pdf_processor::{PdfProcessor, MarkerOptions, ExtractOptions, ExtractionMethod};
-pub use embeddings::VectorService;
 
 // State types
 type DatabaseState = Arc<Mutex<Option<Database>>>;
@@ -48,14 +55,79 @@ type VectorServiceState = Arc<Mutex<Option<VectorService>>>;
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
-        .setup(|_app| {
+        .setup(|app| {
+            let app_handle = app.handle();
+            
+            // Get managed state
+            let db_state: tauri::State<DatabaseState> = app.state();
+            let vector_state: tauri::State<VectorServiceState> = app.state();
+            
+            // Initialize database and services in background
+            let db_init = db_state.inner().clone();
+            let vector_init = vector_state.inner().clone();
+            let app_handle_clone = app_handle.clone();
+            
+            tauri::async_runtime::spawn(async move {
+                let db_path = match app_handle_clone.path().app_data_dir() {
+                    Ok(path) => {
+                        std::fs::create_dir_all(&path).expect("Failed to create app data directory");
+                        path.join("stellar.db")
+                    }
+                    Err(_) => {
+                        eprintln!("Failed to resolve app data directory, using current directory");
+                        std::path::PathBuf::from("stellar.db")
+                    }
+                };
+                
+                let db_url = format!("sqlite:{}?mode=rwc", db_path.to_string_lossy());
+                
+                match Database::new(&db_url).await {
+                    Ok(database) => {
+                        println!("✅ Database initialized successfully");
+                        
+                        // Initialize vector service
+                        let embedding_config = EmbeddingConfig {
+                            provider: EmbeddingProvider::RustBert,
+                            model: "default".to_string(),
+                            api_key: None,
+                            base_url: None,
+                            dimensions: 384,
+                        };
+                        let vector_service = VectorService::new(&db_path.to_string_lossy(), embedding_config).await
+                            .expect("Failed to initialize vector service");
+                        
+                        // Set the initialized services
+                        {
+                            let mut db_guard = db_init.lock().await;
+                            *db_guard = Some(database);
+                        }
+                        
+                        {
+                            let mut vector_guard = vector_init.lock().await;
+                            *vector_guard = Some(vector_service);
+                        }
+                        
+                        println!("✅ Vector service initialized successfully");
+                        
+                        // Initialize and start background processor
+                        let background_processor = BackgroundProcessor::new(db_init.clone(), vector_init.clone());
+                        background_processor.start().await;
+                        
+                        println!("✅ Background processor started successfully");
+                    }
+                    Err(e) => {
+                        eprintln!("❌ Failed to initialize database: {}", e);
+                    }
+                }
+            });
+            
             Ok(())
         })
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
-        .manage(DatabaseState::new(Mutex::new(None)))
-        .manage(VectorServiceState::new(Mutex::new(None)))
+        .manage(Arc::new(Mutex::new(None)) as DatabaseState)
+        .manage(Arc::new(Mutex::new(None)) as VectorServiceState)
         .invoke_handler(tauri::generate_handler![
             greet,
             fetch_models_dev_data,
@@ -70,9 +142,12 @@ pub fn run() {
             upload_and_process_pdf,
             upload_and_process_pdf_from_data,
             upload_and_process_pdf_from_url,
+            download_pdf_from_url_and_process_background,
             get_pdf_file_path,
             get_pdf_file_content,
             delete_pdf_file,
+            check_marker_availability,
+            get_marker_config,
             create_document,
             get_all_documents,
             get_document,
@@ -105,6 +180,17 @@ pub fn run() {
             get_flashcards,
             get_flashcards_by_deck,
             get_flashcards_by_category,
+            // Background processing commands
+            create_background_pdf_job_from_file,
+            create_background_pdf_job_from_data,
+            create_background_pdf_job_from_url,
+            get_processing_jobs,
+            get_processing_jobs_by_status,
+            get_processing_job,
+            delete_processing_job,
+            cancel_processing_job,
+            retry_processing_job,
+            get_processing_job_stats,
             get_flashcards_by_document,
             update_flashcard,
             delete_flashcard,
@@ -138,6 +224,19 @@ pub fn run() {
             cleanup_all_data,
             cleanup_database_only,
             get_data_usage_info,
+            // Background processing commands
+            create_background_pdf_job_from_file,
+            create_background_pdf_job_from_data,
+            create_background_pdf_job_from_url,
+            get_processing_jobs,
+            get_processing_jobs_by_status,
+            get_processing_job,
+            delete_processing_job,
+            get_processing_job_stats,
+            cancel_processing_job,
+            retry_processing_job,
+            get_document_processing_status,
+            get_processing_jobs_by_document_id,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

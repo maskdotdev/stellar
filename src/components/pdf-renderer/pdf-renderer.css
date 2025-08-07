@@ -1,4 +1,4 @@
-@import '../../styles/themes.css';
+@import "../../styles/themes.css";
 /* PDF Renderer Theme Styles - Enhanced for Comprehensive Theme Integration */
 .pdf-viewer-container {
   font-family: var(--font-sans);
@@ -172,8 +172,13 @@
 }
 
 @keyframes highlight-pulse {
-  0%, 100% { opacity: 0.8; }
-  50% { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.8;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 /* Enhanced zoom plugin styling */
@@ -265,11 +270,11 @@
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
   }
-  
+
   .pdf-viewer-container .rpv-toolbar {
     padding: 0.5rem;
   }
-  
+
   .pdf-viewer-container .rpv-toolbar__item {
     padding: 0.25rem;
     font-size: 0.875rem;
@@ -292,7 +297,7 @@
   .pdf-viewer-container .rpv-core__page {
     border: 2px solid var(--border);
   }
-  
+
   .pdf-viewer-container .rpv-toolbar__item {
     border: 1px solid var(--border);
   }
@@ -308,7 +313,8 @@
 
 /* Enhanced animation for smooth transitions */
 .pdf-viewer-container * {
-  transition: background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+  transition: background-color 0.2s ease, color 0.2s ease,
+    border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
 }
 
 /* Focus styles for accessibility with theme awareness */
@@ -323,7 +329,7 @@
   .pdf-viewer-container .rpv-core__sidebar {
     display: none !important;
   }
-  
+
   .pdf-viewer-container .rpv-core__page {
     box-shadow: none !important;
     border: none !important;
@@ -332,7 +338,7 @@
 
 /* Custom loading animation with theme colors */
 .pdf-viewer-container .rpv-core__loading::after {
-  content: '';
+  content: "";
   display: inline-block;
   width: 20px;
   height: 20px;
@@ -344,7 +350,9 @@
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* Enhanced button styles for better theme integration */
@@ -381,7 +389,7 @@
   padding: 0.375rem 0.75rem;
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-} 
+}
 
 .rpv-default-layout__sidebar-headers {
   background-color: var(--card);
@@ -389,7 +397,8 @@
 }
 
 .rpv-core__minimal-button {
-  color: var(--foreground);
+  color: var(--primary-foreground);
+  background-color: none;
   border-radius: var(--radius);
   padding: 0.375rem 0.75rem;
   font-size: 0.875rem;
@@ -402,12 +411,17 @@
   justify-content: center;
 }
 .rpv-core__minimal-button:hover {
-  background-color: var(--accent);
-  color: var(--accent-foreground);
+  background-color: var(--primary);
+  color: var(--primary-foreground);
+}
+.rpv-core__minimal-button--selected {
+  background-color: transparent;
+  color: var(--primary-foreground);
 }
 
 .rpv-core__minimal-button:active {
   transform: translateY(0);
+  background-color: none;
 }
 .rpv-core__icon {
   color: var(--foreground);

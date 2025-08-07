@@ -42,9 +42,6 @@ pub async fn upload_and_process_pdf(
     file_path: String,
     title: Option<String>,
     tags: Option<Vec<String>>,
-    use_marker: Option<bool>,
-    use_enhanced: Option<bool>,
-    use_markitdown: Option<bool>,
     category_id: Option<String>,
 ) -> Result<Document, String> {
     println!("DEBUG: upload_and_process_pdf called with file_path: {}", file_path);
@@ -69,33 +66,43 @@ pub async fn upload_and_process_pdf(
     
     println!("DEBUG: PDF copied to persistent storage: {:?}", stored_path);
     
-    // Process the PDF
+    // Process the PDF using Marker
     let processor = PdfProcessor::new();
     println!("DEBUG: Created PDF processor");
     
-    // Determine processing method based on options
-    let content = if use_marker.unwrap_or(false) {
-        let marker_options = MarkerOptions {
-            extract_images: false,
-            use_llm: true,
-            format_lines: true,
-            force_ocr: false,
-            prefer_marker: true,
-        };
-        processor.extract_with_marker(&file_path, marker_options).await
-            .map_err(|e| format!("Failed to process PDF with Marker: {:?}", e))?
-    } else if use_markitdown.unwrap_or(false) {
-        processor.extract_with_markitdown(&file_path).await
-            .map_err(|e| format!("Failed to process PDF with MarkItDown: {:?}", e))?
-    } else if use_enhanced.unwrap_or(true) {
-        // Use enhanced processing by default
-        processor.extract_text_from_pdf(&file_path)
-            .map_err(|e| format!("Failed to process PDF with enhanced method: {:?}", e))?
-    } else {
-        // Basic processing
-        processor.extract_basic_text(&file_path)
-            .map_err(|e| format!("Failed to process PDF with basic method: {:?}", e))?
+    let marker_options = MarkerOptions {
+        extract_images: false,
+        force_ocr: false,
+        prefer_marker: true,
     };
+    
+    let content = processor.extract_with_marker(&file_path, marker_options).await
+        .map_err(|e| {
+            eprintln!("❌ PDF processing error: {:?}", e);
+            match e {
+                crate::pdf_processor::PdfError::ExtractionError(msg) => {
+                    if msg.contains("marker_single command is not available") {
+                        format!("Marker PDF processor not installed. Please install it using: pip install marker-pdf")
+                    } else if msg.contains("out of memory") {
+                        format!("PDF file too large or complex. Try processing a smaller file.")
+                    } else if msg.contains("API key") {
+                        format!("Invalid or missing API key. Please check your Gemini API key in settings.")
+                    } else if msg.contains("timed out") {
+                        format!("PDF processing timed out. The file may be too large or complex.")
+                    } else if msg.contains("Permission denied") {
+                        format!("Permission denied. Please check file permissions and try again.")
+                    } else {
+                        format!("PDF processing failed: {}", msg)
+                    }
+                }
+                crate::pdf_processor::PdfError::IoError(e) => {
+                    format!("File system error: {}", e)
+                }
+                crate::pdf_processor::PdfError::NetworkError(e) => {
+                    format!("Network error: {}", e)
+                }
+            }
+        })?;
     
     println!("DEBUG: Extracted content length: {}", content.len());
     
@@ -127,7 +134,7 @@ pub async fn upload_and_process_pdf(
         file_path: Some(stored_filename), // Store the unique filename
         doc_type: "pdf".to_string(),
         tags: tags.unwrap_or_default(),
-        status: Some("reading".to_string()),
+        status: Some("ready".to_string()), // Immediate processing, so ready when saved
         category_id,
     };
     
@@ -272,9 +279,6 @@ pub async fn upload_and_process_pdf_from_data(
     file_name: String,
     title: Option<String>,
     tags: Option<Vec<String>>,
-    use_marker: Option<bool>,
-    use_enhanced: Option<bool>,
-    use_markitdown: Option<bool>,
     category_id: Option<String>,
 ) -> Result<Document, String> {
     println!("DEBUG: upload_and_process_pdf_from_data called with file_name: {}", file_name);
@@ -304,32 +308,42 @@ pub async fn upload_and_process_pdf_from_data(
     std::fs::write(&temp_file_path, &file_data)
         .map_err(|e| format!("Failed to create temp processing file: {}", e))?;
     
-    // Process the PDF
+    // Process the PDF using Marker
     let processor = PdfProcessor::new();
     
-    // Determine processing method based on options
-    let content = if use_marker.unwrap_or(false) {
-        let marker_options = MarkerOptions {
-            extract_images: false,
-            use_llm: true,
-            format_lines: true,
-            force_ocr: false,
-            prefer_marker: true,
-        };
-        processor.extract_with_marker(temp_file_path.to_str().unwrap(), marker_options).await
-            .map_err(|e| format!("Failed to process PDF with Marker: {:?}", e))?
-    } else if use_markitdown.unwrap_or(false) {
-        processor.extract_with_markitdown(temp_file_path.to_str().unwrap()).await
-            .map_err(|e| format!("Failed to process PDF with MarkItDown: {:?}", e))?
-    } else if use_enhanced.unwrap_or(true) {
-        // Use enhanced processing by default
-        processor.extract_text_from_pdf(temp_file_path.to_str().unwrap())
-            .map_err(|e| format!("Failed to process PDF with enhanced method: {:?}", e))?
-    } else {
-        // Basic processing
-        processor.extract_basic_text(temp_file_path.to_str().unwrap())
-            .map_err(|e| format!("Failed to process PDF with basic method: {:?}", e))?
+    let marker_options = MarkerOptions {
+        extract_images: false,
+        force_ocr: false,
+        prefer_marker: true,
     };
+    
+    let content = processor.extract_with_marker(temp_file_path.to_str().unwrap(), marker_options).await
+        .map_err(|e| {
+            eprintln!("❌ PDF processing error: {:?}", e);
+            match e {
+                crate::pdf_processor::PdfError::ExtractionError(msg) => {
+                    if msg.contains("marker_single command is not available") {
+                        format!("Marker PDF processor not installed. Please install it using: pip install marker-pdf")
+                    } else if msg.contains("out of memory") {
+                        format!("PDF file too large or complex. Try processing a smaller file.")
+                    } else if msg.contains("API key") {
+                        format!("Invalid or missing API key. Please check your Gemini API key in settings.")
+                    } else if msg.contains("timed out") {
+                        format!("PDF processing timed out. The file may be too large or complex.")
+                    } else if msg.contains("Permission denied") {
+                        format!("Permission denied. Please check file permissions and try again.")
+                    } else {
+                        format!("PDF processing failed: {}", msg)
+                    }
+                }
+                crate::pdf_processor::PdfError::IoError(e) => {
+                    format!("File system error: {}", e)
+                }
+                crate::pdf_processor::PdfError::NetworkError(e) => {
+                    format!("Network error: {}", e)
+                }
+            }
+        })?;
     
     println!("DEBUG: Extracted content length: {}", content.len());
     
@@ -361,7 +375,7 @@ pub async fn upload_and_process_pdf_from_data(
         file_path: Some(stored_filename), // Store the unique filename
         doc_type: "pdf".to_string(),
         tags: tags.unwrap_or_default(),
-        status: Some("reading".to_string()),
+        status: Some("ready".to_string()), // Immediate processing, so ready when saved
         category_id,
     };
     
@@ -386,9 +400,6 @@ pub async fn upload_and_process_pdf_from_url(
     url: String,
     title: Option<String>,
     tags: Option<Vec<String>>,
-    use_marker: Option<bool>,
-    use_enhanced: Option<bool>,
-    use_markitdown: Option<bool>,
     category_id: Option<String>,
 ) -> Result<Document, String> {
     println!("DEBUG: upload_and_process_pdf_from_url called with URL: {}", url);
@@ -437,32 +448,42 @@ pub async fn upload_and_process_pdf_from_url(
     std::fs::write(&temp_file_path, &bytes)
         .map_err(|e| format!("Failed to create temp processing file: {}", e))?;
     
-    // Process the PDF
+    // Process the PDF using Marker
     let processor = PdfProcessor::new();
     
-    // Determine processing method based on options
-    let content = if use_marker.unwrap_or(false) {
-        let marker_options = MarkerOptions {
-            extract_images: false,
-            use_llm: true,
-            format_lines: true,
-            force_ocr: false,
-            prefer_marker: true,
-        };
-        processor.extract_with_marker(temp_file_path.to_str().unwrap(), marker_options).await
-            .map_err(|e| format!("Failed to process PDF with Marker: {:?}", e))?
-    } else if use_markitdown.unwrap_or(false) {
-        processor.extract_with_markitdown(temp_file_path.to_str().unwrap()).await
-            .map_err(|e| format!("Failed to process PDF with MarkItDown: {:?}", e))?
-    } else if use_enhanced.unwrap_or(true) {
-        // Use enhanced processing by default
-        processor.extract_text_from_pdf(temp_file_path.to_str().unwrap())
-            .map_err(|e| format!("Failed to process PDF with enhanced method: {:?}", e))?
-    } else {
-        // Basic processing
-        processor.extract_basic_text(temp_file_path.to_str().unwrap())
-            .map_err(|e| format!("Failed to process PDF with basic method: {:?}", e))?
+    let marker_options = MarkerOptions {
+        extract_images: false,
+        force_ocr: false,
+        prefer_marker: true,
     };
+    
+    let content = processor.extract_with_marker(temp_file_path.to_str().unwrap(), marker_options).await
+        .map_err(|e| {
+            eprintln!("❌ PDF processing error: {:?}", e);
+            match e {
+                crate::pdf_processor::PdfError::ExtractionError(msg) => {
+                    if msg.contains("marker_single command is not available") {
+                        format!("Marker PDF processor not installed. Please install it using: pip install marker-pdf")
+                    } else if msg.contains("out of memory") {
+                        format!("PDF file too large or complex. Try processing a smaller file.")
+                    } else if msg.contains("API key") {
+                        format!("Invalid or missing API key. Please check your Gemini API key in settings.")
+                    } else if msg.contains("timed out") {
+                        format!("PDF processing timed out. The file may be too large or complex.")
+                    } else if msg.contains("Permission denied") {
+                        format!("Permission denied. Please check file permissions and try again.")
+                    } else {
+                        format!("PDF processing failed: {}", msg)
+                    }
+                }
+                crate::pdf_processor::PdfError::IoError(e) => {
+                    format!("File system error: {}", e)
+                }
+                crate::pdf_processor::PdfError::NetworkError(e) => {
+                    format!("Network error: {}", e)
+                }
+            }
+        })?;
     
     println!("DEBUG: Extracted content length: {}", content.len());
     
@@ -494,7 +515,7 @@ pub async fn upload_and_process_pdf_from_url(
         file_path: Some(stored_filename), // Store the unique filename
         doc_type: "pdf".to_string(),
         tags: tags.unwrap_or_default(),
-        status: Some("reading".to_string()),
+        status: Some("ready".to_string()), // Immediate processing, so ready when saved
         category_id,
     };
     
@@ -541,6 +562,111 @@ pub async fn get_pdf_file_content(filename: String) -> Result<Vec<u8>, String> {
         .map_err(|e| format!("Failed to read PDF file: {}", e))
 }
 
+// New command: Download PDF from URL and return document, then process in background
+#[tauri::command]
+pub async fn download_pdf_from_url_and_process_background(
+    db_state: State<'_, DatabaseState>,
+    url: String,
+    title: Option<String>,
+    tags: Option<Vec<String>>,
+    category_id: Option<String>,
+) -> Result<Document, String> {
+    println!("DEBUG: download_pdf_from_url_and_process_background called with URL: {}", url);
+    
+    let db_guard = db_state.lock().await;
+    let database = db_guard.as_ref().ok_or("Database not initialized")?;
+    
+    println!("DEBUG: Database state obtained");
+    
+    // Download PDF from URL
+    let client = reqwest::Client::new();
+    let response = client.get(&url).send().await
+        .map_err(|e| format!("Failed to download PDF: {}", e))?;
+    
+    if !response.status().is_success() {
+        return Err(format!("Failed to download PDF: HTTP {}", response.status()));
+    }
+    
+    // Extract filename from URL or use default
+    let filename = url
+        .split('/')
+        .last()
+        .and_then(|name| if name.ends_with(".pdf") { Some(name) } else { None })
+        .unwrap_or("downloaded.pdf");
+    
+    // Get storage directory and generate unique filename
+    let storage_dir = get_pdf_storage_dir()?;
+    let stored_filename = generate_pdf_filename(filename);
+    let stored_path = storage_dir.join(&stored_filename);
+    
+    // Download and save the file to persistent storage
+    let bytes = response.bytes().await
+        .map_err(|e| format!("Failed to read PDF bytes: {}", e))?;
+    
+    std::fs::write(&stored_path, &bytes)
+        .map_err(|e| format!("Failed to save PDF: {}", e))?;
+    
+    println!("DEBUG: Downloaded PDF to persistent storage: {:?}", stored_path);
+    
+    // Create document record immediately so it appears in library
+    let doc_title = title.unwrap_or_else(|| {
+        // Extract title from filename if no title provided
+        std::path::Path::new(filename)
+            .file_stem()
+            .and_then(|stem| stem.to_str())
+            .unwrap_or("Downloaded PDF")
+            .to_string()
+    });
+    
+    let document_request = CreateDocumentRequest {
+        title: doc_title,
+        content: "PDF content is being processed...".to_string(), // Placeholder content
+        content_hash: None,
+        file_path: Some(stored_filename.clone()),
+        doc_type: "pdf".to_string(),
+        tags: tags.unwrap_or_default(),
+        status: Some("processing".to_string()), // Mark as processing
+        category_id: category_id.clone(),
+    };
+    
+    let document = database.create_document(document_request).await
+        .map_err(|e| format!("Failed to create document: {}", e))?;
+    
+    println!("DEBUG: Created document record: {}", document.id);
+    
+    // Create a background processing job to extract content and update the document
+    let processing_options = crate::pdf_processor::MarkerOptions {
+        extract_images: false,
+        force_ocr: false,
+        prefer_marker: true,
+    };
+    
+    let options_json = serde_json::to_value(processing_options).unwrap_or_default();
+    
+    let job_request = crate::database::CreateProcessingJobRequest {
+        job_type: "pdf_content_extraction".to_string(), // Different job type to update existing document
+        source_type: "file".to_string(),
+        source_path: Some(stored_path.to_string_lossy().to_string()),
+        original_filename: filename.to_string(),
+        title: Some(document.title.clone()),
+        tags: document.tags.clone(),
+        category_id: document.category_id.clone(),
+        processing_options: Some(options_json),
+        metadata: Some(serde_json::json!({
+            "original_url": url,
+            "download_completed": true,
+            "existing_document_id": document.id // Reference to update existing document
+        })),
+    };
+    
+    let job = database.create_processing_job(job_request).await
+        .map_err(|e| format!("Failed to create processing job: {}", e))?;
+    
+    println!("DEBUG: Created background processing job: {} for document: {}", job.id, document.id);
+    
+    Ok(document)
+}
+
 // New command to clean up PDF file when document is deleted
 #[tauri::command]
 pub async fn delete_pdf_file(filename: String) -> Result<bool, String> {
@@ -556,4 +682,40 @@ pub async fn delete_pdf_file(filename: String) -> Result<bool, String> {
         println!("DEBUG: PDF file not found for deletion: {:?}", file_path);
         Ok(false)
     }
-} 
+}
+
+// Check if marker_single command is available on the system
+#[tauri::command]
+pub async fn check_marker_availability() -> Result<crate::pdf_processor::MarkerInstallationStatus, String> {
+    let processor = PdfProcessor::new();
+    let status = processor.get_marker_installation_status().await;
+    Ok(status)
+}
+
+// Get marker configuration status
+#[tauri::command]
+pub async fn get_marker_config(
+    _db_state: State<'_, DatabaseState>, // Disabled
+) -> Result<serde_json::Value, String> {
+    let processor = PdfProcessor::new();
+    let installation_status = processor.get_marker_installation_status().await;
+
+    // Gemini API key functionality is disabled
+    
+    Ok(serde_json::json!({
+        "available": installation_status.is_available,
+        "installation_status": installation_status,
+        "has_gemini_key": false, // Disabled
+        "supported_features": {
+            "llm_processing": false, // Disabled
+            "format_lines": false, // Disabled
+            "force_ocr": installation_status.is_available,
+            "inline_math": false // Disabled
+        }
+    }))
+}
+
+#[cfg(test)]
+mod tests {
+    include!("pdf_tests.rs");
+}

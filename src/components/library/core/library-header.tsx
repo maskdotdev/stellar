@@ -1,23 +1,31 @@
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { 
-  Search, Filter, Grid, List, Upload, Plus, 
-  ArrowLeft, FolderPlus
-} from "lucide-react"
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  ArrowLeft,
+  Clock,
+  Filter,
+  FolderPlus,
+  Grid,
+  List,
+  Plus,
+  Search,
+  Upload,
+} from "lucide-react";
 
 interface LibraryHeaderProps {
-  currentCategory: string | null
-  libraryBreadcrumbs: Array<{ id: string | null; name: string }>
-  searchQuery: string
-  setSearchQuery: (query: string) => void
-  addSearchHistory: (query: string) => void
-  viewMode: "list" | "grid"
-  setLibraryViewMode: (mode: "list" | "grid") => void
-  onBackToCategories: () => void
-  onNavigateToCategory: (id: string, name: string) => void
-  onShowCategoryDialog: () => void
-  onShowUploadDialog: () => void
-  onCreateNote: () => void
+  currentCategory: string | null;
+  libraryBreadcrumbs: Array<{ id: string | null; name: string }>;
+  searchQuery: string;
+  setSearchQuery: (query: string) => void;
+  addSearchHistory: (query: string) => void;
+  viewMode: "list" | "grid";
+  setLibraryViewMode: (mode: "list" | "grid") => void;
+  onBackToCategories: () => void;
+  onNavigateToCategory: (id: string, name: string) => void;
+  onShowCategoryDialog: () => void;
+  onShowUploadDialog: () => void;
+  onCreateNote: () => void;
+  onShowProcessingStatus: () => void;
 }
 
 export function LibraryHeader({
@@ -32,6 +40,7 @@ export function LibraryHeader({
   onShowCategoryDialog,
   onShowUploadDialog,
   onCreateNote,
+  onShowProcessingStatus,
 }: LibraryHeaderProps) {
   return (
     <div className="p-4 border-b">
@@ -44,48 +53,57 @@ export function LibraryHeader({
             </Button>
           )}
           <h1 className="text-2xl font-bold">
-            {currentCategory ? libraryBreadcrumbs[libraryBreadcrumbs.length - 1]?.name : "Study Categories"}
+            {currentCategory
+              ? libraryBreadcrumbs[libraryBreadcrumbs.length - 1]?.name
+              : "Study Categories"}
           </h1>
         </div>
-        
+
         <div className="flex items-center space-x-2">
           {currentCategory === null ? (
             // Category view actions
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={onShowCategoryDialog}
-            >
+            <Button variant="outline" size="sm" onClick={onShowCategoryDialog}>
               <FolderPlus className="h-4 w-4 mr-2" />
               New Category
             </Button>
           ) : (
             // Document view actions
             <>
-              <Button 
-                variant="outline" 
-                size="sm"
-                onClick={onShowUploadDialog}
-              >
+              <Button variant="outline" size="sm" onClick={onShowUploadDialog}>
                 <Upload className="h-4 w-4 mr-2" />
                 Add PDF
               </Button>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={onCreateNote}
-              >
+              <Button variant="outline" size="sm" onClick={onCreateNote}>
                 <Plus className="h-4 w-4 mr-2" />
                 New Note
               </Button>
-              <Button variant={viewMode === "list" ? "default" : "outline"} size="sm" onClick={() => setLibraryViewMode("list")}>
+              <Button
+                variant={viewMode === "list" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setLibraryViewMode("list")}
+              >
                 <List className="h-4 w-4" />
               </Button>
-              <Button variant={viewMode === "grid" ? "default" : "outline"} size="sm" onClick={() => setLibraryViewMode("grid")}>
+              <Button
+                variant={viewMode === "grid" ? "default" : "outline"}
+                size="sm"
+                onClick={() => setLibraryViewMode("grid")}
+              >
                 <Grid className="h-4 w-4" />
               </Button>
             </>
           )}
+
+          {/* Processing Status Button - available in all views */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onShowProcessingStatus}
+            title="View PDF Processing Status"
+          >
+            <Clock className="h-4 w-4 mr-2" />
+            Processing
+          </Button>
         </div>
       </div>
 
@@ -94,12 +112,16 @@ export function LibraryHeader({
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input
-            placeholder={currentCategory === null ? "Search categories..." : "Search documents, tags, content..."}
+            placeholder={
+              currentCategory === null
+                ? "Search categories..."
+                : "Search documents, tags, content..."
+            }
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && searchQuery.trim()) {
-                addSearchHistory(searchQuery.trim())
+              if (e.key === "Enter" && searchQuery.trim()) {
+                addSearchHistory(searchQuery.trim());
               }
             }}
             className="pl-10"
@@ -113,5 +135,5 @@ export function LibraryHeader({
         )}
       </div>
     </div>
-  )
-} 
+  );
+}

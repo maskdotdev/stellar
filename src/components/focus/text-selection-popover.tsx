@@ -1,13 +1,13 @@
 "use client"
 
-import { useState, useEffect, useRef } from 'react'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Badge } from '@/components/ui/badge'
-import { MessageCircle, Lightbulb, Plus, FileText, Clock } from 'lucide-react'
+import type { Document } from '@/lib/services/library-service'
 import { cn } from '@/lib/utils/utils'
-import { type Document } from '@/lib/services/library-service'
+import { Clock, FileText, Lightbulb, MessageCircle, Plus } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
 
 interface NoteSelectionDialogProps {
   open: boolean
@@ -17,12 +17,12 @@ interface NoteSelectionDialogProps {
   existingNotes: Document[]
 }
 
-function NoteSelectionDialog({ 
-  open, 
-  onClose, 
-  onCreateNew, 
-  onSelectNote, 
-  existingNotes 
+function NoteSelectionDialog({
+  open,
+  onClose,
+  onCreateNew,
+  onSelectNote,
+  existingNotes
 }: NoteSelectionDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onClose}>
@@ -33,9 +33,9 @@ function NoteSelectionDialog({
             <span>Add to Notes</span>
           </DialogTitle>
         </DialogHeader>
-        
+
         <div className="space-y-4">
-          <Button 
+          <Button
             onClick={onCreateNew}
             className="w-full justify-start"
             variant="outline"
@@ -43,13 +43,13 @@ function NoteSelectionDialog({
             <Plus className="h-4 w-4 mr-2" />
             Create New Note
           </Button>
-          
+
           {existingNotes.length > 0 && (
             <>
               <div className="text-sm text-muted-foreground">
                 Or add to existing note:
               </div>
-              
+
               <ScrollArea className="max-h-64">
                 <div className="space-y-2">
                   {existingNotes.map((note) => (
@@ -88,6 +88,12 @@ function NoteSelectionDialog({
   )
 }
 
+interface TextSelectionAction {
+  label: string
+  onClick: () => void
+  icon?: React.ReactNode
+}
+
 interface TextSelectionPopoverProps {
   selectedText: string
   onAsk: () => void
@@ -96,16 +102,18 @@ interface TextSelectionPopoverProps {
   existingNotes?: Document[]
   onCreateNewNote?: () => void
   onAddToExistingNote?: (noteId: string) => void
+  actions?: TextSelectionAction[]
 }
 
-export function TextSelectionPopover({ 
-  selectedText, 
-  onAsk, 
-  onNote, 
+export function TextSelectionPopover({
+  selectedText,
+  onAsk,
+  onNote,
   onClose,
   existingNotes = [],
   onCreateNewNote,
-  onAddToExistingNote
+  onAddToExistingNote,
+  actions
 }: TextSelectionPopoverProps) {
   const [position, setPosition] = useState<{ x: number; y: number } | null>(null)
   const [isVisible, setIsVisible] = useState(false)
@@ -253,26 +261,43 @@ export function TextSelectionPopover({
           transform: 'translateX(50%)', // Center horizontally
         }}
       >
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={onAsk}
-          className="h-8 px-2 text-xs"
-        >
-          <MessageCircle className="h-3 w-3 mr-1" />
-          Ask 
-        </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleNoteClick}
-          className="h-8 px-2 text-xs"
-        >
-          <Lightbulb className="h-3 w-3 mr-1" />
-          Note
-        </Button>
+        {actions && actions.length > 0 ? (
+          actions.map((action, idx) => (
+            <Button
+              key={`${action.label}-${idx}`}
+              variant="ghost"
+              size="sm"
+              onClick={action.onClick}
+              className="h-8 px-2 text-xs"
+            >
+              {action.icon}
+              <span className={action.icon ? "ml-1" : ""}>{action.label}</span>
+            </Button>
+          ))
+        ) : (
+          <>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onAsk}
+              className="h-8 px-2 text-xs"
+            >
+              <MessageCircle className="h-3 w-3 mr-1" />
+              Ask
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleNoteClick}
+              className="h-8 px-2 text-xs"
+            >
+              <Lightbulb className="h-3 w-3 mr-1" />
+              Note
+            </Button>
+          </>
+        )}
       </div>
-      
+
       <NoteSelectionDialog
         open={showNoteDialog}
         onClose={handleCloseNoteDialog}

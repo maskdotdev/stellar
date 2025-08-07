@@ -249,6 +249,48 @@ impl Database {
             .execute(&pool)
             .await?;
 
+        // Create processing jobs table for background PDF processing
+        sqlx::query(
+            r#"
+            CREATE TABLE IF NOT EXISTS processing_jobs (
+                id TEXT PRIMARY KEY,
+                job_type TEXT NOT NULL, -- 'pdf_processing', 'embedding_generation', etc.
+                status TEXT NOT NULL DEFAULT 'pending', -- 'pending', 'processing', 'completed', 'failed'
+                source_type TEXT NOT NULL, -- 'file', 'url', 'data'
+                source_path TEXT, -- File path or URL
+                original_filename TEXT NOT NULL,
+                title TEXT,
+                tags TEXT NOT NULL DEFAULT '[]', -- JSON array
+                category_id TEXT,
+                progress INTEGER NOT NULL DEFAULT 0, -- 0-100
+                error_message TEXT,
+                result_document_id TEXT, -- ID of created document when completed
+                processing_options TEXT, -- JSON serialized processing options
+                created_at TEXT NOT NULL,
+                started_at TEXT,
+                completed_at TEXT,
+                metadata TEXT, -- JSON metadata
+                FOREIGN KEY (category_id) REFERENCES categories (id) ON DELETE SET NULL,
+                FOREIGN KEY (result_document_id) REFERENCES documents (id) ON DELETE SET NULL
+            )
+            "#,
+        )
+        .execute(&pool)
+        .await?;
+
+        // Create indexes for processing jobs
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_processing_jobs_status ON processing_jobs(status)")
+            .execute(&pool)
+            .await?;
+        
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_processing_jobs_type ON processing_jobs(job_type)")
+            .execute(&pool)
+            .await?;
+        
+        sqlx::query("CREATE INDEX IF NOT EXISTS idx_processing_jobs_created_at ON processing_jobs(created_at)")
+            .execute(&pool)
+            .await?;
+
         // Migration: Add category_id column to documents table if it doesn't exist
         let columns = sqlx::query("PRAGMA table_info(documents)")
             .fetch_all(&pool)

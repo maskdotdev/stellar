@@ -1,10 +1,83 @@
 use pdf_extract::extract_text;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use reqwest;
-use serde_json;
-use std::fs;
+
 use regex;
 use tokio;
+
+/// Represents the type of marker installation detected
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub enum MarkerInstallationType {
+    /// Marker is installed in a virtual environment
+    VirtualEnvironment,
+    /// Marker is installed globally in the system PATH
+    Global,
+    /// No marker installation found
+    NotFound,
+    /// Virtual environment exists but marker_single is missing
+    VenvExistsButMarkerMissing,
+}
+
+/// Detailed status information about marker installation
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
+pub struct MarkerInstallationStatus {
+    /// Whether marker is available for use
+    pub is_available: bool,
+    /// Type of installation detected
+    pub installation_type: MarkerInstallationType,
+    /// Path to the marker command if available
+    pub command_path: Option<String>,
+    /// Error message if marker is not available
+    pub error_message: Option<String>,
+    /// Suggested action for the user to resolve issues
+    pub suggested_action: Option<String>,
+}
+
+impl MarkerInstallationStatus {
+    /// Create a new status indicating marker is not found
+    pub fn not_found() -> Self {
+        Self {
+            is_available: false,
+            installation_type: MarkerInstallationType::NotFound,
+            command_path: None,
+            error_message: Some("Marker not found. Please install Marker to process PDFs.".to_string()),
+            suggested_action: Some("Run the setup script: ./scripts/setup_marker.sh".to_string()),
+        }
+    }
+
+    /// Create a new status for virtual environment installation
+    pub fn virtual_environment(command_path: String) -> Self {
+        Self {
+            is_available: true,
+            installation_type: MarkerInstallationType::VirtualEnvironment,
+            command_path: Some(command_path),
+            error_message: None,
+            suggested_action: None,
+        }
+    }
+
+    /// Create a new status for global installation
+    pub fn global_installation() -> Self {
+        Self {
+            is_available: true,
+            installation_type: MarkerInstallationType::Global,
+            command_path: Some("marker_single".to_string()),
+            error_message: None,
+            suggested_action: None,
+        }
+    }
+
+    /// Create a new status for when venv exists but marker is missing
+    pub fn venv_exists_but_marker_missing() -> Self {
+        Self {
+            is_available: false,
+            installation_type: MarkerInstallationType::VenvExistsButMarkerMissing,
+            command_path: None,
+            error_message: Some("Marker virtual environment found but marker_single is not installed.".to_string()),
+            suggested_action: Some("Please run: ./scripts/setup_marker.sh".to_string()),
+        }
+    }
+}
 
 #[derive(Debug)]
 #[allow(dead_code)]
@@ -26,7 +99,379 @@ impl From<reqwest::Error> for PdfError {
     }
 }
 
+/// Resolves the marker_single command path by checking virtual environment and global installations
+pub struct MarkerCommandResolver {
+    venv_path: Option<PathBuf>,
+    global_available: bool,
+}
+
+impl MarkerCommandResolver {
+    /// Create a new MarkerCommandResolver and detect available installations
+    pub async fn new() -> Self {
+        let mut resolver = MarkerCommandResolver {
+            venv_path: None,
+            global_available: false,
+        };
+        
+        resolver.detect_installations().await;
+        resolver
+    }
+
+    /// Detect available marker installations in virtual environment and globally
+    async fn detect_installations(&mut self) {
+        // Check for virtual environment installation
+        self.venv_path = self.detect_venv_path().await;
+        
+        // Check for global installation
+        self.global_available = self.is_marker_available_globally().await;
+    }
+
+    /// Detect the virtual environment path containing marker_single
+    /// Checks for marker_env directory in project root and other standard locations
+    async fn detect_venv_path(&self) -> Option<PathBuf> {
+        // Priority 1: Check for marker_env directory in current working directory (project root)
+        let marker_env_path = PathBuf::from("marker_env");
+        if self.detect_marker_env_directory(&marker_env_path).await {
+            if self.is_marker_available_in_venv(&marker_env_path).await {
+                // Convert to absolute path to avoid issues when changing working directory
+                if let Ok(abs_path) = marker_env_path.canonicalize() {
+                    return Some(abs_path);
+                }
+                return Some(marker_env_path);
+            }
+        }
+
+        // Priority 2: Check for marker_env directory in parent directory (for when running from src-tauri)
+        let parent_marker_env_path = PathBuf::from("../marker_env");
+        if self.detect_marker_env_directory(&parent_marker_env_path).await {
+            if self.is_marker_available_in_venv(&parent_marker_env_path).await {
+                // Convert to absolute path to avoid issues when changing working directory
+                if let Ok(abs_path) = parent_marker_env_path.canonicalize() {
+                    return Some(abs_path);
+                }
+                return Some(parent_marker_env_path);
+            }
+        }
+
+        // Priority 3: Check environment variable if set
+        if let Ok(venv_path) = std::env::var("STELLAR_MARKER_VENV") {
+            let venv_path = PathBuf::from(venv_path);
+            if self.detect_marker_env_directory(&venv_path).await {
+                if self.is_marker_available_in_venv(&venv_path).await {
+                    // Environment variable should already be absolute, but ensure it
+                    if let Ok(abs_path) = venv_path.canonicalize() {
+                        return Some(abs_path);
+                    }
+                    return Some(venv_path);
+                }
+            }
+        }
+
+        // Priority 4: Check relative to current executable location
+        if let Ok(current_exe) = std::env::current_exe() {
+            if let Some(exe_dir) = current_exe.parent() {
+                let relative_marker_env = exe_dir.join("marker_env");
+                if self.detect_marker_env_directory(&relative_marker_env).await {
+                    if self.is_marker_available_in_venv(&relative_marker_env).await {
+                        // This should already be absolute since current_exe is absolute
+                        return Some(relative_marker_env);
+                    }
+                }
+            }
+        }
+
+        None
+    }
+
+    /// Detect if marker_env directory exists and appears to be a valid virtual environment
+    async fn detect_marker_env_directory(&self, venv_path: &PathBuf) -> bool {
+        // Check if the directory exists
+        if !venv_path.exists() || !venv_path.is_dir() {
+            return false;
+        }
+
+        // Check for virtual environment structure
+        // Unix-like systems should have bin/ directory
+        let bin_dir = venv_path.join("bin");
+        let scripts_dir = venv_path.join("Scripts"); // Windows
+
+        // At least one of these should exist for a valid venv
+        if !bin_dir.exists() && !scripts_dir.exists() {
+            return false;
+        }
+
+        // Check for Python executable (additional validation)
+        let python_paths = vec![
+            bin_dir.join("python"),
+            bin_dir.join("python3"),
+            scripts_dir.join("python.exe"),
+            scripts_dir.join("python3.exe"),
+        ];
+
+        for python_path in python_paths {
+            if python_path.exists() {
+                return true;
+            }
+        }
+
+        // If no Python executable found, still consider it valid if directories exist
+        // (some minimal venvs might not have all expected files)
+        bin_dir.exists() || scripts_dir.exists()
+    }
+
+    /// Check if marker_single is available in the specified virtual environment
+    async fn is_marker_available_in_venv(&self, venv_path: &PathBuf) -> bool {
+        let marker_path = self.get_venv_marker_path(venv_path);
+        
+        if let Some(marker_path) = marker_path {
+            // Check if the file exists and is executable
+            if marker_path.exists() {
+                // Try to execute it with --help to verify it works
+                match tokio::process::Command::new(&marker_path)
+                    .arg("--help")
+                    .output()
+                    .await
+                {
+                    Ok(output) => output.status.success(),
+                    Err(_) => false,
+                }
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    }
+
+    /// Check if marker_single is available globally in PATH
+    /// This method provides fallback when virtual environment is not available
+    async fn is_marker_available_globally(&self) -> bool {
+        // First try to execute marker_single --help to verify it's available and working
+        match tokio::process::Command::new("marker_single")
+            .arg("--help")
+            .output()
+            .await
+        {
+            Ok(output) => {
+                if output.status.success() {
+                    // Additional validation: check if the output contains expected marker help text
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    // Look for marker-specific help text to ensure it's the right command
+                    stdout.contains("marker") || stdout.contains("PDF") || stdout.contains("markdown")
+                } else {
+                    false
+                }
+            },
+            Err(_) => {
+                // Command not found in PATH, try alternative detection methods
+                self.detect_global_marker_alternative().await
+            }
+        }
+    }
+
+    /// Alternative method to detect global marker installation
+    /// Used as fallback when direct command execution fails
+    async fn detect_global_marker_alternative(&self) -> bool {
+        // Try to find marker_single in common installation paths
+        let common_paths = vec![
+            "/usr/local/bin/marker_single",
+            "/usr/bin/marker_single",
+            "/opt/homebrew/bin/marker_single", // macOS Homebrew
+            "/home/linuxbrew/.linuxbrew/bin/marker_single", // Linux Homebrew
+        ];
+
+        for path in common_paths {
+            let path_buf = PathBuf::from(path);
+            if path_buf.exists() {
+                // Try to execute it to verify it works
+                match tokio::process::Command::new(&path_buf)
+                    .arg("--help")
+                    .output()
+                    .await
+                {
+                    Ok(output) => {
+                        if output.status.success() {
+                            return true;
+                        }
+                    },
+                    Err(_) => continue,
+                }
+            }
+        }
+
+        // Try using 'which' command to locate marker_single
+        match tokio::process::Command::new("which")
+            .arg("marker_single")
+            .output()
+            .await
+        {
+            Ok(output) => {
+                if output.status.success() {
+                    let path_str = String::from_utf8_lossy(&output.stdout).trim().to_string();
+                    if !path_str.is_empty() && PathBuf::from(&path_str).exists() {
+                        // Verify the found executable works
+                        return self.verify_marker_executable(&path_str).await;
+                    }
+                }
+            },
+            Err(_) => {}
+        }
+
+        // Try using 'whereis' command as another fallback (Linux/Unix)
+        match tokio::process::Command::new("whereis")
+            .arg("marker_single")
+            .output()
+            .await
+        {
+            Ok(output) => {
+                if output.status.success() {
+                    let output_str = String::from_utf8_lossy(&output.stdout);
+                    // whereis output format: "marker_single: /path/to/marker_single"
+                    if let Some(path_part) = output_str.split_whitespace().nth(1) {
+                        if PathBuf::from(path_part).exists() {
+                            return self.verify_marker_executable(path_part).await;
+                        }
+                    }
+                }
+            },
+            Err(_) => {}
+        }
+
+        false
+    }
+
+    /// Verify that a marker executable at the given path is working
+    async fn verify_marker_executable(&self, path: &str) -> bool {
+        match tokio::process::Command::new(path)
+            .arg("--help")
+            .output()
+            .await
+        {
+            Ok(output) => {
+                if output.status.success() {
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    // Verify it's actually marker by checking help output
+                    stdout.contains("marker") || stdout.contains("PDF") || stdout.contains("markdown")
+                } else {
+                    false
+                }
+            },
+            Err(_) => false,
+        }
+    }
+
+    /// Get the path to marker_single executable in the virtual environment
+    pub fn get_venv_marker_path(&self, venv_path: &PathBuf) -> Option<PathBuf> {
+        // Check different possible locations for the executable
+        let possible_paths = vec![
+            venv_path.join("bin").join("marker_single"),           // Unix-like systems
+            venv_path.join("Scripts").join("marker_single.exe"),   // Windows
+            venv_path.join("Scripts").join("marker_single"),       // Windows without .exe
+        ];
+
+        for path in possible_paths {
+            if path.exists() {
+                return Some(path);
+            }
+        }
+
+        None
+    }
+
+    /// Resolve the marker_single command path following priority order
+    /// Priority: 1) Virtual environment, 2) Global installation
+    /// Handles edge cases where multiple installations exist
+    pub async fn resolve_marker_command(&self) -> Option<PathBuf> {
+        // Priority 1: Virtual environment installation (preferred for consistency)
+        if let Some(venv_path) = &self.venv_path {
+            if let Some(marker_path) = self.get_venv_marker_path(venv_path) {
+                // Verify the venv executable is actually working before returning it
+                if self.verify_marker_executable_path(&marker_path).await {
+                    return Some(marker_path);
+                }
+                // If venv executable exists but doesn't work, log and continue to global fallback
+                eprintln!("Warning: Virtual environment marker_single found but not working: {:?}", marker_path);
+            }
+        }
+
+        // Priority 2: Global installation (fallback)
+        if self.global_available {
+            // Double-check global availability before returning
+            if self.verify_global_marker_executable().await {
+                return Some(PathBuf::from("marker_single"));
+            }
+            // If global was detected but now fails, log the issue
+            eprintln!("Warning: Global marker_single was detected but is no longer working");
+        }
+
+        // No working installation found
+        None
+    }
+
+    /// Verify that a marker executable at the given path is working
+    pub async fn verify_marker_executable_path(&self, path: &PathBuf) -> bool {
+        if !path.exists() {
+            return false;
+        }
+
+        match tokio::process::Command::new(path)
+            .arg("--help")
+            .output()
+            .await
+        {
+            Ok(output) => {
+                if output.status.success() {
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    // Verify it's actually marker by checking help output
+                    stdout.contains("marker") || stdout.contains("PDF") || stdout.contains("markdown")
+                } else {
+                    false
+                }
+            },
+            Err(_) => false,
+        }
+    }
+
+    /// Verify that the global marker_single command is working
+    pub async fn verify_global_marker_executable(&self) -> bool {
+        match tokio::process::Command::new("marker_single")
+            .arg("--help")
+            .output()
+            .await
+        {
+            Ok(output) => {
+                if output.status.success() {
+                    let stdout = String::from_utf8_lossy(&output.stdout);
+                    // Verify it's actually marker by checking help output
+                    stdout.contains("marker") || stdout.contains("PDF") || stdout.contains("markdown")
+                } else {
+                    false
+                }
+            },
+            Err(_) => false,
+        }
+    }
+
+    /// Check if any marker installation is available
+    pub fn is_marker_available(&self) -> bool {
+        self.venv_path.is_some() || self.global_available
+    }
+
+    /// Get the virtual environment path if available
+    pub fn get_venv_path(&self) -> Option<&PathBuf> {
+        self.venv_path.as_ref()
+    }
+
+    /// Check if global marker installation is available
+    pub fn is_global_available(&self) -> bool {
+        self.global_available
+    }
+
+
+}
+
 pub struct PdfProcessor {
+    #[allow(dead_code)] // Reserved for future marker server API support
     marker_base_url: String,
     marker_timeout: u64, // seconds
 }
@@ -35,7 +480,7 @@ impl PdfProcessor {
     pub fn new() -> Self {
         PdfProcessor {
             marker_base_url: "http://localhost:8001".to_string(),
-            marker_timeout: 60, // 1 minute timeout
+            marker_timeout: 300, // 5 minute timeout for complex PDFs
         }
     }
 
@@ -307,200 +752,460 @@ impl PdfProcessor {
         })
     }
 
-    /// Extract text using Marker API with improved error handling and options
+    /// Extract text using marker_single command directly
     pub async fn extract_with_marker(&self, file_path: &str, options: MarkerOptions) -> Result<String, PdfError> {
         // Check if file exists
         if !Path::new(file_path).exists() {
             return Err(PdfError::ExtractionError(format!("File not found: {}", file_path)));
         }
 
-        // Check if Marker server is available
-        if !self.is_marker_available().await {
-            return Err(PdfError::NetworkError("Marker server is not available".to_string()));
+        // Use MarkerCommandResolver to get the appropriate command path
+        let resolver = MarkerCommandResolver::new().await;
+        let marker_command_path = resolver.resolve_marker_command().await
+            .ok_or_else(|| {
+                let status = self.get_marker_installation_status_sync(&resolver);
+                let error_message = self.generate_installation_error_message(&status);
+                PdfError::ExtractionError(error_message)
+            })?;
+
+        // Create temporary output directory
+        let temp_dir = std::env::temp_dir().join("stellar_marker_output");
+        if let Err(e) = std::fs::create_dir_all(&temp_dir) {
+            return Err(PdfError::ExtractionError(format!("Failed to create temporary directory: {}", e)));
         }
 
-        // Prepare multipart form data for file upload
-        let client = reqwest::Client::new();
-        let file_contents = fs::read(file_path)
-            .map_err(|e| PdfError::IoError(e))?;
+        // Build marker_single command using resolved path
+        let mut cmd = tokio::process::Command::new(&marker_command_path);
+        cmd.arg(file_path)
+            .arg("--output_format").arg("markdown")
+            .arg("--output_dir").arg(&temp_dir);
 
-        let filename = Path::new(file_path)
-            .file_name()
-            .unwrap()
-            .to_str()
-            .unwrap()
-            .to_string();
-
-        let form = reqwest::multipart::Form::new()
-            .part("file", reqwest::multipart::Part::bytes(file_contents)
-                .file_name(filename)
-                .mime_str("application/pdf").unwrap())
-            .text("extract_images", options.extract_images.to_string())
-            .text("use_llm", options.use_llm.to_string())
-            .text("format_lines", options.format_lines.to_string())
-            .text("force_ocr", options.force_ocr.to_string())
-            .text("output_format", "markdown");
-
-        let response = client
-            .post(&format!("{}/marker", self.marker_base_url))
-            .multipart(form)
-            .timeout(std::time::Duration::from_secs(self.marker_timeout))
-            .send()
-            .await?;
-
-        let status_code = response.status();
-        if !status_code.is_success() {
-            let error_text = response.text().await.unwrap_or_else(|_| "Unknown error".to_string());
-            return Err(PdfError::NetworkError(format!(
-                "Marker API returned status {}: {}", 
-                status_code,
-                error_text
-            )));
+        // Handle environment variable setup when using virtual environment
+        if let Some(venv_path) = resolver.get_venv_path() {
+            // Set up environment variables for virtual environment execution
+            self.setup_venv_environment(&mut cmd, venv_path);
         }
 
-        let result: serde_json::Value = response.json().await?;
+        // Set up proper stdio handling to prevent hanging
+        cmd.stdout(std::process::Stdio::piped()) 
+           .stderr(std::process::Stdio::piped())
+           .stdin(std::process::Stdio::null());
 
-        // Handle different response formats
-        if let Some(markdown) = result.get("markdown").and_then(|v| v.as_str()) {
-            Ok(markdown.to_string())
-        } else if let Some(text) = result.get("text").and_then(|v| v.as_str()) {
-            Ok(text.to_string())
-        } else if let Some(content) = result.get("content").and_then(|v| v.as_str()) {
-            Ok(content.to_string())
-        } else {
-            Err(PdfError::ExtractionError(
-                "Unexpected response format from Marker API".to_string()
-            ))
-        }
-    }
-
-    /// Check if Marker server is available
-    async fn is_marker_available(&self) -> bool {
-        let client = reqwest::Client::new();
-        match client
-            .get(&format!("{}/health", self.marker_base_url))
-            .timeout(std::time::Duration::from_secs(5))
-            .send()
-            .await
-        {
-            Ok(response) => response.status().is_success(),
-            Err(_) => false,
-        }
-    }
-
-    /// Smart extraction with multiple fallback options
-    pub async fn extract_text_smart(&self, file_path: &str, options: MarkerOptions) -> Result<String, PdfError> {
-        // Try Marker first if enabled
-        if options.prefer_marker {
-            match self.extract_with_marker(file_path, options.clone()).await {
-                Ok(markdown) => return Ok(markdown),
-                Err(e) => {
-                    println!("Marker extraction failed: {:?}, falling back to enhanced basic extraction", e);
-                }
-            }
+        // Set working directory to project root to ensure consistent behavior
+        if let Ok(current_dir) = std::env::current_dir() {
+            // If we're in src-tauri, go up one level to project root
+            let working_dir = if current_dir.file_name().and_then(|s| s.to_str()) == Some("src-tauri") {
+                current_dir.parent().unwrap_or(&current_dir)
+            } else {
+                &current_dir
+            };
+            cmd.current_dir(working_dir);
+            println!("Setting working directory to: {:?}", working_dir);
         }
 
-        // Fallback to enhanced basic extraction
-        self.extract_text_from_pdf(file_path)
-    }
-
-    /// Extract using MarkItDown (Microsoft's tool) via Python
-    pub async fn extract_with_markitdown(&self, file_path: &str) -> Result<String, PdfError> {
-        // Check if file exists
-        if !Path::new(file_path).exists() {
-            return Err(PdfError::ExtractionError(format!("File not found: {}", file_path)));
+        // Add optional flags
+        // Note: format_lines, use_llm, and gemini_api_key are disabled
+        if options.force_ocr {
+            cmd.arg("--force_ocr");
         }
 
-        // Get the current working directory and check multiple possible locations
-        let current_dir = std::env::current_dir()
-            .map_err(|e| PdfError::ExtractionError(format!("Failed to get current directory: {}", e)))?;
+        println!("Running marker_single command for file: {}", file_path);
+        println!("Command path: {:?}", marker_command_path);
+        println!("Output directory: {:?}", temp_dir);
+        println!("Virtual environment path: {:?}", resolver.get_venv_path());
         
-        // Try multiple possible paths for the markitdown virtual environment
-        let possible_paths = vec![
-            Some(current_dir.join("markitdown_env").join("bin").join("python")),
-            current_dir.parent().map(|p| p.join("markitdown_env").join("bin").join("python")),
-            current_dir.parent().and_then(|p| p.parent()).map(|p| p.join("markitdown_env").join("bin").join("python")),
+        // Debug: Print the full command that will be executed
+        println!("Full command: {:?} {:?}", marker_command_path, cmd.as_std().get_args().collect::<Vec<_>>());
+
+        // Execute command with timeout
+        let timeout_duration = std::time::Duration::from_secs(self.marker_timeout);
+        
+        let output = match tokio::time::timeout(timeout_duration, cmd.output()).await {
+            Ok(result) => match result {
+                Ok(output) => output,
+                Err(e) => return Err(PdfError::ExtractionError(format!("Failed to execute marker_single: {}", e))),
+            },
+            Err(_) => return Err(PdfError::ExtractionError(format!("Marker processing timed out ({} seconds). The PDF file may be too large or complex. Try processing it as a background job for longer files.", self.marker_timeout))),
+        };
+
+        if !output.status.success() {
+            let error = String::from_utf8_lossy(&output.stderr);
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            
+            // Generate enhanced error message with installation context
+            let helpful_error = self.generate_execution_error_message(&error, &stdout, &resolver);
+            
+            return Err(PdfError::ExtractionError(helpful_error));
+        }
+
+        // Find the output markdown file - marker_single creates files with different patterns
+        let file_stem = Path::new(file_path)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("output");
+        
+        // Try different possible output file names that marker_single might create
+        let possible_output_files = vec![
+            temp_dir.join(format!("{}.md", file_stem)),
+            temp_dir.join(format!("{}_out.md", file_stem)),
+            temp_dir.join(format!("{}_markdown.md", file_stem)),
         ];
         
-        let mut venv_python = None;
-        for path_opt in possible_paths {
-            if let Some(path) = path_opt {
-                if path.exists() {
-                    venv_python = Some(path);
+        // Also try files in subdirectories (marker often creates subdirectories)
+        let possible_subdir_files = vec![
+            temp_dir.join(&file_stem).join(format!("{}.md", file_stem)),
+            temp_dir.join(&file_stem).join(format!("{}_out.md", file_stem)),
+            temp_dir.join(&file_stem).join(format!("{}_markdown.md", file_stem)),
+        ];
+        
+        // Also scan the directory for any .md files (in case marker uses a different naming convention)
+        let mut markdown_file: Option<std::path::PathBuf> = None;
+        
+        // First try the expected names directly in temp_dir
+        for possible_file in &possible_output_files {
+            if possible_file.exists() {
+                markdown_file = Some(possible_file.clone());
+                break;
+            }
+        }
+        
+        // Then try files in subdirectories
+        if markdown_file.is_none() {
+            for possible_file in &possible_subdir_files {
+                if possible_file.exists() {
+                    markdown_file = Some(possible_file.clone());
                     break;
                 }
             }
         }
         
-                let venv_python = venv_python.ok_or_else(|| {
-            let attempted_paths: Vec<String> = vec![
-                current_dir.join("markitdown_env").join("bin").join("python").display().to_string(),
-                current_dir.parent().map(|p| p.join("markitdown_env").join("bin").join("python").display().to_string()).unwrap_or_else(|| "N/A".to_string()),
-                current_dir.parent().and_then(|p| p.parent()).map(|p| p.join("markitdown_env").join("bin").join("python").display().to_string()).unwrap_or_else(|| "N/A".to_string()),
-            ];
+        // If still not found, scan directory recursively for any .md files
+        if markdown_file.is_none() {
+            if let Ok(entries) = std::fs::read_dir(&temp_dir) {
+                for entry in entries {
+                    if let Ok(entry) = entry {
+                        let path = entry.path();
+                        if path.extension().and_then(|s| s.to_str()) == Some("md") {
+                            markdown_file = Some(path);
+                            break;
+                        }
+                        
+                        // If it's a directory, check inside it for .md files
+                        if path.is_dir() {
+                            if let Ok(subdir_entries) = std::fs::read_dir(&path) {
+                                for subdir_entry in subdir_entries {
+                                    if let Ok(subdir_entry) = subdir_entry {
+                                        let subdir_path = subdir_entry.path();
+                                        if subdir_path.extension().and_then(|s| s.to_str()) == Some("md") {
+                                            markdown_file = Some(subdir_path);
+                                            break;
+                                        }
+                                    }
+                                }
+                                if markdown_file.is_some() {
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        let markdown_file = markdown_file.ok_or_else(|| {
+            // List directory contents for debugging
+            let mut debug_files = Vec::new();
+            if let Ok(entries) = std::fs::read_dir(&temp_dir) {
+                for entry in entries {
+                    if let Ok(entry) = entry {
+                        debug_files.push(entry.path().display().to_string());
+                    }
+                }
+            }
+            
+            // Combine all expected file paths for error message
+            let mut all_expected_files = possible_output_files.iter().map(|p| p.display().to_string()).collect::<Vec<_>>();
+            all_expected_files.extend(possible_subdir_files.iter().map(|p| p.display().to_string()));
+            
             PdfError::ExtractionError(format!(
-                "MarkItDown virtual environment not found. Current dir: {}. Tried paths: {}. Run: ./scripts/setup_markitdown.sh", 
-                current_dir.display(),
-                attempted_paths.join(", ")
+                "Marker output file not found. Expected one of: {:?}. Directory contents: {:?}. The PDF processing may have failed silently.",
+                all_expected_files,
+                debug_files
             ))
-         })?;
+        })?;
 
-        // Check if markitdown is available in the virtual environment
-        let output = tokio::process::Command::new(&venv_python)
-            .arg("-c")
-            .arg("import markitdown")
-            .output()
-            .await;
+        // Read the markdown content
+        let markdown_content = match std::fs::read_to_string(&markdown_file) {
+            Ok(content) => content,
+            Err(e) => return Err(PdfError::ExtractionError(format!("Failed to read Marker output: {}", e))),
+        };
 
-        if output.is_err() || !output.unwrap().status.success() {
+        // Validate the content
+        if markdown_content.trim().is_empty() {
             return Err(PdfError::ExtractionError(
-                "MarkItDown not available in virtual environment. Run: ./scripts/setup_markitdown.sh".to_string()
+                "Marker produced empty output. The PDF file may be corrupted or contain no extractable text.".to_string()
             ));
         }
 
-        // Use markitdown via the virtual environment's Python
-        let output = tokio::process::Command::new(&venv_python)
-            .arg("-m")
-            .arg("markitdown")
-            .arg(file_path)
-            .output()
-            .await
-            .map_err(|e| PdfError::ExtractionError(format!("Failed to run markitdown: {}", e)))?;
-
-        if !output.status.success() {
-            let error = String::from_utf8_lossy(&output.stderr);
-            return Err(PdfError::ExtractionError(format!("MarkItDown failed: {}", error)));
+        // Clean up temporary files and directories
+        let _ = std::fs::remove_file(&markdown_file);
+        
+        // Clean up temp directory recursively (marker may create subdirectories)
+        if temp_dir.exists() {
+            let _ = std::fs::remove_dir_all(&temp_dir);
         }
 
-        let markdown = String::from_utf8_lossy(&output.stdout).to_string();
-        Ok(markdown)
+        println!("Successfully processed PDF with Marker, output length: {}", markdown_content.len());
+        Ok(markdown_content)
     }
 
-    /// Basic text extraction without enhanced processing (for fallback)
-    pub fn extract_basic_text(&self, file_path: &str) -> Result<String, PdfError> {
-        let text = extract_text(file_path)
-            .map_err(|e| PdfError::ExtractionError(format!("Failed to extract text: {}", e)))?;
+    /// Check if marker_single command is available
+    /// Uses MarkerCommandResolver for comprehensive availability check
+    /// Maintains backward compatibility with existing code
+    async fn is_marker_single_available(&self) -> bool {
+        let resolver = MarkerCommandResolver::new().await;
+        resolver.is_marker_available()
+    }
+
+    /// Get detailed marker installation status synchronously using an existing resolver
+    /// This is a helper method for use within other methods that already have a resolver
+    fn get_marker_installation_status_sync(&self, resolver: &MarkerCommandResolver) -> MarkerInstallationStatus {
+        // Check if virtual environment exists
+        let _venv_exists = resolver.get_venv_path().is_some();
+        let global_available = resolver.is_global_available();
         
-        // Minimal markdown conversion
-        Ok(text.replace("\n\n", "\n\n"))
+        // Determine installation status based on what's available
+        if let Some(venv_path) = resolver.get_venv_path() {
+            // Virtual environment exists, check if marker is available in it
+            if let Some(marker_path) = resolver.get_venv_marker_path(venv_path) {
+                // For sync version, we assume the resolver has already validated the path
+                return MarkerInstallationStatus::virtual_environment(
+                    marker_path.to_string_lossy().to_string()
+                );
+            } else {
+                // Virtual environment exists but marker_single is not installed
+                return MarkerInstallationStatus::venv_exists_but_marker_missing();
+            }
+        } else if global_available {
+            // No virtual environment but global installation is available
+            return MarkerInstallationStatus::global_installation();
+        } else {
+            // No installation found at all
+            return MarkerInstallationStatus::not_found();
+        }
+    }
+
+    /// Generate specific error message based on marker installation status
+    /// Provides targeted guidance based on MarkerInstallationType
+    /// Includes references to setup script when appropriate
+    fn generate_installation_error_message(&self, status: &MarkerInstallationStatus) -> String {
+        match status.installation_type {
+            MarkerInstallationType::NotFound => {
+                "Marker not found. Please install Marker to process PDFs.\n\nTo install Marker, run the setup script:\n  ./scripts/setup_marker.sh\n\nThis will create a virtual environment and install all required dependencies.".to_string()
+            },
+            MarkerInstallationType::VenvExistsButMarkerMissing => {
+                "Marker virtual environment found but marker_single is not installed.\n\nThe virtual environment exists but appears to be incomplete. Please run the setup script to complete the installation:\n  ./scripts/setup_marker.sh\n\nThis will install marker_single and its dependencies in the existing virtual environment.".to_string()
+            },
+            MarkerInstallationType::Global => {
+                // This case shouldn't happen since we only call this when marker is not available
+                // But we'll handle it gracefully
+                "Marker appears to be installed globally but is not working properly.\n\nPlease try running the setup script to create a clean virtual environment installation:\n  ./scripts/setup_marker.sh".to_string()
+            },
+            MarkerInstallationType::VirtualEnvironment => {
+                // This case shouldn't happen since we only call this when marker is not available
+                // But we'll handle it gracefully
+                "Marker appears to be installed in virtual environment but is not working properly.\n\nPlease try running the setup script to reinstall:\n  ./scripts/setup_marker.sh".to_string()
+            }
+        }
+    }
+
+    /// Generate enhanced error message for marker execution failures
+    /// Provides specific instructions based on MarkerInstallationType and error details
+    /// Includes references to setup script when appropriate
+    fn generate_execution_error_message(&self, stderr: &str, stdout: &str, resolver: &MarkerCommandResolver) -> String {
+        // Get installation status for context
+        let status = self.get_marker_installation_status_sync(resolver);
+        
+        // Check for specific error patterns first
+        if stderr.contains("No such file or directory") || stderr.contains("command not found") {
+            return match status.installation_type {
+                MarkerInstallationType::VirtualEnvironment => {
+                    "Marker command not found despite virtual environment installation.\n\nThe virtual environment may be corrupted. Please run the setup script to reinstall:\n  ./scripts/setup_marker.sh".to_string()
+                },
+                MarkerInstallationType::Global => {
+                    "Marker command not found despite global installation.\n\nThe global installation may be corrupted. Please run the setup script to create a clean virtual environment installation:\n  ./scripts/setup_marker.sh".to_string()
+                },
+                _ => {
+                    "Marker command not found. Please install Marker by running the setup script:\n  ./scripts/setup_marker.sh".to_string()
+                }
+            };
+        }
+        
+        if stderr.contains("Permission denied") {
+            return match status.installation_type {
+                MarkerInstallationType::VirtualEnvironment => {
+                    "Permission denied when executing marker_single from virtual environment.\n\nThis may be a file permissions issue. Try running the setup script to fix permissions:\n  ./scripts/setup_marker.sh".to_string()
+                },
+                _ => {
+                    "Permission denied when executing marker_single.\n\nPlease check file permissions or run the setup script:\n  ./scripts/setup_marker.sh".to_string()
+                }
+            };
+        }
+        
+        if stderr.contains("API key") {
+            return "Invalid or missing API key for LLM features.\n\nPlease check your Gemini API key in settings, or disable LLM features in PDF processing options.".to_string();
+        }
+        
+        if stderr.contains("rate limit") {
+            return "API rate limit exceeded.\n\nPlease try again in a few minutes, or disable LLM features to avoid API calls.".to_string();
+        }
+        
+        if stderr.contains("ModuleNotFoundError") || stderr.contains("ImportError") {
+            return match status.installation_type {
+                MarkerInstallationType::VirtualEnvironment => {
+                    "Python module missing from virtual environment.\n\nThe virtual environment may be incomplete. Please run the setup script to reinstall all dependencies:\n  ./scripts/setup_marker.sh".to_string()
+                },
+                MarkerInstallationType::Global => {
+                    "Python module missing from global installation.\n\nPlease run the setup script to create a complete virtual environment installation:\n  ./scripts/setup_marker.sh".to_string()
+                },
+                _ => {
+                    "Python module missing. Please install Marker by running the setup script:\n  ./scripts/setup_marker.sh".to_string()
+                }
+            };
+        }
+        
+        if stderr.contains("CUDA") || stderr.contains("GPU") {
+            return "GPU/CUDA related error during PDF processing.\n\nThis may be due to GPU driver issues, insufficient GPU memory, or CUDA not being available on this system (like Apple Silicon Macs). The processing should automatically fall back to CPU mode.".to_string();
+        }
+        
+        if stderr.contains("out of memory") || stderr.contains("OOM") {
+            return "Out of memory during PDF processing.\n\nThe PDF file may be too large. Try processing a smaller file, or consider using a machine with more RAM.".to_string();
+        }
+        
+        // Generic error handling with installation context
+        let base_error = if !stderr.is_empty() {
+            format!("Marker processing failed: {}", stderr)
+        } else if !stdout.is_empty() {
+            format!("Marker processing failed: {}", stdout)
+        } else {
+            "Marker processing failed with unknown error".to_string()
+        };
+        
+        // Add installation-specific guidance
+        let guidance = match status.installation_type {
+            MarkerInstallationType::VirtualEnvironment => {
+                "\n\nIf the problem persists, try reinstalling the virtual environment:\n  ./scripts/setup_marker.sh"
+            },
+            MarkerInstallationType::Global => {
+                "\n\nConsider using the virtual environment installation for better isolation:\n  ./scripts/setup_marker.sh"
+            },
+            MarkerInstallationType::VenvExistsButMarkerMissing => {
+                "\n\nPlease complete the installation by running:\n  ./scripts/setup_marker.sh"
+            },
+            MarkerInstallationType::NotFound => {
+                "\n\nPlease install Marker by running:\n  ./scripts/setup_marker.sh"
+            }
+        };
+        
+        format!("{}{}", base_error, guidance)
+    }
+
+    /// Set up environment variables for virtual environment execution
+    /// This ensures the marker command runs with the correct Python environment
+    fn setup_venv_environment(&self, cmd: &mut tokio::process::Command, venv_path: &PathBuf) {
+        // Set VIRTUAL_ENV environment variable
+        cmd.env("VIRTUAL_ENV", venv_path);
+        
+        // Update PATH to include the virtual environment's bin directory
+        let bin_dir = if cfg!(windows) {
+            venv_path.join("Scripts")
+        } else {
+            venv_path.join("bin")
+        };
+        
+        // Get current PATH and prepend the venv bin directory
+        if let Ok(current_path) = std::env::var("PATH") {
+            let new_path = format!("{}:{}", bin_dir.display(), current_path);
+            cmd.env("PATH", new_path);
+        } else {
+            // If PATH is not set, just use the venv bin directory
+            cmd.env("PATH", bin_dir);
+        }
+        
+        // Set PYTHONPATH to ensure proper module resolution
+        cmd.env("PYTHONPATH", venv_path.join("lib"));
+        
+        // Unset PYTHONHOME to avoid conflicts
+        cmd.env_remove("PYTHONHOME");
+    }
+
+    /// Get detailed marker installation status with appropriate messages and suggested actions
+    /// Returns comprehensive information about marker availability and installation type
+    /// Provides specific guidance based on detected installation state
+    pub async fn get_marker_installation_status(&self) -> MarkerInstallationStatus {
+        let resolver = MarkerCommandResolver::new().await;
+        
+        // Check if virtual environment exists
+        let _venv_exists = resolver.get_venv_path().is_some();
+        let global_available = resolver.is_global_available();
+        
+        // Determine installation status based on what's available
+        if let Some(venv_path) = resolver.get_venv_path() {
+            // Virtual environment exists, check if marker is available in it
+            if let Some(marker_path) = resolver.get_venv_marker_path(venv_path) {
+                // Verify the marker executable actually works
+                if resolver.verify_marker_executable_path(&marker_path).await {
+                    return MarkerInstallationStatus::virtual_environment(
+                        marker_path.to_string_lossy().to_string()
+                    );
+                } else {
+                    // Virtual environment exists but marker is broken
+                    return MarkerInstallationStatus {
+                        is_available: false,
+                        installation_type: MarkerInstallationType::VenvExistsButMarkerMissing,
+                        command_path: None,
+                        error_message: Some("Marker virtual environment found but marker_single command is not working properly.".to_string()),
+                        suggested_action: Some("Please run the setup script to reinstall: ./scripts/setup_marker.sh".to_string()),
+                    };
+                }
+            } else {
+                // Virtual environment exists but marker_single is not installed
+                return MarkerInstallationStatus::venv_exists_but_marker_missing();
+            }
+        } else if global_available {
+            // No virtual environment but global installation is available
+            // Double-check that global installation actually works
+            if resolver.verify_global_marker_executable().await {
+                return MarkerInstallationStatus::global_installation();
+            } else {
+                // Global installation was detected but doesn't work
+                return MarkerInstallationStatus {
+                    is_available: false,
+                    installation_type: MarkerInstallationType::NotFound,
+                    command_path: None,
+                    error_message: Some("Marker was detected globally but is not working properly.".to_string()),
+                    suggested_action: Some("Please reinstall Marker or run the setup script: ./scripts/setup_marker.sh".to_string()),
+                };
+            }
+        } else {
+            // No installation found at all
+            return MarkerInstallationStatus::not_found();
+        }
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub struct MarkerOptions {
     pub extract_images: bool,
-    pub use_llm: bool,
-    pub format_lines: bool,
     pub force_ocr: bool,
     pub prefer_marker: bool,
+    // Disabled options: use_llm, format_lines, gemini_api_key
 }
 
 impl Default for MarkerOptions {
     fn default() -> Self {
         MarkerOptions {
             extract_images: false,
-            use_llm: false,
-            format_lines: true,
             force_ocr: false,
             prefer_marker: true,
         }
@@ -528,10 +1233,9 @@ pub enum ExtractionMethod {
 pub struct ExtractOptions {
     pub preferred_methods: Vec<ExtractionMethod>,
     pub extract_images: bool,
-    pub use_llm: bool,
-    pub format_lines: bool,
     pub force_ocr: bool,
     pub timeout_seconds: u64,
+    // Disabled options: use_llm, format_lines
 }
 
 impl Default for ExtractOptions {
@@ -544,8 +1248,6 @@ impl Default for ExtractOptions {
                 ExtractionMethod::Basic,
             ],
             extract_images: false,
-            use_llm: false,
-            format_lines: true,
             force_ocr: false,
             timeout_seconds: 120,
         }
@@ -553,26 +1255,4 @@ impl Default for ExtractOptions {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_looks_like_heading() {
-        let processor = PdfProcessor::new();
-        
-        assert!(processor.looks_like_heading("Introduction"));
-        assert!(processor.looks_like_heading("Chapter 1: Overview"));
-        assert!(!processor.looks_like_heading("This is a long sentence that continues for a while and doesn't look like a heading at all."));
-        assert!(!processor.looks_like_heading("This sentence ends with a period."));
-    }
-
-    #[test]
-    fn test_text_to_markdown() {
-        let processor = PdfProcessor::new();
-        let input = "Introduction\n\nThis is the first paragraph of text that should be converted to markdown.\n\nAnother Section\n\nThis is another paragraph with some content.";
-        
-        let result = processor.text_to_markdown_enhanced(input);
-        assert!(result.contains("## Introduction"));
-        assert!(result.contains("## Another Section"));
-    }
-} 
+mod tests;

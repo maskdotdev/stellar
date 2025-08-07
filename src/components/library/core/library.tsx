@@ -1,14 +1,21 @@
-"use client"
+"use client";
 
-import { Loader2 } from "lucide-react"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { useLibrary } from "./use-library"
-import { LibraryHeader } from "./library-header"
-import { CategoryView } from "../categories/category-view"
-import { DocumentView } from "../documents/document-view"
-import { CategoryDialog } from "../categories/category-dialog"
-import { DeleteConfirmationDialogs } from "../shared/delete-confirmation-dialogs"
-import { PdfUploadDialog } from "../shared/pdf-upload-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Loader2 } from "lucide-react";
+import { CategoryDialog } from "../categories/category-dialog";
+import { CategoryView } from "../categories/category-view";
+import { DocumentView } from "../documents/document-view";
+import { ProcessingStatus } from "../processing/processing-status";
+import { DeleteConfirmationDialogs } from "../shared/delete-confirmation-dialogs";
+import { PdfUploadDialog } from "../shared/pdf-upload-dialog";
+import { LibraryHeader } from "./library-header";
+import { useLibrary } from "./use-library";
 
 export function Library() {
   const {
@@ -30,16 +37,16 @@ export function Library() {
     editingTitleId,
     editingTitle,
     setEditingTitle,
-    
+
     // Computed state
     filteredCategories,
     filteredDocuments,
-    
+
     // Settings
     viewMode,
     setLibraryViewMode,
     addSearchHistory,
-    
+
     // Store state
     documents,
     isLoadingDocuments,
@@ -48,7 +55,7 @@ export function Library() {
     currentCategory,
     libraryBreadcrumbs,
     libraryService,
-    
+
     // Handlers
     handleCategoryClick,
     handleBackToCategories,
@@ -64,7 +71,10 @@ export function Library() {
     handleCancelEditTitle,
     handleSuggestedCategorySelect,
     handleEditCategory,
-  } = useLibrary()
+    showProcessingStatus,
+    setShowProcessingStatus,
+    handleShowProcessingStatus,
+  } = useLibrary();
 
   if (isLoadingCategories && categories.length === 0) {
     return (
@@ -74,7 +84,7 @@ export function Library() {
           <p className="text-muted-foreground">Loading your library...</p>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -89,10 +99,22 @@ export function Library() {
         viewMode={viewMode}
         setLibraryViewMode={setLibraryViewMode}
         onBackToCategories={handleBackToCategories}
-        onNavigateToCategory={(id, name) => handleCategoryClick({ id, name } as any)}
+        onNavigateToCategory={(id, name) =>
+          handleCategoryClick({
+            id,
+            name,
+            description: "",
+            color: "#3b82f6",
+            icon: "folder",
+            created_at: "",
+            updated_at: "",
+            document_count: 0,
+          })
+        }
         onShowCategoryDialog={() => setShowCategoryDialog(true)}
         onShowUploadDialog={() => setShowUploadDialog(true)}
         onCreateNote={handleCreateNote}
+        onShowProcessingStatus={handleShowProcessingStatus}
       />
 
       {/* Content */}
@@ -141,9 +163,14 @@ export function Library() {
         onUpdateCategory={handleUpdateCategory}
         onSuggestedCategorySelect={handleSuggestedCategorySelect}
         onCancel={() => {
-          setShowCategoryDialog(false)
-          setEditingCategory(null)
-          setCategoryForm({ name: "", description: "", color: "#3b82f6", icon: "folder" })
+          setShowCategoryDialog(false);
+          setEditingCategory(null);
+          setCategoryForm({
+            name: "",
+            description: "",
+            color: "#3b82f6",
+            icon: "folder",
+          });
         }}
       />
 
@@ -165,6 +192,21 @@ export function Library() {
         categories={categories}
         currentCategoryId={currentCategory}
       />
+
+      {/* Processing Status Dialog */}
+      <Dialog
+        open={showProcessingStatus}
+        onOpenChange={setShowProcessingStatus}
+      >
+        <DialogContent className="max-w-6xl max-h-[90vh] p-0">
+          <DialogHeader className="p-6 pb-0">
+            <DialogTitle>PDF Processing Status</DialogTitle>
+          </DialogHeader>
+          <div className="p-6 pt-0">
+            <ProcessingStatus />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
-  )
+  );
 }
