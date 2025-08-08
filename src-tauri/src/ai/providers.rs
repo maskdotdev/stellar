@@ -2,11 +2,17 @@ use super::types::*;
 use tauri::{AppHandle, Emitter};
 use futures_util::StreamExt;
 use uuid::Uuid;
+use std::time::{Duration, Instant};
+use serde_json::json;
 
 // Provider-specific implementations
 pub async fn test_openai_connection(provider: &AIProvider, api_key: Option<String>) -> Result<bool, String> {
     let api_key = api_key.ok_or("API key required for OpenAI provider")?;
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .connect_timeout(Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
     
     let response = client
         .get(&format!("{}/models", provider.base_url))
@@ -20,7 +26,11 @@ pub async fn test_openai_connection(provider: &AIProvider, api_key: Option<Strin
 
 pub async fn test_anthropic_connection(provider: &AIProvider, api_key: Option<String>) -> Result<bool, String> {
     let api_key = api_key.ok_or("API key required for Anthropic provider")?;
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .connect_timeout(Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
     
     let response = client
         .get(&format!("{}/models", provider.base_url))
@@ -34,7 +44,11 @@ pub async fn test_anthropic_connection(provider: &AIProvider, api_key: Option<St
 }
 
 pub async fn test_ollama_connection(provider: &AIProvider) -> Result<bool, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .connect_timeout(Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
     
     let response = client
         .get(&format!("{}/api/tags", provider.base_url))
@@ -52,33 +66,66 @@ pub async fn openai_chat_completion(
     api_key: Option<String>,
 ) -> Result<ChatCompletionResponse, String> {
     let api_key = api_key.ok_or("API key required for OpenAI provider")?;
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(60))
+        .connect_timeout(Duration::from_secs(15))
+        .build()
+        .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
+
+    println!(
+        "[AI] OpenAI chat start model={} messages={} temp={:?} max_tokens={:?}",
+        model,
+        request.messages.len(),
+        request.temperature,
+        request.max_tokens
+    );
+    let started_at = Instant::now();
     
-    let mut body = serde_json::json!({
-        "model": model,
-        "messages": request.messages,
-    });
+    // Helper to build request body with a specific token parameter name
+    let build_body = |token_param: &str| {
+        let mut b = serde_json::json!({
+            "model": model,
+            "messages": request.messages,
+        });
+        if let Some(temp) = request.temperature { b["temperature"] = temp.into(); }
+        if let Some(max_tokens) = request.max_tokens { b[token_param] = max_tokens.into(); }
+        b
+    };
 
-    if let Some(temp) = request.temperature {
-        body["temperature"] = temp.into();
-    }
-    if let Some(max_tokens) = request.max_tokens {
-        body["max_tokens"] = max_tokens.into();
-    }
+    // Build final response with fallback handling inside a scoped block to avoid moves
+    let response = {
+        let initial_body = build_body("max_tokens");
+        let resp = client
+            .post(&format!("{}/chat/completions", provider.base_url))
+            .header("Authorization", format!("Bearer {}", api_key))
+            .header("Content-Type", "application/json")
+            .json(&initial_body)
+            .send()
+            .await
+            .map_err(|e| format!("Request failed: {}", e))?;
 
-    let response = client
-        .post(&format!("{}/chat/completions", provider.base_url))
-        .header("Authorization", format!("Bearer {}", api_key))
-        .header("Content-Type", "application/json")
-        .json(&body)
-        .send()
-        .await
-        .map_err(|e| format!("Request failed: {}", e))?;
-
-    if !response.status().is_success() {
-        let error_text = response.text().await.unwrap_or_default();
-        return Err(format!("API error: {}", error_text));
-    }
+        if resp.status().is_success() {
+            resp
+        } else {
+            let status_code = resp.status();
+            let error_text = match resp.text().await { Ok(t) => t, Err(_) => String::new() };
+            if error_text.contains("Unsupported parameter") && error_text.contains("max_tokens") {
+                println!("[AI] OpenAI retrying with max_completion_tokens due to unsupported max_tokens");
+                let body_alt = build_body("max_completion_tokens");
+                client
+                    .post(&format!("{}/chat/completions", provider.base_url))
+                    .header("Authorization", format!("Bearer {}", api_key))
+                    .header("Content-Type", "application/json")
+                    .json(&body_alt)
+                    .send()
+                    .await
+                    .map_err(|e| format!("Request failed: {}", e))?
+            } else {
+                println!("[AI] OpenAI API error: status={}, body={}", status_code, error_text);
+                return Err(format!("API error: {}", error_text));
+            }
+        }
+    };
 
     // Parse OpenAI response manually to handle snake_case to camelCase conversion
     let openai_response: serde_json::Value = response
@@ -91,7 +138,8 @@ pub async fn openai_chat_completion(
         .unwrap_or("")
         .to_string();
 
-    Ok(ChatCompletionResponse {
+    let elapsed_ms = started_at.elapsed().as_millis();
+    let result = ChatCompletionResponse {
         id: openai_response["id"].as_str().unwrap_or("").to_string(),
         choices: vec![ChatChoice {
             message: ChatMessage {
@@ -105,7 +153,16 @@ pub async fn openai_chat_completion(
             completion_tokens: openai_response["usage"]["completion_tokens"].as_u64().unwrap_or(0) as u32,
             total_tokens: openai_response["usage"]["total_tokens"].as_u64().unwrap_or(0) as u32,
         },
-    })
+    };
+    println!(
+        "[AI] OpenAI chat done model={} elapsed={}ms usage={{prompt:{}, completion:{}, total:{}}}",
+        model,
+        elapsed_ms,
+        result.usage.prompt_tokens,
+        result.usage.completion_tokens,
+        result.usage.total_tokens
+    );
+    Ok(result)
 }
 
 pub async fn openai_chat_completion_stream(
@@ -116,35 +173,72 @@ pub async fn openai_chat_completion_stream(
     event_name: &str,
     app: &AppHandle,
 ) -> Result<(), String> {
+    // Route GPT-5 models to the Responses API streaming handler
+    if model.contains("gpt-5") {
+        return openai_responses_stream(provider, model, request, api_key, event_name, app).await;
+    }
+
     let api_key = api_key.ok_or("API key required for OpenAI provider")?;
-    let client = reqwest::Client::new();
+    // For streaming, avoid a global timeout; keep a connect timeout only
+    let client = reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(15))
+        .build()
+        .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
+
+    println!(
+        "[AI] OpenAI stream start model={} messages={} temp={:?} max_tokens={:?}",
+        model,
+        request.messages.len(),
+        request.temperature,
+        request.max_tokens
+    );
     
-    let mut body = serde_json::json!({
-        "model": model,
-        "messages": request.messages,
-        "stream": true,
-    });
+    // Helper to build body with given token param name
+    let build_body = |token_param: &str| {
+        let mut b = serde_json::json!({
+            "model": model,
+            "messages": request.messages,
+            "stream": true,
+        });
+        if let Some(temp) = request.temperature { b["temperature"] = temp.into(); }
+        if let Some(max_tokens) = request.max_tokens { b[token_param] = max_tokens.into(); }
+        b
+    };
 
-    if let Some(temp) = request.temperature {
-        body["temperature"] = temp.into();
-    }
-    if let Some(max_tokens) = request.max_tokens {
-        body["max_tokens"] = max_tokens.into();
-    }
+    // Build final streaming response with fallback in a scoped block
+    let response = {
+        let initial_body = build_body("max_tokens");
+        let resp = client
+            .post(&format!("{}/chat/completions", provider.base_url))
+            .header("Authorization", format!("Bearer {}", api_key))
+            .header("Content-Type", "application/json")
+            .json(&initial_body)
+            .send()
+            .await
+            .map_err(|e| format!("Request failed: {}", e))?;
 
-    let response = client
-        .post(&format!("{}/chat/completions", provider.base_url))
-        .header("Authorization", format!("Bearer {}", api_key))
-        .header("Content-Type", "application/json")
-        .json(&body)
-        .send()
-        .await
-        .map_err(|e| format!("Request failed: {}", e))?;
-
-    if !response.status().is_success() {
-        let error_text = response.text().await.unwrap_or_default();
-        return Err(format!("API error: {}", error_text));
-    }
+        if resp.status().is_success() {
+            resp
+        } else {
+            let status_code = resp.status();
+            let error_text = match resp.text().await { Ok(t) => t, Err(_) => String::new() };
+            if error_text.contains("Unsupported parameter") && error_text.contains("max_tokens") {
+                println!("[AI] OpenAI stream retrying with max_completion_tokens due to unsupported max_tokens");
+                let body_alt = build_body("max_completion_tokens");
+                client
+                    .post(&format!("{}/chat/completions", provider.base_url))
+                    .header("Authorization", format!("Bearer {}", api_key))
+                    .header("Content-Type", "application/json")
+                    .json(&body_alt)
+                    .send()
+                    .await
+                    .map_err(|e| format!("Request failed: {}", e))?
+            } else {
+                println!("[AI] OpenAI stream API error: status={}, body={}", status_code, error_text);
+                return Err(format!("API error: {}", error_text));
+            }
+        }
+    };
 
     let mut stream = response.bytes_stream();
     let mut buffer = String::new();
@@ -159,11 +253,13 @@ pub async fn openai_chat_completion_stream(
             let line = buffer[..line_end].trim().to_string();
             buffer = buffer[line_end + 1..].to_string();
 
-            if line.is_empty() || !line.starts_with("data: ") {
+            if line.is_empty() || !line.starts_with("data:") {
                 continue;
             }
 
-            let data = &line[6..]; // Remove "data: " prefix
+            // Remove "data:" prefix and a single optional space
+            let mut data = &line[5..];
+            if let Some(rest) = data.strip_prefix(' ') { data = rest; }
             
             if data == "[DONE]" {
                 // Send completion event
@@ -214,6 +310,138 @@ pub async fn openai_chat_completion_stream(
         }
     }
 
+    println!("[AI] OpenAI stream complete model={}", model);
+    Ok(())
+}
+
+// Streaming via OpenAI Responses API (GPT-5 family)
+async fn openai_responses_stream(
+    provider: &AIProvider,
+    model: &str,
+    request: &ChatCompletionRequest,
+    api_key: Option<String>,
+    event_name: &str,
+    app: &AppHandle,
+) -> Result<(), String> {
+    let api_key = api_key.ok_or("API key required for OpenAI provider")?;
+    let client = reqwest::Client::builder()
+        .connect_timeout(Duration::from_secs(15))
+        .build()
+        .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
+
+    println!(
+        "[AI] OpenAI Responses stream start model={} messages={} temp={:?} max_tokens={:?}",
+        model,
+        request.messages.len(),
+        request.temperature,
+        request.max_tokens
+    );
+
+    // Map legacy ChatCompletionRequest to Responses API input schema
+    let mut input_items: Vec<serde_json::Value> = Vec::new();
+    for msg in &request.messages {
+        match msg.role.as_str() {
+            "system" => {
+                input_items.push(json!({
+                    "role": "system",
+                    "content": [{ "type": "input_text", "text": msg.content }]
+                }));
+            }
+            "user" => {
+                input_items.push(json!({
+                    "role": "user",
+                    "content": [{ "type": "input_text", "text": msg.content }]
+                }));
+            }
+            "assistant" => {
+                input_items.push(json!({
+                    "role": "assistant",
+                    "content": [{ "type": "output_text", "text": msg.content }]
+                }));
+            }
+            _ => {}
+        }
+    }
+
+    let mut body = json!({
+        "model": model,
+        "input": input_items,
+        "text": { "format": { "type": "text" } },
+        "stream": true
+    });
+    // GPT-5 Responses API models may not support temperature; omit to avoid errors
+    if let Some(max_tokens) = request.max_tokens { body["max_output_tokens"] = max_tokens.into(); }
+
+    let response = client
+        .post(&format!("{}/responses", provider.base_url))
+        .header("Authorization", format!("Bearer {}", api_key))
+        .header("Content-Type", "application/json")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("Request failed: {}", e))?;
+
+    if !response.status().is_success() {
+        let status_code = response.status();
+        let error_text = response.text().await.unwrap_or_default();
+        println!("[AI] OpenAI Responses API error: status={}, body={}", status_code, error_text);
+        return Err(format!("API error: {}", error_text));
+    }
+
+    let mut stream = response.bytes_stream();
+    let mut buffer = String::new();
+    let mut assembled = String::new();
+
+    while let Some(chunk_result) = stream.next().await {
+        let chunk = chunk_result.map_err(|e| format!("Stream error: {}", e))?;
+        let chunk_str = String::from_utf8_lossy(&chunk);
+        buffer.push_str(&chunk_str);
+
+        while let Some(line_end) = buffer.find('\n') {
+            let line = buffer[..line_end].trim().to_string();
+            buffer = buffer[line_end + 1..].to_string();
+            if line.is_empty() || !line.starts_with("data:") { continue; }
+            let mut data = &line[5..];
+            if let Some(rest) = data.strip_prefix(' ') { data = rest; }
+            if data == "[DONE]" { break; }
+
+            if let Ok(json) = serde_json::from_str::<serde_json::Value>(data) {
+                // Responses API stream events
+                // Common event types include: response.output_text.delta, response.output_text.done, response.completed
+                let event_type = json["type"].as_str().unwrap_or("");
+                match event_type {
+                    "response.output_text.delta" => {
+                        if let Some(delta) = json["delta"].as_str() {
+                            assembled.push_str(delta);
+                            let chunk = ChatCompletionStreamChunk {
+                                id: json["id"].as_str().unwrap_or("").to_string(),
+                                choices: vec![ChatStreamChoice {
+                                    delta: ChatStreamDelta { role: Some("assistant".to_string()), content: Some(delta.to_string()) },
+                                    finish_reason: None,
+                                }],
+                            };
+                            let _ = app.emit(event_name, chunk);
+                        }
+                    }
+                    "response.completed" | "response.output_text.done" => {
+                        let chunk = ChatCompletionStreamChunk {
+                            id: json["id"].as_str().unwrap_or("").to_string(),
+                            choices: vec![ChatStreamChoice {
+                                delta: ChatStreamDelta { role: None, content: None },
+                                finish_reason: Some("stop".to_string()),
+                            }],
+                        };
+                        let _ = app.emit(event_name, chunk);
+                    }
+                    _ => {
+                        // Ignore other event types for now
+                    }
+                }
+            }
+        }
+    }
+
+    println!("[AI] OpenAI Responses stream complete model={}", model);
     Ok(())
 }
 
@@ -224,7 +452,20 @@ pub async fn anthropic_chat_completion(
     api_key: Option<String>,
 ) -> Result<ChatCompletionResponse, String> {
     let api_key = api_key.ok_or("API key required for Anthropic provider")?;
-    
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(60))
+        .connect_timeout(Duration::from_secs(15))
+        .build()
+        .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
+
+    println!(
+        "[AI] Anthropic chat start model={} messages={} temp={:?} max_tokens={:?}",
+        model,
+        request.messages.len(),
+        request.temperature,
+        request.max_tokens
+    );
+    let started_at = Instant::now();
     // Convert OpenAI format to Anthropic format
     let system_message = request.messages.iter()
         .find(|m| m.role == "system")
@@ -247,7 +488,6 @@ pub async fn anthropic_chat_completion(
         body["temperature"] = temp.into();
     }
 
-    let client = reqwest::Client::new();
     let response = client
         .post(&format!("{}/messages", provider.base_url))
         .header("x-api-key", api_key)
@@ -269,12 +509,9 @@ pub async fn anthropic_chat_completion(
         .await
         .map_err(|e| format!("Failed to parse response: {}", e))?;
 
-    let content = anthropic_response["content"][0]["text"]
-        .as_str()
-        .unwrap_or("")
-        .to_string();
-
-    Ok(ChatCompletionResponse {
+    let content = anthropic_response["content"][0]["text"].as_str().unwrap_or("").to_string();
+    let elapsed_ms = started_at.elapsed().as_millis();
+    let result = ChatCompletionResponse {
         id: anthropic_response["id"].as_str().unwrap_or("").to_string(),
         choices: vec![ChatChoice {
             message: ChatMessage {
@@ -286,9 +523,19 @@ pub async fn anthropic_chat_completion(
         usage: ChatUsage {
             prompt_tokens: anthropic_response["usage"]["input_tokens"].as_u64().unwrap_or(0) as u32,
             completion_tokens: anthropic_response["usage"]["output_tokens"].as_u64().unwrap_or(0) as u32,
-            total_tokens: 0, // Will be calculated on frontend
+            total_tokens: (anthropic_response["usage"]["input_tokens"].as_u64().unwrap_or(0)
+                + anthropic_response["usage"]["output_tokens"].as_u64().unwrap_or(0)) as u32,
         },
-    })
+    };
+    println!(
+        "[AI] Anthropic chat done model={} elapsed={}ms usage={{prompt:{}, completion:{}, total:{}}}",
+        model,
+        elapsed_ms,
+        result.usage.prompt_tokens,
+        result.usage.completion_tokens,
+        result.usage.total_tokens
+    );
+    Ok(result)
 }
 
 pub async fn ollama_chat_completion(
@@ -296,7 +543,11 @@ pub async fn ollama_chat_completion(
     model: &str,
     request: &ChatCompletionRequest,
 ) -> Result<ChatCompletionResponse, String> {
-    let client = reqwest::Client::new();
+    let client = reqwest::Client::builder()
+        .timeout(Duration::from_secs(30))
+        .connect_timeout(Duration::from_secs(10))
+        .build()
+        .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
     
     let body = serde_json::json!({
         "model": model,
