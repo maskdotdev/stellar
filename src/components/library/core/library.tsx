@@ -34,6 +34,7 @@ export function Library() {
     setDeletingDocumentId,
     categoryForm,
     setCategoryForm,
+    startCreateCategory,
     editingTitleId,
     editingTitle,
     setEditingTitle,
@@ -41,6 +42,7 @@ export function Library() {
     // Computed state
     filteredCategories,
     filteredDocuments,
+    subcategories,
 
     // Settings
     viewMode,
@@ -69,6 +71,7 @@ export function Library() {
     handleStartEditTitle,
     handleSaveTitle,
     handleCancelEditTitle,
+    handleMoveDocument,
     handleSuggestedCategorySelect,
     handleEditCategory,
     showProcessingStatus,
@@ -111,7 +114,7 @@ export function Library() {
             document_count: 0,
           })
         }
-        onShowCategoryDialog={() => setShowCategoryDialog(true)}
+        onShowCategoryDialog={() => startCreateCategory()}
         onShowUploadDialog={() => setShowUploadDialog(true)}
         onCreateNote={handleCreateNote}
         onShowProcessingStatus={handleShowProcessingStatus}
@@ -128,26 +131,48 @@ export function Library() {
               onCategoryClick={handleCategoryClick}
               onEditCategory={handleEditCategory}
               onDeleteCategory={setDeletingCategoryId}
-              onCreateCategory={() => setShowCategoryDialog(true)}
+              onCreateCategory={startCreateCategory}
+              showUncategorized={true}
             />
           ) : (
-            <DocumentView
-              documents={documents}
-              filteredDocuments={filteredDocuments}
-              isLoadingDocuments={isLoadingDocuments}
-              viewMode={viewMode}
-              libraryService={libraryService}
-              editingTitleId={editingTitleId}
-              editingTitle={editingTitle}
-              onItemClick={handleItemClick}
-              onStartEditTitle={handleStartEditTitle}
-              onSaveTitle={handleSaveTitle}
-              onCancelEditTitle={handleCancelEditTitle}
-              onDeleteDocument={setDeletingDocumentId}
-              onCreateNote={handleCreateNote}
-              onUploadPdf={() => setShowUploadDialog(true)}
-              setEditingTitle={setEditingTitle}
-            />
+            <>
+              {subcategories.length > 0 && (
+                <div className="mb-4">
+                  <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-2">Subfolders</h3>
+                  <CategoryView
+                    categories={categories}
+                    filteredCategories={subcategories}
+                    libraryService={libraryService}
+                    onCategoryClick={handleCategoryClick}
+                    onEditCategory={handleEditCategory}
+                    onDeleteCategory={setDeletingCategoryId}
+                    onCreateCategory={startCreateCategory}
+                    showUncategorized={false}
+                  />
+                </div>
+              )}
+              <DocumentView
+                documents={documents}
+                filteredDocuments={filteredDocuments}
+                isLoadingDocuments={isLoadingDocuments}
+                viewMode={viewMode}
+                libraryService={libraryService}
+                editingTitleId={editingTitleId}
+                editingTitle={editingTitle}
+                onItemClick={handleItemClick}
+                onStartEditTitle={handleStartEditTitle}
+                onSaveTitle={handleSaveTitle}
+                onCancelEditTitle={handleCancelEditTitle}
+                onDeleteDocument={setDeletingDocumentId}
+                onCreateNote={handleCreateNote}
+                onUploadPdf={() => setShowUploadDialog(true)}
+                setEditingTitle={setEditingTitle}
+                onMoveDocument={handleMoveDocument}
+                categories={categories}
+                subcategories={subcategories}
+                currentCategory={currentCategory}
+              />
+            </>
           )}
         </div>
       </ScrollArea>
@@ -162,6 +187,7 @@ export function Library() {
         onCreateCategory={handleCreateCategory}
         onUpdateCategory={handleUpdateCategory}
         onSuggestedCategorySelect={handleSuggestedCategorySelect}
+        allCategories={categories}
         onCancel={() => {
           setShowCategoryDialog(false);
           setEditingCategory(null);
@@ -170,6 +196,7 @@ export function Library() {
             description: "",
             color: "#3b82f6",
             icon: "folder",
+            parent_id: undefined,
           });
         }}
       />

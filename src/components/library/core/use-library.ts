@@ -31,6 +31,7 @@ export function useLibrary() {
 		description: "",
 		color: "#3b82f6",
 		icon: "folder",
+		parent_id: undefined,
 	});
 	const [editingTitleId, setEditingTitleId] = useState<string | null>(null);
 	const [editingTitle, setEditingTitle] = useState("");
@@ -96,6 +97,8 @@ export function useLibrary() {
 		removeCategory,
 		navigateToCategory,
 		navigateBackToCategories,
+		shouldOpenCreateCategoryDialog,
+		setShouldOpenCreateCategoryDialog,
 	} = useStudyStore();
 
 	const libraryService = LibraryService.getInstance();
@@ -134,7 +137,23 @@ export function useLibrary() {
 		};
 
 		initializeLibrary();
-	}, []);
+	}, [
+		libraryService,
+		currentCategory,
+		setIsLoadingCategories,
+		setIsLoadingDocuments,
+		setCategories,
+		setDocuments,
+		toast,
+	]);
+
+	// Respond to global intent to open Create Category dialog
+	useEffect(() => {
+		if (shouldOpenCreateCategoryDialog) {
+			startCreateCategory();
+			setShouldOpenCreateCategoryDialog(false);
+		}
+	}, [shouldOpenCreateCategoryDialog, setShouldOpenCreateCategoryDialog]);
 
 	// Load documents when category changes
 	useEffect(() => {
@@ -167,19 +186,26 @@ export function useLibrary() {
 			};
 			loadCategoryDocuments();
 		}
-	}, [currentCategory]);
+	}, [
+		currentCategory,
+		libraryService,
+		setIsLoadingDocuments,
+		setDocuments,
+		toast,
+	]);
 
 	// Filter items based on current view
 	const filteredCategories =
 		currentCategory === null
-			? categories.filter(
-					(category) =>
-						category.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-						(category.description &&
+			? categories
+					.filter((category) => !category.parent_id)
+					.filter(
+						(category) =>
+							category.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
 							category.description
-								.toLowerCase()
-								.includes(searchQuery.toLowerCase())),
-				)
+								?.toLowerCase()
+								.includes(searchQuery.toLowerCase()),
+					)
 			: [];
 
 	const filteredDocuments =
@@ -195,6 +221,20 @@ export function useLibrary() {
 							.toLowerCase()
 							.includes(searchQuery.toLowerCase()),
 				)
+			: [];
+
+	// Subcategories for current category (if any)
+	const subcategories =
+		currentCategory && currentCategory !== "uncategorized"
+			? categories
+					.filter((c) => c.parent_id === currentCategory)
+					.filter(
+						(category) =>
+							category.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+							category.description
+								?.toLowerCase()
+								.includes(searchQuery.toLowerCase()),
+					)
 			: [];
 
 	const handleCategoryClick = (category: Category) => {
@@ -233,6 +273,19 @@ export function useLibrary() {
 		}
 	};
 
+	// Location-aware: when creating a category while inside another, default parent_id
+	const startCreateCategory = () => {
+		setEditingCategory(null);
+		setCategoryForm((prev) => ({
+			...prev,
+			parent_id:
+				currentCategory && currentCategory !== "uncategorized"
+					? currentCategory
+					: undefined,
+		}));
+		setShowCategoryDialog(true);
+	};
+
 	const handleCreateCategory = async () => {
 		if (!categoryForm.name.trim()) {
 			toast({
@@ -269,6 +322,7 @@ export function useLibrary() {
 				description: "",
 				color: "#3b82f6",
 				icon: "folder",
+				parent_id: undefined,
 			});
 			toast({
 				title: "Success",
@@ -301,6 +355,7 @@ export function useLibrary() {
 					description: "",
 					color: "#3b82f6",
 					icon: "folder",
+					parent_id: undefined,
 				});
 				toast({
 					title: "Success",
@@ -450,6 +505,62 @@ export function useLibrary() {
 		}
 	};
 
+	// Move a document to a different category (or to uncategorized with null)
+	const handleMoveDocument = async (
+		documentId: string,
+		targetCategoryId: string | null,
+	) => {
+		try {
+			const document = documents.find((doc) => doc.id === documentId);
+			if (!document) return;
+
+			const updated = await libraryService.updateDocument(documentId, {
+				title: document.title,
+				content: document.content,
+				file_path: document.file_path,
+				doc_type: document.doc_type,
+				tags: document.tags,
+				status: document.status,
+				category_id: targetCategoryId || undefined,
+			});
+
+			if (updated) {
+				updateDocument(documentId, updated);
+
+				// If we are viewing a specific category and the doc moved out, remove it from current list
+				if (
+					currentCategory &&
+					currentCategory !== "uncategorized" &&
+					updated.category_id !== currentCategory
+				) {
+					setDocuments(documents.filter((d) => d.id !== documentId));
+				}
+				// If viewing uncategorized and doc gained a category, remove it
+				if (
+					currentCategory === "uncategorized" &&
+					updated.category_id &&
+					updated.category_id !== ""
+				) {
+					setDocuments(documents.filter((d) => d.id !== documentId));
+				}
+
+				toast({
+					title: "Moved",
+					description: `Document moved ${
+						targetCategoryId ? "to selected category" : "to No Category"
+					}`,
+				});
+			}
+		} catch (error) {
+			console.error("Failed to move document:", error);
+			toast({
+				title: "Error",
+				description: "Failed to move document. Please try again.",
+				variant: "destructive",
+			});
+		}
+	};
+
 	const handleCancelEditTitle = () => {
 		setEditingTitleId(null);
 		setEditingTitle("");
@@ -473,6 +584,7 @@ export function useLibrary() {
 			description: category.description || "",
 			color: category.color || "#3b82f6",
 			icon: category.icon || "folder",
+			parent_id: category.parent_id,
 		});
 		setShowCategoryDialog(true);
 	};
@@ -497,6 +609,7 @@ export function useLibrary() {
 		setDeletingDocumentId,
 		categoryForm,
 		setCategoryForm,
+		startCreateCategory,
 		editingTitleId,
 		editingTitle,
 		setEditingTitle,
@@ -518,6 +631,7 @@ export function useLibrary() {
 		currentCategory,
 		libraryBreadcrumbs,
 		libraryService,
+		subcategories,
 
 		// Handlers
 		handleCategoryClick,
@@ -532,6 +646,7 @@ export function useLibrary() {
 		handleStartEditTitle,
 		handleSaveTitle,
 		handleCancelEditTitle,
+		handleMoveDocument,
 		handleSuggestedCategorySelect,
 		handleEditCategory,
 		showProcessingStatus,

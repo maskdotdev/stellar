@@ -1,7 +1,15 @@
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { Input } from "@/components/ui/input"
-import type { Document } from "@/lib/services/library-service"
+import type { Category, Document } from "@/lib/services/library-service"
 import { BookOpen, Calendar, Check, Edit, FileText, Folder, Loader2, Plus, Tag, Trash2, Upload, X } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { typeIcons } from "../core/library-constants"
@@ -27,6 +35,10 @@ interface DocumentViewProps {
   onCreateNote: () => void
   onUploadPdf: () => void
   setEditingTitle: (title: string) => void
+  onMoveDocument?: (documentId: string, targetCategoryId: string | null) => void
+  categories?: Category[]
+  subcategories?: Category[]
+  currentCategory?: string | null
 }
 
 export function DocumentView({
@@ -45,6 +57,10 @@ export function DocumentView({
   onCreateNote,
   onUploadPdf,
   setEditingTitle,
+  onMoveDocument,
+  categories = [],
+  subcategories = [],
+  currentCategory = null,
 }: DocumentViewProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const [typeFilter, setTypeFilter] = useState<"all" | "notes" | "docs">("all")
@@ -246,32 +262,53 @@ export function DocumentView({
             </button>
 
             {/* Document Actions */}
-            <div
-              className="flex items-center space-x-1"
-              onClick={(e) => e.stopPropagation()}
-              onKeyDown={(e) => e.stopPropagation()}
-            >
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onItemClick(item)
-                }}
-                className="h-8 px-2"
-              >
+            <div className="flex items-center space-x-1" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+              <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onItemClick(item) }} className="h-8 px-2">
                 <Edit className="h-4 w-4 mr-1" />
                 Open
               </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onDeleteDocument(item.id)
-                }}
-                className="h-8 px-2 text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/20"
-              >
+              {onMoveDocument && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm" className="h-8 px-2">
+                      Move
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel>Move to...</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => onMoveDocument(item.id, null)}>
+                      No Category
+                    </DropdownMenuItem>
+                    {currentCategory && subcategories.length > 0 && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuLabel>Subfolders</DropdownMenuLabel>
+                        {subcategories.map((cat) => (
+                          <DropdownMenuItem key={cat.id} onClick={() => onMoveDocument(item.id, cat.id)}>
+                            {cat.name}
+                          </DropdownMenuItem>
+                        ))}
+                      </>
+                    )}
+                    {categories.length > 0 && (
+                      <>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuLabel>All categories</DropdownMenuLabel>
+                        {categories
+                          .filter((c) => c.id !== currentCategory)
+                          .slice(0, 20)
+                          .map((cat) => (
+                            <DropdownMenuItem key={cat.id} onClick={() => onMoveDocument(item.id, cat.id)}>
+                              {cat.name}
+                            </DropdownMenuItem>
+                          ))}
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+              <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onDeleteDocument(item.id) }} className="h-8 px-2 text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/20">
                 <Trash2 className="h-4 w-4 mr-1" />
                 Delete
               </Button>
@@ -380,33 +417,27 @@ export function DocumentView({
               )}
 
               {/* Document Actions for Grid View */}
-              <div
-                className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1"
-                onClick={(e) => e.stopPropagation()}
-                onKeyDown={(e) => e.stopPropagation()}
-              >
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onItemClick(item)
-                  }}
-                  className="h-7 w-7 p-0"
-                  title="Open"
-                >
+              <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex space-x-1" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onItemClick(item) }} className="h-7 w-7 p-0" title="Open">
                   <Edit className="h-3 w-3" />
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation()
-                    onDeleteDocument(item.id)
-                  }}
-                  className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/20"
-                  title="Delete"
-                >
+                {onMoveDocument && (
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0" title="Move">
+                        M
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="w-56">
+                      <DropdownMenuLabel>Move to...</DropdownMenuLabel>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem onClick={() => onMoveDocument(item.id, null)}>
+                        No Category
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                )}
+                <Button variant="ghost" size="sm" onClick={(e) => { e.stopPropagation(); onDeleteDocument(item.id) }} className="h-7 w-7 p-0 text-destructive hover:bg-destructive/10 dark:hover:bg-destructive/20" title="Delete">
                   <Trash2 className="h-3 w-3" />
                 </Button>
               </div>
