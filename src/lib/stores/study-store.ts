@@ -234,6 +234,9 @@ export interface StudyState {
 	currentCategory: string | null; // null means showing category list, string means showing documents in category
 	libraryBreadcrumbs: Array<{ id: string | null; name: string }>;
 
+	// Global intents
+	shouldOpenCreateCategoryDialog: boolean;
+
 	setCurrentView: (view: StudyState["currentView"]) => void;
 	setEditingNoteId: (noteId: string | null) => void;
 	setFocusMode: (enabled: boolean) => void;
@@ -275,6 +278,9 @@ export interface StudyState {
 		categoryName?: string,
 	) => void;
 	navigateBackToCategories: () => void;
+
+	// Global intent setters
+	setShouldOpenCreateCategoryDialog: (open: boolean) => void;
 }
 
 export const useStudyStore = create<StudyState>()(
@@ -304,6 +310,9 @@ export const useStudyStore = create<StudyState>()(
 			isLoadingCategories: false,
 			currentCategory: null,
 			libraryBreadcrumbs: [{ id: null, name: "Categories" }],
+
+			// Global intents
+			shouldOpenCreateCategoryDialog: false,
 
 			setCurrentView: (view) =>
 				set((state) => {
@@ -421,30 +430,51 @@ export const useStudyStore = create<StudyState>()(
 			navigateToCategory: (categoryId, categoryName) =>
 				set((state) => {
 					if (categoryId === null) {
-						// Navigate to categories list
 						return {
 							currentCategory: null,
 							libraryBreadcrumbs: [{ id: null, name: "Categories" }],
 						};
 					}
-					// Navigate to specific category
-					const category = state.categories.find(
-						(cat) => cat.id === categoryId,
-					);
-					const name = categoryName || category?.name || "Unknown Category";
+					// Build ancestor chain from selected category up to root
+					const byId = new Map(state.categories.map((c) => [c.id, c] as const));
+					const chain: Array<{ id: string | null; name: string }> = [];
+					let current = byId.get(categoryId) || null;
+					// Walk up parents
+					while (current) {
+						chain.push({ id: current.id, name: current.name });
+						current = current.parent_id
+							? byId.get(current.parent_id) || null
+							: null;
+					}
+					chain.reverse();
+					const name =
+						categoryName || byId.get(categoryId)?.name || "Unknown Category";
+					const breadcrumbs = [
+						{ id: null, name: "Categories" },
+						...(chain.length ? chain : [{ id: categoryId, name }]),
+					];
 					return {
 						currentCategory: categoryId,
-						libraryBreadcrumbs: [
-							{ id: null, name: "Categories" },
-							{ id: categoryId, name },
-						],
+						libraryBreadcrumbs: breadcrumbs,
 					};
 				}),
 			navigateBackToCategories: () =>
-				set({
-					currentCategory: null,
-					libraryBreadcrumbs: [{ id: null, name: "Categories" }],
+				set((state) => {
+					const crumbs = state.libraryBreadcrumbs;
+					if (crumbs.length <= 1) {
+						return state;
+					}
+					const newCrumbs = crumbs.slice(0, -1);
+					const last = newCrumbs[newCrumbs.length - 1];
+					return {
+						currentCategory: last.id,
+						libraryBreadcrumbs: newCrumbs,
+					};
 				}),
+
+			// Global intent setters
+			setShouldOpenCreateCategoryDialog: (open: boolean) =>
+				set({ shouldOpenCreateCategoryDialog: open }),
 		}),
 		{
 			name: "stellar-study-store",

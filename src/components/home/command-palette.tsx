@@ -17,7 +17,7 @@ import { type Document, LibraryService } from "@/lib/services/library-service"
 import { useStudyStore } from "@/lib/stores/study-store"
 import type { Keybinding as KeybindingType } from "@/lib/stores/study-store"
 import { useFeatureFlags } from "@/lib/utils/feature-flags"
-import { BarChart3, Bug, Calendar, Download, File, FileText, Focus, FolderOpen, HelpCircle, History, Keyboard, Library, Moon, Network, Palette, Plus, Search, Settings, Sun, Upload, Zap } from "lucide-react"
+import { BarChart3, Bug, Calendar, Download, File, FileText, Focus, FolderOpen, FolderPlus, HelpCircle, History, Keyboard, Library, Moon, Network, Palette, Plus, Search, Settings, Sun, Upload, Zap } from "lucide-react"
 import { BookOpen, FileText as FileTextIcon } from "lucide-react"
 import React, { useEffect, useMemo, useState } from "react"
 
@@ -88,6 +88,7 @@ export function CommandPalette() {
     { id: "upload-pdf", label: "Upload PDF", icon: Upload, shortcut: getKeybindingShortcut(keybindings, "upload-pdf") },
     { id: "open-file", label: "Open File", icon: File, shortcut: getKeybindingShortcut(keybindings, "open-file") },
     { id: "open-folder", label: "Open Folder", icon: FolderOpen, shortcut: getKeybindingShortcut(keybindings, "open-folder") },
+    { id: "new-category", label: "New Category", icon: FolderPlus, shortcut: "⌘⇧C" },
   ], [isDark, keybindings, getKeybindingShortcut])
 
   // Settings commands  
@@ -151,6 +152,12 @@ export function CommandPalette() {
         break
       case "open-folder":
         // Handle open folder
+        break
+      case "new-category":
+        // Navigate to Library and trigger Create Category dialog
+        setCurrentView("library")
+        // fire intent flag so the Library hook opens the dialog and sets parent if in a category
+        useStudyStore.getState().setShouldOpenCreateCategoryDialog(true)
         break
     }
 
