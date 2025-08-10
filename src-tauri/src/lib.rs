@@ -68,18 +68,20 @@ pub fn run() {
             let app_handle_clone = app_handle.clone();
             
             tauri::async_runtime::spawn(async move {
-                let db_path = match app_handle_clone.path().app_data_dir() {
-                    Ok(path) => {
-                        std::fs::create_dir_all(&path).expect("Failed to create app data directory");
-                        path.join("stellar.db")
+                // Use same location as database commands: ~/stellar_data/documents.db
+                let db_path = match dirs::home_dir() {
+                    Some(home) => {
+                        let app_dir = home.join("stellar_data");
+                        std::fs::create_dir_all(&app_dir).expect("Failed to create app data directory");
+                        app_dir.join("documents.db")
                     }
-                    Err(_) => {
-                        eprintln!("Failed to resolve app data directory, using current directory");
-                        std::path::PathBuf::from("stellar.db")
+                    None => {
+                        eprintln!("Failed to resolve home directory, using current directory");
+                        std::path::PathBuf::from("documents.db")
                     }
                 };
                 
-                let db_url = format!("sqlite:{}?mode=rwc", db_path.to_string_lossy());
+                let db_url = format!("sqlite://{}?mode=rwc", db_path.to_string_lossy());
                 
                 match Database::new(&db_url).await {
                     Ok(database) => {
@@ -143,6 +145,8 @@ pub fn run() {
             upload_and_process_pdf_from_data,
             upload_and_process_pdf_from_url,
             download_pdf_from_url_and_process_background,
+            save_pdf_from_file_and_process_background,
+            save_pdf_from_data_and_process_background,
             get_pdf_file_path,
             get_pdf_file_content,
             delete_pdf_file,
@@ -153,6 +157,7 @@ pub fn run() {
             get_document,
             update_document,
             delete_document,
+            search_documents,
             create_category,
             get_all_categories,
             get_category,

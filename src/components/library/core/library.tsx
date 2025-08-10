@@ -198,7 +198,7 @@ export function Library() {
         open={showProcessingStatus}
         onOpenChange={setShowProcessingStatus}
       >
-        <DialogContent className="max-w-6xl max-h-[90vh] p-0">
+        <DialogContent className="sm:max-w-6xl max-h-[90vh] overflow-y-auto p-0">
           <DialogHeader className="p-6 pb-0">
             <DialogTitle>PDF Processing Status</DialogTitle>
           </DialogHeader>

@@ -189,7 +189,7 @@ const defaultKeybindings: Keybinding[] = [
 	},
 ];
 
-interface StudyState {
+export interface StudyState {
 	currentView:
 		| "focus"
 		| "library"
@@ -209,6 +209,8 @@ interface StudyState {
 	initialChatText: string | null;
 	currentDocument: string | null;
 	editingNoteId: string | null;
+	// When navigating from a note back to a document/location, we stage the target here
+	pendingJump: { documentId: string; page?: number; text?: string } | null;
 	currentTags: string[];
 	documents: Document[];
 	isLoadingDocuments: boolean;
@@ -240,6 +242,9 @@ interface StudyState {
 	setShowFloatingChat: (show: boolean) => void;
 	setInitialChatText: (text: string | null) => void;
 	setCurrentDocument: (doc: string | null) => void;
+	setPendingJump: (
+		target: { documentId: string; page?: number; text?: string } | null,
+	) => void;
 	setCurrentTags: (tags: string[]) => void;
 	setDocuments: (documents: Document[]) => void;
 	setIsLoadingDocuments: (loading: boolean) => void;
@@ -283,6 +288,7 @@ export const useStudyStore = create<StudyState>()(
 			initialChatText: null,
 			currentDocument: null,
 			editingNoteId: null,
+			pendingJump: null,
 			// currentTags: ["transformer", "attention", "nlp"],
 			currentTags: [],
 			documents: [],
@@ -329,6 +335,7 @@ export const useStudyStore = create<StudyState>()(
 			setShowFloatingChat: (show) => set({ showFloatingChat: show }),
 			setInitialChatText: (text) => set({ initialChatText: text }),
 			setCurrentDocument: (doc) => set({ currentDocument: doc }),
+			setPendingJump: (target) => set({ pendingJump: target }),
 			setCurrentTags: (tags) => set({ currentTags: tags }),
 			setDocuments: (documents) => set({ documents }),
 			setIsLoadingDocuments: (loading) => set({ isLoadingDocuments: loading }),

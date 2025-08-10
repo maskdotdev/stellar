@@ -105,25 +105,28 @@ export function PdfUploadDialog({
     try {
       setIsUploading(true);
 
-      let document: Document | null = null;
+      // For file uploads we enqueue background jobs; URL returns a placeholder document immediately
 
       if (uploadType === "file") {
-        // Check if we have a pre-selected file
-        if (file) {
-          // Use the new method for pre-selected files
-          document = await libraryService.uploadPdfFileWithOptions(file, {
-            title: title.trim() || undefined,
-            tags: tags,
-            categoryId: selectedCategoryId,
-          });
-        } else {
-          // Fall back to the file dialog method if no file is selected
-          document = await libraryService.uploadPdfWithOptions({
-            title: title.trim() || undefined,
-            tags: tags,
-            categoryId: selectedCategoryId,
-          });
+        // Always use OS file dialog path to avoid big JS memory copies
+        const document = await libraryService.uploadPdfWithOptions({
+          title: title.trim() || undefined,
+          tags: tags,
+          categoryId: selectedCategoryId,
+        });
+
+        if (document) {
+          onSuccess(document);
         }
+
+        onOpenChange(false);
+        resetForm();
+        toast({
+          title: "Processing started",
+          description:
+            "Your PDF has been queued for background processing and is now available in your library. You can monitor progress in Processing Status.",
+        });
+        return;
       } else {
         // Use URL upload method
         if (!url.trim()) {
@@ -157,16 +160,7 @@ export function PdfUploadDialog({
         return;
       }
 
-      if (document) {
-        onSuccess(document);
-        onOpenChange(false);
-        resetForm();
-
-        toast({
-          title: "Success",
-          description: `PDF "${document.title}" uploaded successfully!`,
-        });
-      }
+      // handled per-branch
     } catch (error) {
       console.error("Failed to upload PDF:", error);
 
@@ -174,7 +168,7 @@ export function PdfUploadDialog({
       let errorMessage = "An unexpected error occurred. Please try again.";
 
       if (uploadType === "file") {
-        errorMessage = "Failed to upload PDF. Please try again.";
+        errorMessage = "Failed to queue PDF for processing. Please try again.";
       } else {
         // URL upload error - check the error message for more details
         const errorStr = error instanceof Error ? error.message : String(error);
@@ -260,8 +254,8 @@ export function PdfUploadDialog({
           {uploadType === "file" ? (
             <div
               className={`border border-dashed rounded p-2 text-center transition-colors ${file
-                  ? "border-primary bg-primary/5"
-                  : "border-border hover:border-primary/50"
+                ? "border-primary bg-primary/5"
+                : "border-border hover:border-primary/50"
                 }`}
             >
               <Input

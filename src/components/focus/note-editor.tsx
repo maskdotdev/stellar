@@ -42,6 +42,12 @@ export function NoteEditor({ documentId, onBack, categories = [], currentCategor
   const [lastSaved, setLastSaved] = useState<Date | null>(null)
   const [document, setDocument] = useState<Document | null>(null)
   const [selectedText, setSelectedText] = useState("")
+  const [hoverLink, setHoverLink] = useState<{
+    rect: DOMRect
+    documentId: string
+    page?: number
+    text?: string
+  } | null>(null)
   const lastSavedContentRef = useRef<string>("")
   const lastLoadedUpdatedAtRef = useRef<string | null>(null)
   const [selectedCategoryId, setSelectedCategoryId] = useState<string | undefined>(
@@ -49,7 +55,7 @@ export function NoteEditor({ documentId, onBack, categories = [], currentCategor
   )
 
   const { toast } = useToast()
-  const { addDocument, updateDocument, setEditingNoteId, setCurrentDocument, setCurrentView, documents, setShowFloatingChat, setInitialChatText } = useStudyStore()
+  const { addDocument, updateDocument, setEditingNoteId, setCurrentDocument, setCurrentView, documents, setShowFloatingChat, setInitialChatText, setPendingJump } = useStudyStore()
   const libraryServiceRef = useRef(LibraryService.getInstance())
 
   // Actions tracking
@@ -199,15 +205,25 @@ export function NoteEditor({ documentId, onBack, categories = [], currentCategor
 
         const linkElement = target.classList.contains('document-link') ? target : target.closest('.document-link')
         const documentId = linkElement?.getAttribute('data-document-id')
+        const pageAttr = linkElement?.getAttribute('data-page')
+        const textAttr = linkElement?.getAttribute('data-text')
 
         if (documentId && documentId.trim() !== '') {
           // Navigate to the source document
+          // Stage a pending jump (page and/or text)
+          try {
+            setPendingJump({
+              documentId,
+              page: pageAttr ? Number.parseInt(pageAttr, 10) : undefined,
+              text: textAttr ? decodeURIComponent(textAttr) : undefined,
+            })
+          } catch { }
           setCurrentDocument(documentId)
           setCurrentView("focus")
 
           toast({
             title: "Opening Document",
-            description: "Navigating to the source document...",
+            description: pageAttr ? `Navigating to page ${pageAttr}...` : "Navigating to the source document...",
           })
         } else {
           toast({
@@ -225,7 +241,7 @@ export function NoteEditor({ documentId, onBack, categories = [], currentCategor
     return () => {
       window.document.removeEventListener('click', handleDocumentLinkClick)
     }
-  }, [setCurrentDocument, setCurrentView, toast])
+  }, [setCurrentDocument, setCurrentView, toast, setPendingJump])
 
   // Selection handling within the editor
   const editorContainerRef = useRef<HTMLDivElement>(null)
@@ -448,6 +464,43 @@ export function NoteEditor({ documentId, onBack, categories = [], currentCategor
     </div>
   ), [content])
 
+  // Show a small floating "Open" button when hovering a source link inside the editor
+  useEffect(() => {
+    const container = editorContainerRef.current
+    if (!container) return
+
+    const handleMouseMove = (e: MouseEvent) => {
+      const target = e.target as HTMLElement
+      const link = (target.closest?.('.document-link')) as HTMLElement | null
+      if (link && container.contains(link)) {
+        const rect = link.getBoundingClientRect()
+        const documentId = link.getAttribute('data-document-id') || ''
+        const pageAttr = link.getAttribute('data-page')
+        const textAttr = link.getAttribute('data-text')
+        setHoverLink({
+          rect,
+          documentId,
+          page: pageAttr ? Number.parseInt(pageAttr, 10) : undefined,
+          text: textAttr ? decodeURIComponent(textAttr) : undefined,
+        })
+      } else if (hoverLink) {
+        setHoverLink(null)
+      }
+    }
+
+    const handleMouseLeave = () => setHoverLink(null)
+    const handleScroll = () => setHoverLink(null)
+
+    container.addEventListener('mousemove', handleMouseMove)
+    container.addEventListener('mouseleave', handleMouseLeave)
+    container.addEventListener('scroll', handleScroll)
+    return () => {
+      container.removeEventListener('mousemove', handleMouseMove)
+      container.removeEventListener('mouseleave', handleMouseLeave)
+      container.removeEventListener('scroll', handleScroll)
+    }
+  }, [hoverLink])
+
   if (isLoading) {
     return (
       <div className="h-full flex items-center justify-center">
@@ -573,6 +626,41 @@ export function NoteEditor({ documentId, onBack, categories = [], currentCategor
 
       {/* Editor */}
       {editorElement}
+
+      {/* Floating Open button on link hover */}
+      {hoverLink && (
+        <div
+          style={{
+            position: 'fixed',
+            top: `${hoverLink.rect.top - 32}px`,
+            left: `${Math.min(hoverLink.rect.left, window.innerWidth - 120)}px`,
+            zIndex: 50,
+          }}
+          className="pointer-events-auto"
+        >
+          <Button
+            size="sm"
+            variant="secondary"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => {
+              setPendingJump({
+                documentId: hoverLink.documentId,
+                page: hoverLink.page,
+                text: hoverLink.text,
+              })
+              setCurrentDocument(hoverLink.documentId)
+              setCurrentView('focus')
+              setHoverLink(null)
+              toast({
+                title: 'Opening Document',
+                description: hoverLink.page ? `Navigating to page ${hoverLink.page}...` : 'Navigating to the source document...',
+              })
+            }}
+          >
+            Open Source
+          </Button>
+        </div>
+      )}
 
       {/* Floating Selection Popover for NoteEditor with richer actions */}
       <TextSelectionPopover

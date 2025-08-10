@@ -12,7 +12,7 @@ pub async fn init_database(state: State<'_, DatabaseState>) -> Result<(), String
     
     let mut db_state = state.lock().await;
     
-    // Use the user's home directory for app data (following the same pattern as PDF storage)
+    // Use the user's home directory for app data to remain consistent with existing installs/data
     let home_dir = dirs::home_dir()
         .ok_or("Could not find home directory")?;
     
@@ -28,7 +28,6 @@ pub async fn init_database(state: State<'_, DatabaseState>) -> Result<(), String
         println!("DEBUG: {}", error_msg);
         return Err(error_msg);
     }
-    
     println!("DEBUG: Directory created successfully");
     
     // Try using the proper SQLite URL format with connection options
@@ -233,6 +232,27 @@ pub async fn get_uncategorized_documents(state: State<'_, DatabaseState>) -> Res
     
     database.get_uncategorized_documents().await
         .map_err(|e| format!("Failed to get uncategorized documents: {}", e))
+}
+
+// Search commands
+#[tauri::command]
+pub async fn search_documents(
+    state: State<'_, DatabaseState>,
+    query: String,
+    limit: Option<i64>,
+) -> Result<Vec<Document>, String> {
+    let db_state = state.lock().await;
+    let database = db_state.as_ref().ok_or("Database not initialized")?;
+
+    if query.trim().is_empty() {
+        return Ok(vec![]);
+    }
+
+    let limit_val = limit.unwrap_or(25);
+    database
+        .search_documents(&query, limit_val)
+        .await
+        .map_err(|e| format!("Failed to search documents: {}", e))
 }
 
 // Data cleanup commands for app uninstall/data reset

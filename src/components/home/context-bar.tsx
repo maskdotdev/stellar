@@ -1,35 +1,35 @@
 "use client"
 
-import { Button } from "@/components/ui/button"
+import { SessionIndicator } from "@/components/session"
 import { Badge } from "@/components/ui/badge"
-import { 
+import {
   Breadcrumb,
-  BreadcrumbList,
   BreadcrumbItem,
   BreadcrumbLink,
+  BreadcrumbList,
   BreadcrumbPage,
   BreadcrumbSeparator
 } from "@/components/ui/breadcrumb"
-import { Pin, Share, Download, Tag } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { ActionType, ActionsService, useActionsStore } from "@/lib/services/actions-service"
 import { useStudyStore } from "@/lib/stores/study-store"
-import { SessionIndicator } from "@/components/session"
-import { useActionsStore, ActionsService, ActionType } from "@/lib/services/actions-service"
+import { Download, Pin, Share, Tag } from "lucide-react"
 
 export function ContextBar() {
-  const { 
-    currentView, 
-    currentDocument, 
-    currentTags, 
+  const {
+    currentView,
+    currentDocument,
+    currentTags,
     libraryBreadcrumbs,
     currentCategory,
     documents,
     setCurrentView,
     navigateToCategory,
-    navigateBackToCategories 
+    navigateBackToCategories
   } = useStudyStore()
-  
 
-  
+
+
   // Actions tracking
   const actionsService = ActionsService.getInstance()
   const { currentSessionId } = useActionsStore()
@@ -48,8 +48,8 @@ export function ContextBar() {
         sessionId: currentSessionId || 'default-session'
       }
     )
-    
-    setCurrentView(targetView as any)
+
+    setCurrentView(targetView as typeof currentView)
   }
 
   const handleCategoryNavigation = async (categoryId: string, categoryName: string) => {
@@ -67,7 +67,7 @@ export function ContextBar() {
         categoryIds: [categoryId]
       }
     )
-    
+
     setCurrentView("library")
     navigateToCategory(categoryId, categoryName)
   }
@@ -99,8 +99,8 @@ export function ContextBar() {
             }
           }
         }))
-      
-      case "focus":
+
+      case "focus": {
         const focusBreadcrumbs = [
           { id: "library", name: "Library", isClickable: true, onClick: async () => await handleNavigationClick("library", "Library") }
         ]
@@ -122,49 +122,50 @@ export function ContextBar() {
             id: "current-doc",
             name: documentTitle,
             isClickable: false,
-            onClick: async () => {}
+            onClick: async () => { }
           })
         }
         return focusBreadcrumbs
-      
+      }
+
       case "settings":
         return [
-          { id: "settings", name: "Settings", isClickable: false, onClick: async () => {} }
+          { id: "settings", name: "Settings", isClickable: false, onClick: async () => { } }
         ]
-      
+
       case "history":
         return [
-          { id: "history", name: "History", isClickable: false, onClick: async () => {} }
+          { id: "history", name: "History", isClickable: false, onClick: async () => { } }
         ]
-      
+
       case "graph":
         return [
-          { id: "graph", name: "Graph View", isClickable: false, onClick: async () => {} }
+          { id: "graph", name: "Graph View", isClickable: false, onClick: async () => { } }
         ]
-      
+
       case "workspace":
         return [
-          { id: "workspace", name: "Workspace", isClickable: false, onClick: async () => {} }
+          { id: "workspace", name: "Workspace", isClickable: false, onClick: async () => { } }
         ]
-      
+
       case "sessions":
         return [
-          { id: "sessions", name: "Study Sessions", isClickable: false, onClick: async () => {} }
+          { id: "sessions", name: "Study Sessions", isClickable: false, onClick: async () => { } }
         ]
-      
+
       case "flashcards":
         return [
-          { id: "flashcards", name: "Flashcards", isClickable: false, onClick: async () => {} }
+          { id: "flashcards", name: "Flashcards", isClickable: false, onClick: async () => { } }
         ]
-      
+
       case "note-editor":
         return [
           { id: "library", name: "Library", isClickable: true, onClick: async () => await handleNavigationClick("library", "Library") },
-          { id: "note-editor", name: "Note Editor", isClickable: false, onClick: async () => {} }
+          { id: "note-editor", name: "Note Editor", isClickable: false, onClick: async () => { } }
         ]
-      
+
       default:
-        return [{ id: "home", name: "Home", isClickable: false, onClick: async () => {} }]
+        return [{ id: "home", name: "Home", isClickable: false, onClick: async () => { } }]
     }
   }
 
@@ -174,20 +175,32 @@ export function ContextBar() {
     <div className="h-12 px-4 flex items-center justify-between bg-muted/20 border-b">
       {/* Dynamic Breadcrumbs */}
       <Breadcrumb>
-        <BreadcrumbList>
+        <BreadcrumbList className="flex-nowrap overflow-hidden">
           {breadcrumbs.map((breadcrumb, index) => (
-            <div key={breadcrumb.id || index} className="flex items-center">
+            <div key={breadcrumb.id || index} className="flex items-center min-w-0">
               {index > 0 && <BreadcrumbSeparator />}
-              <BreadcrumbItem>
+              <BreadcrumbItem className="min-w-0">
                 {breadcrumb.isClickable ? (
-                  <BreadcrumbLink 
-                    className="cursor-pointer hover:text-foreground" 
+                  <BreadcrumbLink
+                    className="cursor-pointer hover:text-foreground"
                     onClick={breadcrumb.onClick}
                   >
-                    {breadcrumb.name}
+                    <span
+                      className="block truncate max-w-[16ch] sm:max-w-[20ch] md:max-w-[24ch] lg:max-w-[28ch]"
+                      title={breadcrumb.name}
+                    >
+                      {breadcrumb.name}
+                    </span>
                   </BreadcrumbLink>
                 ) : (
-                  <BreadcrumbPage>{breadcrumb.name}</BreadcrumbPage>
+                  <BreadcrumbPage>
+                    <span
+                      className="block truncate max-w-[16ch] sm:max-w-[20ch] md:max-w-[24ch] lg:max-w-[28ch]"
+                      title={breadcrumb.name}
+                    >
+                      {breadcrumb.name}
+                    </span>
+                  </BreadcrumbPage>
                 )}
               </BreadcrumbItem>
             </div>
@@ -199,7 +212,7 @@ export function ContextBar() {
       <div className="flex items-center space-x-2">
         {/* Session Indicator */}
         <SessionIndicator />
-        
+
         {/* Current Tags */}
         {currentTags && currentTags.length > 0 && (
           <div className="flex items-center space-x-1">

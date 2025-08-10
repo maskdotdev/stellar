@@ -56,9 +56,22 @@ export interface UploadPdfFromUrlOptions {
 	categoryId?: string;
 }
 
+// Minimal type for background processing job returned by background job creation commands
+interface ProcessingJob {
+	id: string;
+	job_type: string;
+	status: "pending" | "processing" | "completed" | "failed";
+	source_type: "file" | "url" | "data";
+	original_filename: string;
+	progress: number;
+	error_message?: string;
+	result_document_id?: string;
+}
+
 export class LibraryService {
 	private static instance: LibraryService;
 	private initialized = false;
+	private isInitializing = false;
 
 	public static getInstance(): LibraryService {
 		if (!LibraryService.instance) {
@@ -68,15 +81,20 @@ export class LibraryService {
 	}
 
 	async initialize(): Promise<void> {
-		if (this.initialized) return;
-
+		if (this.initialized || this.isInitializing) return;
+		this.isInitializing = true;
 		try {
-			await invoke("init_database");
-			this.initialized = true;
+			await invoke("init_database", {});
 			console.log("Database initialized successfully");
 		} catch (error) {
-			console.error("Failed to initialize database:", error);
-			throw error;
+			// Don't crash UI; background init in Rust setup will still run
+			console.warn(
+				"init_database invoke failed; relying on background init:",
+				error,
+			);
+		} finally {
+			this.initialized = true;
+			this.isInitializing = false;
 		}
 	}
 
@@ -106,9 +124,10 @@ export class LibraryService {
 
 			// Process the PDF and create document
 			const document = await invoke<Document>("upload_and_process_pdf", {
-				filePath: file,
+				file_path: file,
 				title: null,
 				tags: null,
+				category_id: null,
 			});
 
 			console.log("PDF processed successfully:", document);
@@ -143,20 +162,49 @@ export class LibraryService {
 				return null; // User cancelled
 			}
 
-			console.log("Processing PDF file:", file);
+			console.log(
+				"Saving PDF into storage and creating document immediately:",
+				file,
+			);
 
-			// Process the PDF with options
-			const document = await invoke<Document>("upload_and_process_pdf", {
-				filePath: file,
-				title: options.title || null,
-				tags: options.tags || null,
-				categoryId: options.categoryId || null,
-			});
+			// Save to storage and create a document immediately (processing in background)
+			const document = await invoke<Document>(
+				"save_pdf_from_file_and_process_background",
+				{
+					file_path: file,
+					title: options.title || null,
+					tags: options.tags || null,
+					category_id: options.categoryId || null,
+				},
+			);
 
-			console.log("PDF processed successfully:", document);
+			console.log("Document created (processing in background):", document);
 			return document;
 		} catch (error) {
 			console.error("Failed to upload PDF:", error);
+			throw error;
+		}
+	}
+
+	// Upload using a pre-selected absolute file path (non-blocking, background processing)
+	async uploadPdfFromPathWithOptions(
+		filePath: string,
+		options: UploadPdfOptions,
+	): Promise<Document | null> {
+		try {
+			const document = await invoke<Document>(
+				"save_pdf_from_file_and_process_background",
+				{
+					file_path: filePath,
+					title: options.title || null,
+					tags: options.tags || null,
+					category_id: options.categoryId || null,
+				},
+			);
+
+			return document;
+		} catch (error) {
+			console.error("Failed to upload PDF from path:", error);
 			throw error;
 		}
 	}
@@ -179,19 +227,19 @@ export class LibraryService {
 
 			console.log("Converted file to bytes, size:", fileData.length);
 
-			// Process the PDF with the new command that accepts file data
+			// Save to storage and create a document immediately (processing in background)
 			const document = await invoke<Document>(
-				"upload_and_process_pdf_from_data",
+				"save_pdf_from_data_and_process_background",
 				{
-					fileData: fileData,
-					fileName: file.name,
+					file_data: fileData,
+					file_name: file.name,
 					title: options.title || null,
 					tags: options.tags || null,
-					categoryId: options.categoryId || null,
+					category_id: options.categoryId || null,
 				},
 			);
 
-			console.log("PDF processed successfully:", document);
+			console.log("Document created (processing in background):", document);
 			return document;
 		} catch (error) {
 			console.error("Failed to upload PDF file:", error);
@@ -205,19 +253,20 @@ export class LibraryService {
 		try {
 			console.log("Starting PDF upload from URL:", options);
 
-			// Process the PDF from URL
-			const document = await invoke<Document>(
-				"upload_and_process_pdf_from_url",
+			// Queue a background job for URL
+			const job = await invoke<ProcessingJob>(
+				"create_background_pdf_job_from_url",
 				{
 					url: options.url,
 					title: options.title || null,
 					tags: options.tags || null,
-					categoryId: options.categoryId || null,
+					category_id: options.categoryId || null,
+					force_ocr: false,
 				},
 			);
 
-			console.log("PDF from URL processed successfully:", document);
-			return document;
+			console.log("Background job created for URL:", job);
+			return null;
 		} catch (error) {
 			console.error("Failed to upload PDF from URL:", error);
 			throw error;
@@ -240,7 +289,7 @@ export class LibraryService {
 					url: options.url,
 					title: options.title || null,
 					tags: options.tags || null,
-					categoryId: options.categoryId || null,
+					category_id: options.categoryId || null,
 				},
 			);
 
@@ -315,7 +364,7 @@ export class LibraryService {
 
 			// Process the PDF with custom metadata
 			const document = await invoke<Document>("upload_and_process_pdf", {
-				filePath: file,
+				file_path: file,
 				title,
 				tags,
 			});
@@ -474,6 +523,20 @@ export class LibraryService {
 			return documents;
 		} catch (error) {
 			console.error("Failed to get uncategorized documents:", error);
+			throw error;
+		}
+	}
+
+	async searchDocuments(query: string, limit = 25): Promise<Document[]> {
+		try {
+			if (!query.trim()) return [];
+			const documents = await invoke<Document[]>("search_documents", {
+				query,
+				limit,
+			});
+			return documents;
+		} catch (error) {
+			console.error("Failed to search documents:", error);
 			throw error;
 		}
 	}

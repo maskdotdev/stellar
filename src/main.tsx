@@ -3,6 +3,8 @@ import ReactDOM from "react-dom/client";
 import App from "./app";
 import "./app.css";
 import "./styles/react-pdf.css";
+// Global styles for syntax highlighting
+import "highlight.js/styles/github.css";
 
 // Configure PDF.js worker
 import 'react-pdf/dist/Page/AnnotationLayer.css';

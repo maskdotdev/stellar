@@ -1,30 +1,31 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { DocumentRenderer } from "@/components/library"
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { FileText, Split, Loader2, ArrowLeft } from "lucide-react"
+import { ActionType, ActionsService, useActionsStore } from "@/lib/services/actions-service"
+import { type Document, LibraryService } from "@/lib/services/library-service"
 import { useStudyStore } from "@/lib/stores/study-store"
-import { LibraryService, type Document } from "@/lib/services/library-service"
-import { DocumentRenderer } from "@/components/library"
+import { ArrowLeft, FileText, Loader2, Split } from "lucide-react"
+import { useEffect, useState } from "react"
 import { TextSelectionPopover } from "./text-selection-popover"
-import { useActionsStore, ActionsService, ActionType } from "@/lib/services/actions-service"
 
 export function FocusPane() {
   const [splitView, setSplitView] = useState(false)
   const [selectedText, setSelectedText] = useState("")
+  const [selectedPage, setSelectedPage] = useState<number | null>(null)
   const [currentDocument, setCurrentDocument] = useState<Document | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [notes, setNotes] = useState("")
   const [existingNotes, setExistingNotes] = useState<Document[]>([])
-  
+
   // Document reading tracking
   const [documentStartTime, setDocumentStartTime] = useState<Date | null>(null)
-  
-  const { 
-    setShowFloatingChat, 
+
+  const {
+    setShowFloatingChat,
     setInitialChatText,
-    currentDocument: currentDocumentId, 
+    currentDocument: currentDocumentId,
     setCurrentView,
     setEditingNoteId,
     documents,
@@ -33,7 +34,7 @@ export function FocusPane() {
   } = useStudyStore()
 
   const libraryService = LibraryService.getInstance()
-  
+
   // Actions tracking
   const actionsService = ActionsService.getInstance()
   const { currentSessionId } = useActionsStore()
@@ -64,7 +65,7 @@ export function FocusPane() {
             )
           }
         }
-        
+
         setCurrentDocument(null)
         setExistingNotes([])
         setDocumentStartTime(null)
@@ -75,13 +76,13 @@ export function FocusPane() {
         setIsLoading(true)
         const doc = await libraryService.getDocument(currentDocumentId)
         setCurrentDocument(doc)
-        
+
         // Start reading session timer
         setDocumentStartTime(new Date())
-        
+
         // Load existing notes from the same category
-        const notesInCategory = documents.filter(d => 
-          d.doc_type === "note" && 
+        const notesInCategory = documents.filter(d =>
+          d.doc_type === "note" &&
           d.category_id === doc?.category_id &&
           d.id !== currentDocumentId
         )
@@ -146,7 +147,7 @@ export function FocusPane() {
         }
       )
     }
-    
+
     setSelectedText(text)
   }
 
@@ -158,7 +159,7 @@ export function FocusPane() {
 "${selectedText}"
 
 Please help me understand this or answer questions about it.`
-      
+
       setInitialChatText(contextualPrompt)
       setShowFloatingChat(true)
       // Keep the selection visible for context
@@ -171,7 +172,7 @@ Please help me understand this or answer questions about it.`
         // Create a note with the selected text
         const noteTitle = `Note from ${currentDocument?.title || 'Document'}`
         const noteContent = `<h2>Source Document</h2>
-<p><a href="#" data-document-id="${currentDocument?.id || ''}" class="document-link" style="color: #3b82f6; text-decoration: underline; cursor: pointer;">${currentDocument?.title || 'Unknown Document'}</a></p>
+<p><a href="#" data-document-id="${currentDocument?.id || ''}"${selectedPage !== null ? ` data-page="${selectedPage}"` : ''}${selectedText ? ` data-text="${encodeURIComponent(selectedText.slice(0, 200))}"` : ''} class="document-link" style="color: #3b82f6; text-decoration: underline; cursor: pointer;">${currentDocument?.title || 'Unknown Document'}${selectedPage !== null ? ` (p. ${selectedPage})` : ''}</a></p>
 
 <h2>Selected Text</h2>
 <blockquote>
@@ -196,7 +197,7 @@ Please help me understand this or answer questions about it.`
         // Open the note for editing
         setEditingNoteId(newNote.id)
         setCurrentView("note-editor")
-        
+
         // Clear the selection
         setSelectedText("")
       } catch (error) {
@@ -220,7 +221,7 @@ Please help me understand this or answer questions about it.`
         const timestamp = new Date().toLocaleDateString()
         const selectedTextBlock = `
 <hr>
-<p><small><em>Added on ${timestamp} from <a href="#" data-document-id="${currentDocument?.id || ''}" class="document-link" style="color: #3b82f6; text-decoration: underline; cursor: pointer;">${currentDocument?.title || 'Unknown Document'}</a></em></small></p>
+<p><small><em>Added on ${timestamp} from <a href="#" data-document-id="${currentDocument?.id || ''}"${selectedPage !== null ? ` data-page="${selectedPage}"` : ''}${selectedText ? ` data-text="${encodeURIComponent(selectedText.slice(0, 200))}"` : ''} class="document-link" style="color: #3b82f6; text-decoration: underline; cursor: pointer;">${currentDocument?.title || 'Unknown Document'}${selectedPage !== null ? ` (p. ${selectedPage})` : ''}</a></em></small></p>
 <h3>Selected Text</h3>
 <blockquote>
 <p>${selectedText}</p>
@@ -245,15 +246,15 @@ Please help me understand this or answer questions about it.`
         // Update in the store
         if (updatedNote) {
           updateDocument(noteId, updatedNote)
-          
+
           // Wait a moment to ensure database update is complete
           await new Promise(resolve => setTimeout(resolve, 100))
-          
+
           // Open the note for editing
           setEditingNoteId(noteId)
           setCurrentView("note-editor")
         }
-        
+
         // Clear the selection
         setSelectedText("")
       } catch (error) {
@@ -352,9 +353,13 @@ Please help me understand this or answer questions about it.`
       <div className={`flex-1 flex ${splitView ? "divide-x" : ""} min-h-0`}>
         {/* Main Content */}
         <div className={`${splitView ? "w-1/2" : "w-full"} flex flex-col min-h-0`}>
-          <DocumentRenderer 
+          <DocumentRenderer
             document={currentDocument}
-            onTextSelection={handleTextSelection}
+            onTextSelection={(text, info) => {
+              setSelectedText(text)
+              setSelectedPage(info?.page ?? null)
+              handleTextSelection(text)
+            }}
             className="flex-1"
           />
         </div>

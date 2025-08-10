@@ -480,7 +480,7 @@ impl PdfProcessor {
     pub fn new() -> Self {
         PdfProcessor {
             marker_base_url: "http://localhost:8001".to_string(),
-            marker_timeout: 300, // 5 minute timeout for complex PDFs
+            marker_timeout: 1200, // 20 minute timeout for complex PDFs
         }
     }
 
@@ -831,10 +831,87 @@ impl PdfProcessor {
         if !output.status.success() {
             let error = String::from_utf8_lossy(&output.stderr);
             let stdout = String::from_utf8_lossy(&output.stdout);
-            
-            // Generate enhanced error message with installation context
+
+            // Even if the command exited with a non-zero code, Marker may still have
+            // produced a valid markdown file. Attempt to locate and return it.
+            let file_stem = Path::new(file_path)
+                .file_stem()
+                .and_then(|s| s.to_str())
+                .unwrap_or("output");
+
+            let possible_output_files = vec![
+                temp_dir.join(format!("{}.md", file_stem)),
+                temp_dir.join(format!("{}_out.md", file_stem)),
+                temp_dir.join(format!("{}_markdown.md", file_stem)),
+            ];
+
+            let possible_subdir_files = vec![
+                temp_dir.join(&file_stem).join(format!("{}.md", file_stem)),
+                temp_dir.join(&file_stem).join(format!("{}_out.md", file_stem)),
+                temp_dir.join(&file_stem).join(format!("{}_markdown.md", file_stem)),
+            ];
+
+            let mut markdown_file: Option<std::path::PathBuf> = None;
+
+            for possible_file in &possible_output_files {
+                if possible_file.exists() {
+                    markdown_file = Some(possible_file.clone());
+                    break;
+                }
+            }
+
+            if markdown_file.is_none() {
+                for possible_file in &possible_subdir_files {
+                    if possible_file.exists() {
+                        markdown_file = Some(possible_file.clone());
+                        break;
+                    }
+                }
+            }
+
+            if markdown_file.is_none() {
+                if let Ok(entries) = std::fs::read_dir(&temp_dir) {
+                    'outer: for entry in entries {
+                        if let Ok(entry) = entry {
+                            let path = entry.path();
+                            if path.extension().and_then(|s| s.to_str()) == Some("md") {
+                                markdown_file = Some(path);
+                                break;
+                            }
+                            if path.is_dir() {
+                                if let Ok(subdir_entries) = std::fs::read_dir(&path) {
+                                    for subdir_entry in subdir_entries {
+                                        if let Ok(subdir_entry) = subdir_entry {
+                                            let subdir_path = subdir_entry.path();
+                                            if subdir_path.extension().and_then(|s| s.to_str()) == Some("md") {
+                                                markdown_file = Some(subdir_path);
+                                                break 'outer;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            if let Some(markdown_path) = markdown_file {
+                if let Ok(markdown_content) = std::fs::read_to_string(&markdown_path) {
+                    if !markdown_content.trim().is_empty() {
+                        // Best-effort cleanup of temp outputs
+                        let _ = std::fs::remove_file(&markdown_path);
+                        if temp_dir.exists() {
+                            let _ = std::fs::remove_dir_all(&temp_dir);
+                        }
+                        println!("Marker returned non-zero exit but produced output; proceeding with extracted content (len={})", markdown_content.len());
+                        return Ok(markdown_content);
+                    }
+                }
+            }
+
+            // No usable output; generate enhanced error message with installation context
             let helpful_error = self.generate_execution_error_message(&error, &stdout, &resolver);
-            
             return Err(PdfError::ExtractionError(helpful_error));
         }
 
@@ -1137,6 +1214,14 @@ impl PdfProcessor {
         
         // Unset PYTHONHOME to avoid conflicts
         cmd.env_remove("PYTHONHOME");
+
+        // Reduce excessive threading which can cause semaphore leaks and high memory on large PDFs
+        cmd.env("OMP_NUM_THREADS", "1");
+        cmd.env("MKL_NUM_THREADS", "1");
+        cmd.env("TOKENIZERS_PARALLELISM", "false");
+        cmd.env("PYTHONUNBUFFERED", "1");
+        // Prefer CPU fallback on Apple Silicon if GPU/MPS initialization fails
+        cmd.env("PYTORCH_ENABLE_MPS_FALLBACK", "1");
     }
 
     /// Get detailed marker installation status with appropriate messages and suggested actions

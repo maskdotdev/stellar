@@ -1,14 +1,24 @@
 @import "tailwindcss";
 @import "tw-animate-css";
 @import "./styles/themes.css";
-@import './styles/_keyframe-animations.scss';
-@import './styles/_variables.scss';
+@import "./styles/_keyframe-animations.scss";
+@import "./styles/_variables.scss";
 
 @custom-variant dark (&:is(.dark *));
 
 @theme {
   --font-family-sans: var(--font-sans, system-ui, -apple-system, sans-serif);
-  --font-family-mono: var(--font-mono, ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Monaco, Consolas, 'Courier New', monospace);
+  --font-family-mono: var(
+    --font-mono,
+    ui-monospace,
+    "Cascadia Code",
+    "Source Code Pro",
+    Menlo,
+    Monaco,
+    Consolas,
+    "Courier New",
+    monospace
+  );
   --font-family-serif: var(--font-serif, ui-serif, Georgia, serif);
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -56,7 +66,8 @@
   :root {
     --font-sans: system-ui, -apple-system, sans-serif;
     --font-serif: ui-serif, Georgia, serif;
-    --font-mono: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Monaco, Consolas, 'Courier New', monospace;
+    --font-mono: ui-monospace, "Cascadia Code", "Source Code Pro", Menlo, Monaco,
+      Consolas, "Courier New", monospace;
   }
 
   /* Apply theme fonts to the entire document */
@@ -79,7 +90,10 @@
   }
 
   /* Apply to code elements specifically */
-  code, pre, kbd, samp {
+  code,
+  pre,
+  kbd,
+  samp {
     font-family: var(--font-mono);
   }
 }
@@ -93,31 +107,30 @@
 
   /* Main spotlight diffusion layer */
   .spotlight-bg::before {
-    content: '';
+    content: "";
     position: absolute;
     inset: 0;
-    background: 
-      radial-gradient(
-        600px circle at 20% 30%, 
-        hsl(var(--primary) / 0.5) 0%, 
+    background: radial-gradient(
+        600px circle at 20% 30%,
+        hsl(var(--primary) / 0.5) 0%,
         hsl(var(--primary) / 0.25) 30%,
         transparent 65%
       ),
       radial-gradient(
-        800px circle at 80% 70%, 
-        hsl(var(--accent) / 0.4) 0%, 
+        800px circle at 80% 70%,
+        hsl(var(--accent) / 0.4) 0%,
         hsl(var(--accent) / 0.2) 30%,
         transparent 65%
       ),
       /* Bright flare centers */
+        radial-gradient(
+          200px circle at 20% 30%,
+          hsl(var(--primary) / 0.9) 0%,
+          transparent 40%
+        ),
       radial-gradient(
-        200px circle at 20% 30%, 
-        hsl(var(--primary) / 0.9) 0%, 
-        transparent 40%
-      ),
-      radial-gradient(
-        250px circle at 80% 70%, 
-        hsl(var(--accent) / 0.8) 0%, 
+        250px circle at 80% 70%,
+        hsl(var(--accent) / 0.8) 0%,
         transparent 40%
       );
     pointer-events: none;
@@ -126,18 +139,17 @@
 
   /* Secondary spotlight layer for more depth */
   .spotlight-bg::after {
-    content: '';
+    content: "";
     position: absolute;
     inset: 0;
-    background: 
-      radial-gradient(
-        400px circle at 60% 10%, 
-        hsl(var(--primary) / 0.25) 0%, 
+    background: radial-gradient(
+        400px circle at 60% 10%,
+        hsl(var(--primary) / 0.25) 0%,
         transparent 50%
       ),
       radial-gradient(
-        500px circle at 10% 90%, 
-        hsl(var(--accent) / 0.2) 0%, 
+        500px circle at 10% 90%,
+        hsl(var(--accent) / 0.2) 0%,
         transparent 50%
       );
     pointer-events: none;
@@ -151,54 +163,53 @@
 
   /* Enhanced spotlight for dark themes */
   .dark .spotlight-bg::before {
-    background: 
-      radial-gradient(
-        600px circle at 20% 30%, 
-        hsl(var(--primary) / 0.7) 0%, 
+    background: radial-gradient(
+        600px circle at 20% 30%,
+        hsl(var(--primary) / 0.7) 0%,
         hsl(var(--primary) / 0.35) 30%,
         transparent 65%
       ),
       radial-gradient(
-        800px circle at 80% 70%, 
-        hsl(var(--accent) / 0.6) 0%, 
+        800px circle at 80% 70%,
+        hsl(var(--accent) / 0.6) 0%,
         hsl(var(--accent) / 0.3) 30%,
         transparent 65%
       ),
       /* Bright flare centers for dark theme */
+        radial-gradient(
+          200px circle at 20% 30%,
+          hsl(var(--primary) / 1) 0%,
+          transparent 40%
+        ),
       radial-gradient(
-        200px circle at 20% 30%, 
-        hsl(var(--primary) / 1) 0%, 
-        transparent 40%
-      ),
-      radial-gradient(
-        250px circle at 80% 70%, 
-        hsl(var(--accent) / 0.9) 0%, 
+        250px circle at 80% 70%,
+        hsl(var(--accent) / 0.9) 0%,
         transparent 40%
       );
   }
 
   .dark .spotlight-bg::after {
-    background: 
-      radial-gradient(
-        400px circle at 60% 10%, 
-        hsl(var(--primary) / 0.4) 0%, 
+    background: radial-gradient(
+        400px circle at 60% 10%,
+        hsl(var(--primary) / 0.4) 0%,
         transparent 50%
       ),
       radial-gradient(
-        500px circle at 10% 90%, 
-        hsl(var(--accent) / 0.3) 0%, 
+        500px circle at 10% 90%,
+        hsl(var(--accent) / 0.3) 0%,
         transparent 50%
       );
   }
 
   /* Subtle breathing animation for the spotlights */
   @keyframes spotlight-breathe {
-    0%, 100% { 
-      opacity: 1; 
+    0%,
+    100% {
+      opacity: 1;
       transform: scale(1);
     }
-    50% { 
-      opacity: 0.85; 
+    50% {
+      opacity: 0.85;
       transform: scale(1.02);
     }
   }
@@ -255,4 +266,31 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+}
+
+/* The container of the math block node */
+.math {
+  @apply bg-background border border-border rounded-md;
+}
+
+.math:hover {
+  @apply border-primary bg-primary/10 cursor-pointer;
+}
+
+/* This class is applied to the parent when the math node is selected (i.e. the cursor is inside the math node) */
+.math-selected {
+  @apply file:text-foreground placeholder:text-muted-foreground selection:bg-primary selection:text-primary-foreground dark:bg-input/30 border-input flex h-9 w-full min-w-0 rounded-md border bg-transparent px-3 py-1 text-base shadow-xs transition-[color,box-shadow] outline-none file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-50 md:text-sm;
+}
+.math-selected:hover {
+  @apply border-primary bg-primary/10 cursor-default;
+}
+
+/* The node that contains the LaTeX text */
+.math-content {
+  @apply text-foreground;
+}
+
+/* This class is applied to the LaTeX text node when it does not have any content */
+.math-content-empty {
+  @apply text-muted-foreground;
 }

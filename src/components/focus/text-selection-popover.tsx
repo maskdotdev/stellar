@@ -127,46 +127,52 @@ export function TextSelectionPopover({
       return
     }
 
-    // Get the selection range and position
-    const selection = window.getSelection()
-    if (!selection || selection.rangeCount === 0) {
-      setIsVisible(false)
-      return
+    const computePosition = () => {
+      const selection = window.getSelection()
+      if (!selection || selection.rangeCount === 0) {
+        setIsVisible(false)
+        return null
+      }
+
+      const range = selection.getRangeAt(0)
+      const rect = range.getBoundingClientRect()
+
+      if (rect.width === 0 && rect.height === 0) {
+        setIsVisible(false)
+        return null
+      }
+
+      // Calculate position above the selection, centered
+      const xCenter = rect.left + rect.width / 2
+      const yAbove = rect.top - 10
+
+      // Adjust position to stay within viewport
+      const viewportWidth = window.innerWidth
+      const popoverWidth = 200 // Estimated popover width
+      const popoverHeight = 50 // Estimated popover height
+
+      let left = xCenter - popoverWidth / 2
+      let top = yAbove - popoverHeight
+
+      // Keep within horizontal bounds
+      if (left < 10) left = 10
+      if (left + popoverWidth > viewportWidth - 10) {
+        left = viewportWidth - popoverWidth - 10
+      }
+
+      // If there's not enough space above, show below
+      if (top < 10) {
+        top = rect.bottom + 10
+      }
+
+      return { x: left, y: top }
     }
 
-    const range = selection.getRangeAt(0)
-    const rect = range.getBoundingClientRect()
-
-    if (rect.width === 0 && rect.height === 0) {
-      setIsVisible(false)
-      return
+    const pos = computePosition()
+    if (pos) {
+      setPosition(pos)
+      setIsVisible(true)
     }
-
-    // Calculate position above the selection
-    const x = rect.left + rect.width / 2
-    const y = rect.top - 10 // Position above the selection
-
-    // Adjust position to stay within viewport
-    const viewportWidth = window.innerWidth
-    const popoverWidth = 200 // Estimated popover width
-    const popoverHeight = 50 // Estimated popover height
-
-    let adjustedX = x - popoverWidth / 2
-    let adjustedY = y - popoverHeight
-
-    // Keep within horizontal bounds
-    if (adjustedX < 10) adjustedX = 10
-    if (adjustedX + popoverWidth > viewportWidth - 10) {
-      adjustedX = viewportWidth - popoverWidth - 10
-    }
-
-    // If there's not enough space above, show below
-    if (adjustedY < 10) {
-      adjustedY = rect.bottom + 10
-    }
-
-    setPosition({ x: adjustedX, y: adjustedY })
-    setIsVisible(true)
   }, [selectedText])
 
   useEffect(() => {
@@ -187,18 +193,23 @@ export function TextSelectionPopover({
     }
 
     const handleScroll = () => {
-      // Update position on scroll
-      if (selectedText) {
-        const selection = window.getSelection()
-        if (selection && selection.rangeCount > 0) {
-          const range = selection.getRangeAt(0)
-          const rect = range.getBoundingClientRect()
-          const x = rect.left + rect.width / 2
-          const y = rect.top - 10
-
-          setPosition({ x: x - 100, y: y - 50 })
-        }
+      if (!selectedText) return
+      // Recompute using the same logic during scroll
+      const selection = window.getSelection()
+      if (!selection || selection.rangeCount === 0) return
+      const range = selection.getRangeAt(0)
+      const rect = range.getBoundingClientRect()
+      const viewportWidth = window.innerWidth
+      const popoverWidth = 200
+      const popoverHeight = 50
+      let left = rect.left + rect.width / 2 - popoverWidth / 2
+      let top = rect.top - 10 - popoverHeight
+      if (left < 10) left = 10
+      if (left + popoverWidth > viewportWidth - 10) {
+        left = viewportWidth - popoverWidth - 10
       }
+      if (top < 10) top = rect.bottom + 10
+      setPosition({ x: left, y: top })
     }
 
     if (isVisible) {
@@ -257,8 +268,7 @@ export function TextSelectionPopover({
         )}
         style={{
           left: position.x,
-          top: position.y + 10,
-          transform: 'translateX(50%)', // Center horizontally
+          top: position.y,
         }}
       >
         {actions && actions.length > 0 ? (

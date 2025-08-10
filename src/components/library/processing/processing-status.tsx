@@ -100,7 +100,7 @@ const JobDetailsDialog = ({
   job: ProcessingJob;
 }) => {
   return (
-    <DialogContent className="w-full">
+    <DialogContent className="w-full sm:max-w-6xl max-h-[90vh] overflow-y-auto">
       <DialogHeader>
         <DialogTitle>Job Details</DialogTitle>
       </DialogHeader>

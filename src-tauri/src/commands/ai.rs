@@ -34,6 +34,14 @@ pub async fn ai_chat_completion(
     model: String,
     request: ChatCompletionRequest,
 ) -> Result<ChatCompletionResponse, String> {
+    println!(
+        "[AI][CMD] chat_completion provider={} type={} model={} messages={} stream={}",
+        provider.id,
+        provider.r#type,
+        model,
+        request.messages.len(),
+        false
+    );
     let db_state = state.lock().await;
     let database = db_state.as_ref().ok_or("Database not initialized")?;
     let api_key = database.get_api_key(&provider.id).await
@@ -57,6 +65,14 @@ pub async fn ai_chat_completion_stream(
     request: ChatCompletionRequest,
     event_name: String,
 ) -> Result<(), String> {
+    println!(
+        "[AI][CMD] chat_completion_stream provider={} type={} model={} messages={} event=\"{}\"",
+        provider.id,
+        provider.r#type,
+        model,
+        request.messages.len(),
+        event_name
+    );
     let db_state = state.lock().await;
     let database = db_state.as_ref().ok_or("Database not initialized")?;
     let api_key = database.get_api_key(&provider.id).await

@@ -667,6 +667,147 @@ pub async fn download_pdf_from_url_and_process_background(
     Ok(document)
 }
 
+/// Save a local PDF (selected via file dialog) into storage, create a document immediately,
+/// and enqueue a background job to extract content and update the document.
+#[tauri::command]
+pub async fn save_pdf_from_file_and_process_background(
+    db_state: State<'_, DatabaseState>,
+    file_path: String,
+    title: Option<String>,
+    tags: Option<Vec<String>>, 
+    category_id: Option<String>,
+) -> Result<Document, String> {
+    let db_guard = db_state.lock().await;
+    let database = db_guard.as_ref().ok_or("Database not initialized")?;
+
+    // Determine original filename
+    let original_filename = std::path::Path::new(&file_path)
+        .file_name()
+        .and_then(|name| name.to_str())
+        .unwrap_or("document.pdf");
+
+    // Copy into storage with UUID filename
+    let storage_dir = get_pdf_storage_dir()?;
+    let stored_filename = generate_pdf_filename(original_filename);
+    let stored_path = storage_dir.join(&stored_filename);
+    std::fs::copy(&file_path, &stored_path)
+        .map_err(|e| format!("Failed to copy PDF: {}", e))?;
+
+    // Create the document immediately so it appears in the library
+    let doc_title = title.unwrap_or_else(|| {
+        std::path::Path::new(original_filename)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("Untitled PDF")
+            .to_string()
+    });
+
+    let request = CreateDocumentRequest {
+        title: doc_title,
+        content: "PDF content is being processed...".to_string(),
+        content_hash: None,
+        file_path: Some(stored_filename.clone()),
+        doc_type: "pdf".to_string(),
+        tags: tags.unwrap_or_default(),
+        status: Some("processing".to_string()),
+        category_id: category_id.clone(),
+    };
+
+    let document = database.create_document(request).await
+        .map_err(|e| format!("Failed to create document: {}", e))?;
+
+    // Enqueue background job to extract content and update this document
+    let processing_options = crate::pdf_processor::MarkerOptions::default();
+    let options_json = serde_json::to_value(processing_options).unwrap_or_default();
+
+    let job_request = crate::database::CreateProcessingJobRequest {
+        job_type: "pdf_content_extraction".to_string(),
+        source_type: "file".to_string(),
+        source_path: Some(stored_path.to_string_lossy().to_string()),
+        original_filename: original_filename.to_string(),
+        title: Some(document.title.clone()),
+        tags: document.tags.clone(),
+        category_id: document.category_id.clone(),
+        processing_options: Some(options_json),
+        metadata: Some(serde_json::json!({
+            "existing_document_id": document.id
+        })),
+    };
+
+    database.create_processing_job(job_request).await
+        .map_err(|e| format!("Failed to create processing job: {}", e))?;
+
+    Ok(document)
+}
+
+/// Save a PDF provided as bytes into storage, create a document immediately,
+/// and enqueue a background job to extract content and update the document.
+#[tauri::command]
+pub async fn save_pdf_from_data_and_process_background(
+    db_state: State<'_, DatabaseState>,
+    file_data: Vec<u8>,
+    file_name: String,
+    title: Option<String>,
+    tags: Option<Vec<String>>, 
+    category_id: Option<String>,
+) -> Result<Document, String> {
+    let db_guard = db_state.lock().await;
+    let database = db_guard.as_ref().ok_or("Database not initialized")?;
+
+    // Save into storage with UUID filename
+    let storage_dir = get_pdf_storage_dir()?;
+    let stored_filename = generate_pdf_filename(&file_name);
+    let stored_path = storage_dir.join(&stored_filename);
+    std::fs::write(&stored_path, &file_data)
+        .map_err(|e| format!("Failed to save PDF: {}", e))?;
+
+    // Create the document immediately
+    let doc_title = title.unwrap_or_else(|| {
+        std::path::Path::new(&file_name)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .unwrap_or("Untitled PDF")
+            .to_string()
+    });
+
+    let request = CreateDocumentRequest {
+        title: doc_title,
+        content: "PDF content is being processed...".to_string(),
+        content_hash: None,
+        file_path: Some(stored_filename.clone()),
+        doc_type: "pdf".to_string(),
+        tags: tags.unwrap_or_default(),
+        status: Some("processing".to_string()),
+        category_id: category_id.clone(),
+    };
+
+    let document = database.create_document(request).await
+        .map_err(|e| format!("Failed to create document: {}", e))?;
+
+    // Enqueue background job to extract content and update this document
+    let processing_options = crate::pdf_processor::MarkerOptions::default();
+    let options_json = serde_json::to_value(processing_options).unwrap_or_default();
+
+    let job_request = crate::database::CreateProcessingJobRequest {
+        job_type: "pdf_content_extraction".to_string(),
+        source_type: "file".to_string(),
+        source_path: Some(stored_path.to_string_lossy().to_string()),
+        original_filename: file_name,
+        title: Some(document.title.clone()),
+        tags: document.tags.clone(),
+        category_id: document.category_id.clone(),
+        processing_options: Some(options_json),
+        metadata: Some(serde_json::json!({
+            "existing_document_id": document.id
+        })),
+    };
+
+    database.create_processing_job(job_request).await
+        .map_err(|e| format!("Failed to create processing job: {}", e))?;
+
+    Ok(document)
+}
+
 // New command to clean up PDF file when document is deleted
 #[tauri::command]
 pub async fn delete_pdf_file(filename: String) -> Result<bool, String> {

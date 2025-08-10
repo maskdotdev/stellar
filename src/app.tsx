@@ -1,22 +1,22 @@
 'use client'
 
-import { useEffect, Suspense, lazy, useState } from "react"
-import { SlimNavRail } from "@/components/home/slim-nav-rail"
-import { ContextBar } from "@/components/home/context-bar"
-import { FloatingChat } from "@/components/home/floating-chat"
 import { CommandPalette } from "@/components/home/command-palette"
+import { ContextBar } from "@/components/home/context-bar"
+import { FloatingChatV2 } from "@/components/home/floating-chat-v2"
+import { SlimNavRail } from "@/components/home/slim-nav-rail"
+import { HotkeyOverlay, HotkeyProvider, useHotkeyContext } from "@/components/hotkey"
+import { OnboardingDialog } from "@/components/onboarding"
 import { ThemeProvider, useTheme } from "@/components/theme-provider"
-import { ThemeManager } from "@/lib/config/theme-config"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
-import { useStudyStore } from "@/lib/stores/study-store"
-import { HotkeyProvider, HotkeyOverlay, useHotkeyContext } from "@/components/hotkey"
+import { ThemeManager } from "@/lib/config/theme-config"
 import { AppInitializationService } from "@/lib/core/app-initialization"
-import { useSettingsStore } from "@/lib/stores/settings-store"
-import { OnboardingDialog } from "@/components/onboarding"
 import { OnboardingService } from "@/lib/services/onboarding-service"
-import { MessageCircle } from "lucide-react"
+import { useSettingsStore } from "@/lib/stores/settings-store"
+import { useStudyStore } from "@/lib/stores/study-store"
 import { useFeatureFlags } from "@/lib/utils/feature-flags"
+import { MessageCircle } from "lucide-react"
+import { Suspense, lazy, useEffect, useState } from "react"
 
 // Lazy load heavy components to enable code splitting
 const FocusPane = lazy(() => import("@/components/focus/focus-pane").then(module => ({ default: module.FocusPane })))
@@ -34,7 +34,7 @@ const DebugHotkeyTest = lazy(() => import("@/components/hotkey/dev/debug-hotkey-
 // Loading fallback component
 const LoadingSpinner = () => (
   <div className="flex items-center justify-center h-full">
-    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+    <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
   </div>
 )
 
@@ -49,11 +49,11 @@ const updateCSSFontVariables = (fontFamily: { sans: string; serif: string; mono:
 // Component to show when hotkey leader mode is active
 const HotkeyModeIndicator: React.FC = () => {
   const { mode, currentBuffer, requireConfirmation } = useHotkeyContext();
-  
+
   if (mode !== 'leader' && mode !== 'active') {
     return null;
   }
-  
+
   const getMessage = () => {
     if (mode === 'leader') {
       return (
@@ -64,7 +64,8 @@ const HotkeyModeIndicator: React.FC = () => {
           )}
         </>
       );
-    } else if (mode === 'active') {
+    }
+    if (mode === 'active') {
       const actionText = requireConfirmation ? 'press Enter to activate' : 'exact match auto-activates';
       return (
         <>
@@ -72,8 +73,9 @@ const HotkeyModeIndicator: React.FC = () => {
         </>
       );
     }
+    return null
   };
-  
+
   return (
     <div className="fixed top-4 left-1/2 transform -translate-x-1/2 px-3 py-1 bg-yellow-500/90 text-yellow-950 text-sm rounded-full shadow-lg backdrop-blur z-50 animate-in fade-in duration-200">
       <div className="flex items-center gap-2">
@@ -88,13 +90,13 @@ const HotkeyModeIndicator: React.FC = () => {
 const isUserActivelyEditing = (target: HTMLElement): boolean => {
   // Basic input/textarea/contentEditable check
   if (
-    target.tagName === "INPUT" || 
-    target.tagName === "TEXTAREA" || 
+    target.tagName === "INPUT" ||
+    target.tagName === "TEXTAREA" ||
     target.isContentEditable
   ) {
     return true
   }
-  
+
   // Check for TipTap editor elements (based on the actual TipTap structure in the codebase)
   if (
     target.closest('.tiptap') ||
@@ -106,12 +108,12 @@ const isUserActivelyEditing = (target: HTMLElement): boolean => {
   ) {
     return true
   }
-  
+
   // Check for command palette input (allow shortcuts in command palette for navigation)
   if (target.closest('[data-slot="command-input"]')) {
     return false // Allow shortcuts in command palette
   }
-  
+
   // Check for other editor-related elements from the codebase
   if (
     target.closest('.monaco-editor') || // Monaco editor
@@ -125,7 +127,7 @@ const isUserActivelyEditing = (target: HTMLElement): boolean => {
   ) {
     return true
   }
-  
+
   // Check for focus states that indicate active editing
   if (
     target.matches(':focus') && (
@@ -137,7 +139,7 @@ const isUserActivelyEditing = (target: HTMLElement): boolean => {
   ) {
     return true
   }
-  
+
   // Check if any parent element has editing-related classes or states
   let parent = target.parentElement
   while (parent && parent !== document.body) {
@@ -154,7 +156,7 @@ const isUserActivelyEditing = (target: HTMLElement): boolean => {
     }
     parent = parent.parentElement
   }
-  
+
   return false
 }
 
@@ -162,7 +164,7 @@ const isUserActivelyEditing = (target: HTMLElement): boolean => {
 const parseKeybinding = (keybinding: string): { modifiers: Set<string>, key: string } => {
   const modifiers = new Set<string>()
   let key = ''
-  
+
   // Handle special cases first
   if (keybinding.includes('Space')) {
     if (keybinding.includes('⇧')) modifiers.add('Shift')
@@ -171,25 +173,25 @@ const parseKeybinding = (keybinding: string): { modifiers: Set<string>, key: str
     if (keybinding.includes('^') || keybinding.includes('Ctrl')) modifiers.add('Control')
     return { modifiers, key: ' ' }
   }
-  
+
   if (keybinding.includes('Escape')) {
     return { modifiers, key: 'Escape' }
   }
-  
+
   // Handle compound shortcuts like ⌘,P
   if (keybinding.includes(',')) {
     const parts = keybinding.split(',')
     const modifierPart = parts[0]
     const keyPart = parts[1]
-    
+
     if (modifierPart.includes('⌘')) modifiers.add('Meta')
     if (modifierPart.includes('⇧')) modifiers.add('Shift')
     if (modifierPart.includes('⌥')) modifiers.add('Alt')
     if (modifierPart.includes('^') || modifierPart.includes('Ctrl')) modifiers.add('Control')
-    
+
     return { modifiers, key: keyPart.toLowerCase() }
   }
-  
+
   // Parse regular shortcuts
   const chars = keybinding.split('')
   for (const char of chars) {
@@ -205,33 +207,33 @@ const parseKeybinding = (keybinding: string): { modifiers: Set<string>, key: str
       key += char
     }
   }
-  
+
   // Check for Ctrl in string format
   if (keybinding.includes('Ctrl')) {
     modifiers.add('Control')
     key = keybinding.replace(/Ctrl\+?/gi, '').trim()
   }
-  
+
   return { modifiers, key: key.toLowerCase() }
 }
 
 // Helper function to check if pressed keys match a keybinding
 const matchesKeybinding = (event: KeyboardEvent, keybinding: string): boolean => {
   const { modifiers, key } = parseKeybinding(keybinding)
-  
+
   // Check modifiers
   const eventModifiers = new Set<string>()
   if (event.metaKey) eventModifiers.add('Meta')
   if (event.ctrlKey) eventModifiers.add('Control')
   if (event.shiftKey) eventModifiers.add('Shift')
   if (event.altKey) eventModifiers.add('Alt')
-  
+
   // Compare modifiers
   if (modifiers.size !== eventModifiers.size) return false
   for (const mod of modifiers) {
     if (!eventModifiers.has(mod)) return false
   }
-  
+
   // Compare key
   const eventKey = event.key === ' ' ? ' ' : event.key.toLowerCase()
   return eventKey === key
@@ -258,7 +260,7 @@ export function App() {
     goBack,
     canGoBack,
   } = useStudyStore()
-  
+
   const { theme, setTheme } = useTheme()
   const { isFeatureEnabled } = useFeatureFlags()
   const [showOnboarding, setShowOnboarding] = useState(false)
@@ -282,16 +284,16 @@ export function App() {
     const fontFamily = useSettingsStore.getState().display.fontFamily
     const defaultFonts = {
       sans: "system-ui, -apple-system, sans-serif",
-      serif: "ui-serif, Georgia, serif", 
+      serif: "ui-serif, Georgia, serif",
       mono: "ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Monaco, Consolas, 'Courier New', monospace"
     }
-    
+
     // Only apply custom fonts if user has previously customized them
-    const hasCustomFonts = 
+    const hasCustomFonts =
       fontFamily.sans !== defaultFonts.sans ||
       fontFamily.serif !== defaultFonts.serif ||
       fontFamily.mono !== defaultFonts.mono
-    
+
     if (hasCustomFonts) {
       console.log('🎨 Restoring custom fonts:', fontFamily)
       updateCSSFontVariables(fontFamily)
@@ -333,11 +335,11 @@ export function App() {
         }
         return
       }
-      
+
       // Skip if user is typing in an input field
       const target = e.target as HTMLElement
       const isTyping = isUserActivelyEditing(target)
-      
+
       // Debug logging for development (can be removed in production)
       if (process.env.NODE_ENV === 'development' && isTyping) {
         console.log('🚫 Keybinding blocked - user is editing:', {
@@ -353,21 +355,21 @@ export function App() {
           }
         })
       }
-      
+
       // Handle keybindings
       for (const binding of keybindings) {
         if (matchesKeybinding(e, binding.currentKeys)) {
-          
+
           // Some keybindings should work even when editing (like Escape)
           const alwaysAllowedActions = ['escape', 'command-palette']
           const shouldPreventWhenTyping = !alwaysAllowedActions.includes(binding.id)
-          
+
           if (isTyping && shouldPreventWhenTyping) {
             continue // Skip this keybinding when user is typing
           }
-          
+
           e.preventDefault()
-          
+
           switch (binding.id) {
             // Navigation
             case "library":
@@ -389,7 +391,7 @@ export function App() {
             case "flashcards":
               setCurrentView("flashcards")
               break
-              
+
             // Quick Actions
             case "import":
               console.log("Import PDF")
@@ -408,7 +410,7 @@ export function App() {
             case "toggle-dark-mode":
               ThemeManager.toggleDarkMode(theme, setTheme)
               break
-              
+
             // Settings
             case "settings-providers":
               setSettingsTab("providers")
@@ -430,12 +432,12 @@ export function App() {
               setSettingsTab("keybindings")
               setCurrentView("settings")
               break
-              
+
             // Development
             case "debug-hotkeys":
               setCurrentView("debug-hotkeys")
               break
-              
+
             // System
             case "command-palette":
               setShowCommandPalette(true)
@@ -450,11 +452,11 @@ export function App() {
               }
               break
           }
-          
+
           return // Stop processing if we found a match
         }
       }
-      
+
       // Handle additional single-key shortcuts (only if not typing and not using modifiers)
       if (!isTyping && !e.metaKey && !e.ctrlKey && !e.altKey) {
         // Quick search with "/" key
@@ -462,7 +464,7 @@ export function App() {
           e.preventDefault()
           setShowCommandPalette(true)
         }
-        
+
         // Back navigation with "b" key
         else if (e.key === "b" && !e.shiftKey) {
           e.preventDefault()
@@ -471,7 +473,7 @@ export function App() {
           }
         }
       }
-      
+
       // Handle Tab key (only if not typing and no modifiers except shift)
       if (!isTyping && e.key === "Tab" && !e.metaKey && !e.ctrlKey && !e.altKey) {
         if (!e.shiftKey) {
@@ -481,25 +483,23 @@ export function App() {
       }
     }
 
-    // TEMPORARILY DISABLED - Testing if our event listener is causing copy/paste issues
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
-    
-    return () => {} // Empty cleanup function
   }, [
-    keybindings, 
-    focusMode, 
-    showFloatingChat, 
-    setShowCommandPalette, 
-    setShowFloatingChat, 
-    setFocusMode, 
-    setCurrentView, 
+    keybindings,
+    focusMode,
+    showFloatingChat,
+    setShowCommandPalette,
+    setShowFloatingChat,
+    setFocusMode,
+    setCurrentView,
     setEditingNoteId,
     setSettingsTab,
     goBack,
     canGoBack,
     theme,
-    setTheme
+    setTheme,
+    isFeatureEnabled
   ])
 
   const renderCurrentView = () => {
@@ -555,8 +555,8 @@ export function App() {
       case "note-editor":
         return (
           <Suspense fallback={<LoadingSpinner />}>
-            <NoteEditor 
-              documentId={editingNoteId || undefined} 
+            <NoteEditor
+              documentId={editingNoteId || undefined}
               onBack={() => setCurrentView("library")}
               categories={categories}
               currentCategoryId={currentCategory}
@@ -564,12 +564,13 @@ export function App() {
           </Suspense>
         )
       case "library":
-      default:
         return (
           <Suspense fallback={<LoadingSpinner />}>
             <Library />
           </Suspense>
         )
+      default:
+        return null
     }
   }
 
@@ -577,74 +578,80 @@ export function App() {
     <ThemeProvider
       defaultTheme="light-teal"
     >
-         <HotkeyProvider leaderKey=" " requireConfirmation={false} bufferTimeout={1500} enabled={true}>
+      <HotkeyProvider leaderKey=" " requireConfirmation={false} bufferTimeout={1500} enabled={true}>
         <TooltipProvider delayDuration={100}>
           <div className="h-screen bg-background text-foreground overflow-hidden spotlight-bg">
-          {/* Main Layout Grid */}
-          <div className="h-full grid grid-cols-[48px_1fr] grid-rows-[auto_1fr_auto] spotlight-content">
-            {/* Slim Nav Rail */}
-            <div className="row-span-3 border-r border-border">
-                            <SlimNavRail />
+            {/* Main Layout Grid */}
+            <div className="h-full grid grid-cols-[48px_1fr] grid-rows-[auto_1fr_auto] spotlight-content">
+              {/* Slim Nav Rail */}
+              <div className="row-span-3 border-r border-border">
+                <SlimNavRail />
+              </div>
+
+              {/* Context Bar */}
+              {!focusMode && (
+                <div className="border-b border-border">
+                  <ContextBar />
+                </div>
+              )}
+
+              {/* Focus Pane */}
+              <div className="overflow-hidden min-h-0 h-full">
+                {currentView === "focus" ? (
+                  <Suspense fallback={<LoadingSpinner />}>
+                    <FocusPane />
+                  </Suspense>
+                ) : (
+                  renderCurrentView()
+                )}
+              </div>
+
             </div>
 
-            {/* Context Bar */}
-            {!focusMode && (
-              <div className="border-b border-border">
-                <ContextBar />
+            {/* Command Palette Overlay */}
+            {showCommandPalette && <CommandPalette />}
+
+            {/* Floating Chat (single, v2) */}
+            {showFloatingChat && (
+              <FloatingChatV2
+                onClose={() => {
+                  setShowFloatingChat(false)
+                  setInitialChatText(null)
+                }}
+                initialText={initialChatText || undefined}
+              />
+            )}
+
+            {/* Floating Chat Trigger */}
+            {!showFloatingChat && (
+              <button
+                onClick={() => setShowFloatingChat(true)}
+                type="button"
+                className="fixed bottom-6 right-6 w-14 h-14 bg-primary text-primary-foreground rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-105 flex items-center justify-center z-40"
+              >
+                <MessageCircle className="h-6 w-6" />
+              </button>
+            )}
+
+            {/* Focus Mode Indicator */}
+            {focusMode && (
+              <div className="fixed top-4 right-4 px-3 py-1 bg-primary text-primary-foreground text-sm rounded-full">
+                Focus Mode • {keybindings.find(kb => kb.id === "focus")?.currentKeys || "⌘."}
               </div>
             )}
 
-            {/* Focus Pane */}
-            <div className="overflow-hidden min-h-0 h-full">
-              {currentView === "focus" ? (
-                <Suspense fallback={<LoadingSpinner />}>
-                  <FocusPane />
-                </Suspense>
-              ) : (
-                renderCurrentView()
-              )}
-            </div>
+            {/* Hotkey Leader Mode Indicator */}
+            <HotkeyModeIndicator />
 
-          </div>
+            {/* Hotkey Overlay */}
+            <HotkeyOverlay />
 
-          {/* Command Palette Overlay */}
-          {showCommandPalette && <CommandPalette />}
+            {/* Onboarding Dialog */}
+            <OnboardingDialog
+              open={showOnboarding}
+              onClose={handleOnboardingComplete}
+            />
 
-          {/* Floating Chat */}
-          {showFloatingChat && <FloatingChat onClose={() => {
-            setShowFloatingChat(false)
-            setInitialChatText(null)
-          }} initialText={initialChatText || undefined} />}
-
-          {/* Floating Chat Trigger */}
-          {!showFloatingChat && (
-            <button
-              onClick={() => setShowFloatingChat(true)}
-              className="fixed bottom-6 right-6 w-14 h-14 bg-primary text-primary-foreground rounded-full shadow-lg hover:shadow-xl transition-all hover:scale-105 flex items-center justify-center z-40"
-            >
-              <MessageCircle className="h-6 w-6" />
-            </button>
-          )}
-
-          {/* Focus Mode Indicator */}
-          {focusMode && (
-            <div className="fixed top-4 right-4 px-3 py-1 bg-primary text-primary-foreground text-sm rounded-full">
-              Focus Mode • {keybindings.find(kb => kb.id === "focus")?.currentKeys || "⌘."}
-            </div>
-          )}
-
-          {/* Hotkey Leader Mode Indicator */}
-          <HotkeyModeIndicator />
-
-          {/* Hotkey Overlay */}
-          <HotkeyOverlay />
-          
-          {/* Onboarding Dialog */}
-          <OnboardingDialog 
-            open={showOnboarding} 
-            onClose={handleOnboardingComplete}
-          />
-          
           </div>
           <Toaster />
         </TooltipProvider>

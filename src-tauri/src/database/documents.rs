@@ -236,6 +236,57 @@ impl Database {
         Ok(documents)
     }
 
+    /// Search documents by title, content, or tags (simple LIKE search)
+    pub async fn search_documents(&self, query: &str, limit: i64) -> Result<Vec<Document>, sqlx::Error> {
+        let like = format!("%{}%", query);
+
+        let rows = sqlx::query(
+            r#"
+            SELECT * FROM documents 
+            WHERE title LIKE ? COLLATE NOCASE 
+               OR content LIKE ? COLLATE NOCASE 
+               OR tags LIKE ? COLLATE NOCASE 
+            ORDER BY updated_at DESC
+            LIMIT ?
+            "#,
+        )
+        .bind(&like)
+        .bind(&like)
+        .bind(&like)
+        .bind(limit)
+        .fetch_all(&self.pool)
+        .await?;
+
+        let mut documents = Vec::new();
+        for row in rows {
+            let tags_json: String = row.get("tags");
+            let tags: Vec<String> = serde_json::from_str(&tags_json).unwrap_or_default();
+
+            let created_at: String = row.get("created_at");
+            let updated_at: String = row.get("updated_at");
+
+            documents.push(Document {
+                id: row.get("id"),
+                title: row.get("title"),
+                content: row.get("content"),
+                content_hash: row.get("content_hash"),
+                file_path: row.get("file_path"),
+                doc_type: row.get("doc_type"),
+                tags,
+                created_at: DateTime::parse_from_rfc3339(&created_at)
+                    .unwrap_or_else(|_| Utc::now().into())
+                    .with_timezone(&Utc),
+                updated_at: DateTime::parse_from_rfc3339(&updated_at)
+                    .unwrap_or_else(|_| Utc::now().into())
+                    .with_timezone(&Utc),
+                status: row.get("status"),
+                category_id: row.get("category_id"),
+            });
+        }
+
+        Ok(documents)
+    }
+
     /// Calculate SHA-256 hash of content for duplicate detection
     pub fn calculate_content_hash(content: &str) -> String {
         let mut hasher = Sha256::new();

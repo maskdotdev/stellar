@@ -1,8 +1,8 @@
 "use client";
 
+import { ControlledEditor } from "@/components/editor/ControlledEditor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { MDXRenderer } from "@/components/ui/mdx-renderer";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
@@ -16,6 +16,7 @@ import { invoke } from "@tauri-apps/api/core";
 import {
   Clock,
   Code,
+  Edit,
   Eye,
   FileText,
   Loader2,
@@ -24,6 +25,9 @@ import {
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { PdfRenderer } from "../../pdf-renderer";
+
+// Renders trusted HTML content (generated within the app) without using dangerouslySetInnerHTML inline
+// (Removed legacy TrustedHtmlContent; we now render via ControlledEditor)
 
 interface ProcessingJob {
   id: string;
@@ -37,7 +41,7 @@ interface ProcessingJob {
 interface DocumentRendererProps {
   document: Document;
   className?: string;
-  onTextSelection?: (text: string) => void;
+  onTextSelection?: (text: string, info?: { page?: number }) => void;
 }
 
 type ViewMode = "markdown" | "pdf";
@@ -68,10 +72,11 @@ export function DocumentRenderer({
       processingJob?.status === "processing");
 
   const libraryService = LibraryService.getInstance();
-  const { setShowFloatingChat, setInitialChatText } = useStudyStore();
+  const { setShowFloatingChat, setInitialChatText, setEditingNoteId, setCurrentView } = useStudyStore();
   const { createConversationWithContext } = useAIStore();
   const { currentSessionId } = useActionsStore();
   const { toast } = useToast();
+  const containerRef = useRef<HTMLDivElement>(null);
 
   // Load PDF file path when component mounts or document changes
   useEffect(() => {
@@ -203,8 +208,38 @@ export function DocumentRenderer({
     const selection = window.getSelection();
     if (selection?.toString().trim()) {
       const text = selection?.toString() || "";
+
+      // Try to detect the page number by walking up the DOM from the selection anchor
+      let pageNumber: number | undefined = undefined;
+      const anchorNode = selection.anchorNode as Node | null;
+      const baseEl = anchorNode && (anchorNode.nodeType === Node.ELEMENT_NODE ? (anchorNode as Element) : (anchorNode as ChildNode)?.parentElement as Element | null);
+      const findPageEl = (start: Element | null): Element | null => {
+        let el: Element | null = start;
+        while (el) {
+          // Common attributes/classes in @react-pdf-viewer/PDF.js DOM
+          if (el.getAttribute?.('data-page-number')) return el;
+          if (el.classList && (el.classList.contains('rpv-core__page-layer') || el.classList.contains('rpv-core__page'))) return el;
+          el = el.parentElement;
+        }
+        return null;
+      };
+      const pageEl = findPageEl(baseEl || null);
+      if (pageEl) {
+        const attr = pageEl.getAttribute('data-page-number');
+        if (attr) {
+          const n = Number.parseInt(attr, 10);
+          if (!Number.isNaN(n)) pageNumber = n;
+        }
+        if (pageNumber === undefined) {
+          // Attempt to parse from aria-label like "Page 3"
+          const aria = pageEl.getAttribute('aria-label') || '';
+          const m = aria.match(/Page\s+(\d+)/i);
+          if (m) pageNumber = Number.parseInt(m[1], 10);
+        }
+      }
+
       setSelectedText(text);
-      onTextSelection?.(text);
+      onTextSelection?.(text, { page: pageNumber });
     }
   }, [onTextSelection]);
 
@@ -271,6 +306,37 @@ export function DocumentRenderer({
     console.log("PDF loaded with", numPages, "pages");
   }, []);
 
+  // Jump to pending location after opening the document
+  useEffect(() => {
+    // Only for PDFs
+    if (!hasPdfFile) return;
+    let cancelled = false;
+    const { pendingJump, setPendingJump } = useStudyStore.getState();
+    if (pendingJump && pendingJump.documentId === document.id) {
+      // Ensure PDF path is ready
+      const tryJump = () => {
+        if (cancelled) return;
+        // Prefer page jump via DOM
+        if (pendingJump.page != null) {
+          const pageSelector = `div[data-page-number="${pendingJump.page}"]`;
+          const pageNode = containerRef.current?.querySelector?.(pageSelector);
+          if (pageNode) {
+            (pageNode as HTMLElement).scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }
+        // Optionally, we could trigger a text search here in the future using search plugin
+        setPendingJump(null);
+      };
+
+      // Delay slightly to allow viewer to render pages
+      const t = setTimeout(tryJump, 300);
+      return () => {
+        cancelled = true;
+        clearTimeout(t);
+      };
+    }
+  }, [document.id, hasPdfFile]);
+
   const onDocumentLoadError = useCallback(
     (error: Error) => {
       console.error("PDF load error:", error);
@@ -291,24 +357,33 @@ export function DocumentRenderer({
     externalOnTextSelectionRef.current = onTextSelection
   }, [onTextSelection])
 
-  const handleMarkdownSelection = useCallback((text: string) => {
-    if (!text.trim()) return
-    setSelectedText(text)
-    externalOnTextSelectionRef.current?.(text)
-  }, [])
+  // Selection is handled directly from editorElement onMouseUp
 
-  const markdownElement = useMemo(() => {
+  const editorElement = useMemo(() => {
     return (
       <ScrollArea className="flex-1 h-full">
         <div className="p-6">
-          <MDXRenderer
-            content={document.content}
-            onTextSelection={handleMarkdownSelection}
-          />
+          <div
+            onMouseUp={() => {
+              const text = window.getSelection()?.toString() || ""
+              if (text.trim()) {
+                setSelectedText(text)
+                externalOnTextSelectionRef.current?.(text)
+              }
+            }}
+          >
+            <ControlledEditor
+              content={document.content}
+              editable={false}
+              minimal
+              className="border-0"
+              placeholder=""
+            />
+          </div>
         </div>
       </ScrollArea>
     )
-  }, [document.content, handleMarkdownSelection])
+  }, [document.content])
 
   // Memoize PdfView to prevent unnecessary rerenders
   const PdfView = useMemo(() => {
@@ -360,7 +435,7 @@ export function DocumentRenderer({
     }
 
     return (
-      <div onMouseUp={handleTextSelection} className="h-full w-full">
+      <div onMouseUp={handleTextSelection} className="h-full w-full" ref={containerRef}>
         <PdfRenderer
           fileUrl={pdfFilePath}
           className="h-full w-full"
@@ -396,6 +471,20 @@ export function DocumentRenderer({
         </div>
 
         <div className="flex items-center space-x-2">
+          {document.doc_type === "note" && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setEditingNoteId(document.id)
+                setCurrentView("note-editor")
+              }}
+              className="h-8 text-xs"
+            >
+              <Edit className="h-3 w-3 mr-1" />
+              Edit
+            </Button>
+          )}
           {selectedText && (
             <Button
               variant="outline"
@@ -472,7 +561,7 @@ export function DocumentRenderer({
                 )}
               </div>
             ) : (
-              markdownElement
+              editorElement
             )}
           </TabsContent>
 
@@ -481,8 +570,8 @@ export function DocumentRenderer({
           </TabsContent>
         </Tabs>
       ) : (
-        // Just show markdown view if no PDF available
-        markdownElement
+        // For non-PDF documents, render via the read-only editor to support math/images/etc.
+        editorElement
       )}
     </div>
   );
