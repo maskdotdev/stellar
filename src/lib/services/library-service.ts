@@ -21,6 +21,7 @@ export interface Category {
 	description?: string;
 	color?: string;
 	icon?: string;
+	parent_id?: string;
 	created_at: string;
 	updated_at: string;
 	document_count: number;
@@ -41,6 +42,7 @@ export interface CreateCategoryRequest {
 	description?: string;
 	color?: string;
 	icon?: string;
+	parent_id?: string;
 }
 
 export interface UploadPdfOptions {

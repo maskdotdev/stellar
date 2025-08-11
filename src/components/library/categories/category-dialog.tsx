@@ -1,7 +1,5 @@
 import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
+import { ColorPicker } from "@/components/ui/color-picker"
 import {
   Dialog,
   DialogContent,
@@ -10,8 +8,17 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog"
-import { ColorPicker } from "@/components/ui/color-picker"
-import { type Category, type CreateCategoryRequest } from "@/lib/services/library-service"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
+import { Textarea } from "@/components/ui/textarea"
+import type { Category, CreateCategoryRequest } from "@/lib/services/library-service"
 import { suggestedCategories } from "../core/library-constants"
 import { IconCombobox } from "../shared/icon-combobox"
 
@@ -25,6 +32,7 @@ interface CategoryDialogProps {
   onUpdateCategory: () => void
   onSuggestedCategorySelect: (suggested: typeof suggestedCategories[0]) => void
   onCancel: () => void
+  allCategories?: Category[]
 }
 
 export function CategoryDialog({
@@ -37,6 +45,7 @@ export function CategoryDialog({
   onUpdateCategory,
   onSuggestedCategorySelect,
   onCancel,
+  allCategories = [],
 }: CategoryDialogProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -47,7 +56,7 @@ export function CategoryDialog({
             {editingCategory ? "Update your study category details." : "Create a new category to organize your studies."}
           </DialogDescription>
         </DialogHeader>
-        
+
         <div className="space-y-4">
           <div className="flex flex-col gap-2">
             <Label htmlFor="category-name">Name</Label>
@@ -59,7 +68,7 @@ export function CategoryDialog({
               placeholder="e.g., Computer Science"
             />
           </div>
-          
+
           <div className="flex flex-col gap-2">
             <Label htmlFor="category-description">Description (optional)</Label>
             <Textarea
@@ -79,6 +88,31 @@ export function CategoryDialog({
               onChange={(color) => setCategoryForm(prev => ({ ...prev, color }))}
               defaultValue="#3b82f6"
             />
+          </div>
+
+          {/* Parent Category Selection */}
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="category-parent">Parent (optional)</Label>
+            <Select
+              value={categoryForm.parent_id || "root"}
+              onValueChange={(value) =>
+                setCategoryForm(prev => ({ ...prev, parent_id: value === "root" ? undefined : value }))
+              }
+            >
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="Top level" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="root">Top level</SelectItem>
+                {allCategories
+                  .filter(c => !editingCategory || c.id !== editingCategory.id)
+                  .map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
           </div>
 
           <IconCombobox
@@ -101,7 +135,7 @@ export function CategoryDialog({
                     className="justify-start h-auto p-2 text-left"
                   >
                     <div className="flex items-center space-x-2">
-                      <div 
+                      <div
                         className="w-3 h-3 rounded"
                         style={{ backgroundColor: suggested.color }}
                       />
