@@ -38,8 +38,10 @@ impl Database {
                 description TEXT,
                 color TEXT,
                 icon TEXT,
+                parent_id TEXT,
                 created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY (parent_id) REFERENCES categories (id) ON DELETE SET NULL
             )
             "#,
         )
@@ -304,6 +306,21 @@ impl Database {
         if !has_category_id {
             println!("Migrating database: Adding category_id column to documents table");
             sqlx::query("ALTER TABLE documents ADD COLUMN category_id TEXT")
+                .execute(&pool)
+                .await?;
+        }
+
+        // Migration: Add parent_id column to categories table if it doesn't exist
+        let cat_columns = sqlx::query("PRAGMA table_info(categories)")
+            .fetch_all(&pool)
+            .await?;
+        let has_parent_id = cat_columns.iter().any(|row| {
+            let column_name: String = row.get("name");
+            column_name == "parent_id"
+        });
+        if !has_parent_id {
+            println!("Migrating database: Adding parent_id column to categories table");
+            sqlx::query("ALTER TABLE categories ADD COLUMN parent_id TEXT")
                 .execute(&pool)
                 .await?;
         }

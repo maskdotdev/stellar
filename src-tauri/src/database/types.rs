@@ -24,6 +24,7 @@ pub struct Category {
     pub description: Option<String>,
     pub color: Option<String>, // Hex color for UI theming
     pub icon: Option<String>, // Icon name/emoji
+    pub parent_id: Option<String>, // Parent category for nesting
     pub created_at: DateTime<Utc>,
     pub updated_at: DateTime<Utc>,
     pub document_count: i64, // Virtual field for UI
@@ -47,6 +48,7 @@ pub struct CreateCategoryRequest {
     pub description: Option<String>,
     pub color: Option<String>,
     pub icon: Option<String>,
+    pub parent_id: Option<String>,
 }
 
 // Student Pro - Actions & Sessions structures

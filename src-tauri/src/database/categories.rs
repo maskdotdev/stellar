@@ -14,6 +14,7 @@ impl Database {
             description: req.description.clone(),
             color: req.color.clone(),
             icon: req.icon.clone(),
+            parent_id: req.parent_id.clone(),
             created_at: now,
             updated_at: now,
             document_count: 0,
@@ -21,8 +22,8 @@ impl Database {
 
         sqlx::query(
             r#"
-            INSERT INTO categories (id, name, description, color, icon, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
+            INSERT INTO categories (id, name, description, color, icon, parent_id, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             "#,
         )
         .bind(&id)
@@ -30,6 +31,7 @@ impl Database {
         .bind(&req.description)
         .bind(&req.color)
         .bind(&req.icon)
+        .bind(&req.parent_id)
         .bind(now.to_rfc3339())
         .bind(now.to_rfc3339())
         .execute(&self.pool)
@@ -63,6 +65,7 @@ impl Database {
                 description: row.get("description"),
                 color: row.get("color"),
                 icon: row.get("icon"),
+                parent_id: row.get("parent_id"),
                 created_at: DateTime::parse_from_rfc3339(&created_at)
                     .unwrap_or_else(|_| Utc::now().into())
                     .with_timezone(&Utc),
@@ -101,6 +104,7 @@ impl Database {
                 description: row.get("description"),
                 color: row.get("color"),
                 icon: row.get("icon"),
+                parent_id: row.get("parent_id"),
                 created_at: DateTime::parse_from_rfc3339(&created_at)
                     .unwrap_or_else(|_| Utc::now().into())
                     .with_timezone(&Utc),
@@ -120,7 +124,7 @@ impl Database {
         let result = sqlx::query(
             r#"
             UPDATE categories 
-            SET name = ?, description = ?, color = ?, icon = ?, updated_at = ?
+            SET name = ?, description = ?, color = ?, icon = ?, parent_id = ?, updated_at = ?
             WHERE id = ?
             "#,
         )
@@ -128,6 +132,7 @@ impl Database {
         .bind(&req.description)
         .bind(&req.color)
         .bind(&req.icon)
+        .bind(&req.parent_id)
         .bind(now.to_rfc3339())
         .bind(id)
         .execute(&self.pool)
