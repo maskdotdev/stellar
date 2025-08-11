@@ -1,7 +1,7 @@
 {
   "name": "stellar",
   "private": true,
-  "version": "0.0.2",
+  "version": "0.0.3",
   "description": "A modern study and research application with advanced PDF processing, AI integration, and document management",
   "author": "mask",
   "license": "MIT",
