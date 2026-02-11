@@ -1,10 +1,13 @@
 import { cn } from "@/lib/utils/utils";
 import { marked } from "marked";
-import { memo, type ReactNode, useId, useMemo } from "react";
+import { memo, type ReactNode, useEffect, useId, useMemo, useState } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
+import rehypeKatex from "rehype-katex";
 import remarkBreaks from "remark-breaks";
 import remarkGfm from "remark-gfm";
+import remarkMath from "remark-math";
 import { CodeBlock, CodeBlockCode } from "./code-block";
+import "katex/dist/katex.min.css";
 
 export type MarkdownProps = {
   children: string;
@@ -12,6 +15,356 @@ export type MarkdownProps = {
   className?: string;
   components?: Partial<Components>;
 };
+
+const LATEXIT_TAG_PATTERN = /<latexit\b[^>]*>([\s\S]*?)<\/latexit>/gi;
+const LATEXIT_TAG_DETECTOR = /<latexit\b[^>]*>[\s\S]*?<\/latexit>/i;
+const CITATION_PATTERN = /(^\[\^[^\]]+\]:)|(\[\^[^\]]+\])|(^\[[^\]]+\]:\s+\S+)/m;
+const EXTERNAL_LINK_PATTERN = /^(?:[a-z][a-z0-9+.-]*:)?\/\//i;
+
+function shouldRenderAsSingleDocument(markdown: string): boolean {
+  return CITATION_PATTERN.test(markdown);
+}
+
+function decodeAscii(bytes: Uint8Array, offset: number, length: number): string {
+  let result = "";
+  for (let i = 0; i < length; i++) {
+    result += String.fromCharCode(bytes[offset + i] ?? 0);
+  }
+  return result;
+}
+
+function decodeUtf16BE(bytes: Uint8Array, offset: number, byteLength: number): string {
+  let result = "";
+  const end = offset + byteLength;
+  for (let i = offset; i + 1 < end; i += 2) {
+    const codePoint = (bytes[i] << 8) | bytes[i + 1];
+    result += String.fromCharCode(codePoint);
+  }
+  return result;
+}
+
+function readBigEndianUInt(bytes: Uint8Array, offset: number, byteLength: number): number {
+  if (offset < 0 || byteLength < 0 || offset + byteLength > bytes.length) {
+    return Number.NaN;
+  }
+  let value = 0;
+  for (let i = 0; i < byteLength; i++) {
+    value = value * 256 + bytes[offset + i];
+  }
+  return value;
+}
+
+function decodeBase64ToBytes(base64: string): Uint8Array | null {
+  const normalized = base64.replace(/\s+/g, "");
+  if (!normalized) return null;
+  try {
+    const binary = atob(normalized);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i++) {
+      bytes[i] = binary.charCodeAt(i) & 0xff;
+    }
+    return bytes;
+  } catch {
+    return null;
+  }
+}
+
+function parseBinaryPlist(bytes: Uint8Array): unknown {
+  if (bytes.length < 40) return null;
+  if (decodeAscii(bytes, 0, 8) !== "bplist00") return null;
+
+  const trailerOffset = bytes.length - 32;
+  const offsetIntSize = bytes[trailerOffset + 6];
+  const objectRefSize = bytes[trailerOffset + 7];
+  const objectCount = readBigEndianUInt(bytes, trailerOffset + 8, 8);
+  const topObject = readBigEndianUInt(bytes, trailerOffset + 16, 8);
+  const offsetTableOffset = readBigEndianUInt(bytes, trailerOffset + 24, 8);
+
+  if (
+    !Number.isFinite(objectCount) ||
+    !Number.isFinite(topObject) ||
+    !Number.isFinite(offsetTableOffset) ||
+    !Number.isInteger(objectCount) ||
+    !Number.isInteger(topObject) ||
+    !Number.isInteger(offsetTableOffset) ||
+    offsetIntSize <= 0 ||
+    objectRefSize <= 0
+  ) {
+    return null;
+  }
+
+  const offsetTableEnd = offsetTableOffset + objectCount * offsetIntSize;
+  if (offsetTableOffset < 0 || offsetTableEnd > trailerOffset) return null;
+
+  const objectOffsets: number[] = new Array(objectCount);
+  for (let i = 0; i < objectCount; i++) {
+    const entryOffset = offsetTableOffset + i * offsetIntSize;
+    const objectOffset = readBigEndianUInt(bytes, entryOffset, offsetIntSize);
+    if (
+      !Number.isFinite(objectOffset) ||
+      !Number.isInteger(objectOffset) ||
+      objectOffset < 0 ||
+      objectOffset >= bytes.length
+    ) {
+      return null;
+    }
+    objectOffsets[i] = objectOffset;
+  }
+
+  const cache = new Map<number, unknown>();
+  const inProgress = new Set<number>();
+
+  const readLength = (
+    info: number,
+    lengthObjectOffset: number,
+  ): { length: number; lengthBytes: number } | null => {
+    if (info < 0x0f) return { length: info, lengthBytes: 0 };
+
+    if (lengthObjectOffset >= bytes.length) return null;
+    const marker = bytes[lengthObjectOffset];
+    const markerType = marker >> 4;
+    const markerInfo = marker & 0x0f;
+    if (markerType !== 0x1) return null;
+
+    const intByteLength = 1 << markerInfo;
+    if (intByteLength <= 0 || intByteLength > 8) return null;
+
+    const intStart = lengthObjectOffset + 1;
+    const length = readBigEndianUInt(bytes, intStart, intByteLength);
+    if (!Number.isFinite(length) || !Number.isInteger(length) || length < 0) return null;
+
+    return { length, lengthBytes: 1 + intByteLength };
+  };
+
+  const readObject = (objectIndex: number): unknown => {
+    if (!Number.isInteger(objectIndex) || objectIndex < 0 || objectIndex >= objectOffsets.length) {
+      return null;
+    }
+    if (cache.has(objectIndex)) return cache.get(objectIndex);
+    if (inProgress.has(objectIndex)) return null;
+
+    inProgress.add(objectIndex);
+
+    const objectOffset = objectOffsets[objectIndex];
+    if (objectOffset >= bytes.length) {
+      inProgress.delete(objectIndex);
+      return null;
+    }
+
+    const marker = bytes[objectOffset];
+    const objectType = marker >> 4;
+    const objectInfo = marker & 0x0f;
+    let result: unknown = null;
+
+    switch (objectType) {
+      case 0x0: {
+        if (objectInfo === 0x0) result = null;
+        else if (objectInfo === 0x8) result = false;
+        else if (objectInfo === 0x9) result = true;
+        break;
+      }
+      case 0x1: {
+        const intByteLength = 1 << objectInfo;
+        if (intByteLength > 0 && intByteLength <= 8) {
+          result = readBigEndianUInt(bytes, objectOffset + 1, intByteLength);
+        }
+        break;
+      }
+      case 0x2: {
+        const realByteLength = 1 << objectInfo;
+        if (realByteLength === 4 || realByteLength === 8) {
+          const view = new DataView(
+            bytes.buffer,
+            bytes.byteOffset + objectOffset + 1,
+            realByteLength,
+          );
+          result = realByteLength === 4 ? view.getFloat32(0, false) : view.getFloat64(0, false);
+        }
+        break;
+      }
+      case 0x3: {
+        const realByteLength = 1 << objectInfo;
+        if (realByteLength === 8) {
+          const view = new DataView(bytes.buffer, bytes.byteOffset + objectOffset + 1, 8);
+          result = view.getFloat64(0, false);
+        }
+        break;
+      }
+      case 0x4: {
+        const lengthInfo = readLength(objectInfo, objectOffset + 1);
+        if (lengthInfo) {
+          const dataStart = objectOffset + 1 + lengthInfo.lengthBytes;
+          const dataEnd = dataStart + lengthInfo.length;
+          if (dataEnd <= bytes.length) {
+            result = bytes.slice(dataStart, dataEnd);
+          }
+        }
+        break;
+      }
+      case 0x5: {
+        const lengthInfo = readLength(objectInfo, objectOffset + 1);
+        if (lengthInfo) {
+          const strStart = objectOffset + 1 + lengthInfo.lengthBytes;
+          const strEnd = strStart + lengthInfo.length;
+          if (strEnd <= bytes.length) {
+            result = decodeAscii(bytes, strStart, lengthInfo.length);
+          }
+        }
+        break;
+      }
+      case 0x6: {
+        const lengthInfo = readLength(objectInfo, objectOffset + 1);
+        if (lengthInfo) {
+          const strStart = objectOffset + 1 + lengthInfo.lengthBytes;
+          const byteLength = lengthInfo.length * 2;
+          const strEnd = strStart + byteLength;
+          if (strEnd <= bytes.length) {
+            result = decodeUtf16BE(bytes, strStart, byteLength);
+          }
+        }
+        break;
+      }
+      case 0xa: {
+        const lengthInfo = readLength(objectInfo, objectOffset + 1);
+        if (lengthInfo) {
+          const refsStart = objectOffset + 1 + lengthInfo.lengthBytes;
+          const refsEnd = refsStart + lengthInfo.length * objectRefSize;
+          if (refsEnd <= bytes.length) {
+            const items: unknown[] = [];
+            for (let i = 0; i < lengthInfo.length; i++) {
+              const refOffset = refsStart + i * objectRefSize;
+              const ref = readBigEndianUInt(bytes, refOffset, objectRefSize);
+              items.push(readObject(ref));
+            }
+            result = items;
+          }
+        }
+        break;
+      }
+      case 0xd: {
+        const lengthInfo = readLength(objectInfo, objectOffset + 1);
+        if (lengthInfo) {
+          const refsStart = objectOffset + 1 + lengthInfo.lengthBytes;
+          const keyRefsEnd = refsStart + lengthInfo.length * objectRefSize;
+          const valueRefsEnd = keyRefsEnd + lengthInfo.length * objectRefSize;
+
+          if (valueRefsEnd <= bytes.length) {
+            const dict: Record<string, unknown> = {};
+            for (let i = 0; i < lengthInfo.length; i++) {
+              const keyRefOffset = refsStart + i * objectRefSize;
+              const valueRefOffset = keyRefsEnd + i * objectRefSize;
+              const keyRef = readBigEndianUInt(bytes, keyRefOffset, objectRefSize);
+              const valueRef = readBigEndianUInt(bytes, valueRefOffset, objectRefSize);
+              const key = readObject(keyRef);
+              if (typeof key === "string") {
+                dict[key] = readObject(valueRef);
+              }
+            }
+            result = dict;
+          }
+        }
+        break;
+      }
+      default: {
+        result = null;
+      }
+    }
+
+    inProgress.delete(objectIndex);
+    cache.set(objectIndex, result);
+    return result;
+  };
+
+  return readObject(topObject);
+}
+
+async function inflateDeflate(data: Uint8Array): Promise<Uint8Array | null> {
+  type DecompressionStreamCtor = new (
+    format: "deflate" | "deflate-raw" | "gzip",
+  ) => TransformStream<Uint8Array, Uint8Array>;
+
+  const decompressionStreamCtor = (
+    globalThis as { DecompressionStream?: DecompressionStreamCtor }
+  ).DecompressionStream;
+
+  if (!decompressionStreamCtor) return null;
+
+  try {
+    const stream = new Blob([data]).stream().pipeThrough(new decompressionStreamCtor("deflate"));
+    const buffer = await new Response(stream).arrayBuffer();
+    return new Uint8Array(buffer);
+  } catch {
+    return null;
+  }
+}
+
+async function extractLatexitSource(encodedPayload: string): Promise<string | null> {
+  const payloadBytes = decodeBase64ToBytes(encodedPayload);
+  if (!payloadBytes || payloadBytes.length === 0) return null;
+
+  const compressedCandidates: Uint8Array[] = [];
+  if (payloadBytes.length > 4) {
+    const declaredLength = readBigEndianUInt(payloadBytes, 0, 4);
+    if (declaredLength === payloadBytes.length - 4) {
+      compressedCandidates.push(payloadBytes.slice(4));
+    }
+  }
+  compressedCandidates.push(payloadBytes);
+
+  for (const candidate of compressedCandidates) {
+    const inflated = await inflateDeflate(candidate);
+    if (!inflated) continue;
+
+    const plist = parseBinaryPlist(inflated);
+    if (!plist || typeof plist !== "object" || Array.isArray(plist)) continue;
+
+    const source = (plist as Record<string, unknown>).source;
+    if (typeof source === "string" && source.trim()) {
+      return source.trim();
+    }
+  }
+
+  return null;
+}
+
+function normalizeLatexForMarkdown(latex: string): string | null {
+  const trimmed = latex.trim();
+  if (!trimmed) return null;
+
+  const hasMathDelimiters =
+    (trimmed.startsWith("$") && trimmed.endsWith("$")) ||
+    (trimmed.startsWith("\\(") && trimmed.endsWith("\\)")) ||
+    (trimmed.startsWith("\\[") && trimmed.endsWith("\\]"));
+
+  if (hasMathDelimiters) return trimmed;
+  if (trimmed.includes("\n")) return `$$\n${trimmed}\n$$`;
+  return `$${trimmed}$`;
+}
+
+async function replaceLatexitTagsInMarkdown(markdown: string): Promise<string> {
+  const matches = [...markdown.matchAll(LATEXIT_TAG_PATTERN)];
+  if (matches.length === 0) return markdown;
+
+  let output = "";
+  let cursor = 0;
+
+  for (const match of matches) {
+    const fullMatch = match[0];
+    const payload = match[1];
+    const startIndex = match.index ?? 0;
+
+    output += markdown.slice(cursor, startIndex);
+
+    const extractedSource = await extractLatexitSource(payload);
+    const replacement = extractedSource ? normalizeLatexForMarkdown(extractedSource) : null;
+    output += replacement ?? fullMatch;
+
+    cursor = startIndex + fullMatch.length;
+  }
+
+  output += markdown.slice(cursor);
+  return output;
+}
 
 function hashString(input: string): string {
   let hash = 5381;
@@ -126,15 +479,17 @@ const INITIAL_COMPONENTS: Partial<Components> = {
       </li>
     );
   },
-  a: function AnchorComponent({ children, className, ...props }) {
+  a: function AnchorComponent({ children, className, href, ...props }) {
+    const isExternal = typeof href === "string" && EXTERNAL_LINK_PATTERN.test(href);
     return (
       <a
         className={cn(
           "font-medium text-primary underline decoration-primary/50 underline-offset-4 transition-colors hover:text-primary/80",
           className,
         )}
-        target="_blank"
-        rel="noreferrer noopener"
+        href={href}
+        target={isExternal ? "_blank" : undefined}
+        rel={isExternal ? "noreferrer noopener" : undefined}
         {...props}
       >
         {children}
@@ -155,6 +510,13 @@ const INITIAL_COMPONENTS: Partial<Components> = {
       </em>
     );
   },
+  sup: function SuperscriptComponent({ children, className, ...props }) {
+    return (
+      <sup className={cn("text-xs align-super", className)} {...props}>
+        {children}
+      </sup>
+    );
+  },
   blockquote: function BlockquoteComponent({ children, className, ...props }) {
     return (
       <blockquote
@@ -170,6 +532,21 @@ const INITIAL_COMPONENTS: Partial<Components> = {
   },
   hr: function HrComponent({ className, ...props }) {
     return <hr className={cn("my-8 border-border/70", className)} {...props} />;
+  },
+  section: function SectionComponent({ children, className, ...props }) {
+    const isFootnotes = "data-footnotes" in props;
+    return (
+      <section
+        className={cn(
+          isFootnotes &&
+            "mt-8 border-t border-border/70 pt-4 text-sm text-muted-foreground [&_ol]:space-y-2 [&_ol]:pl-6",
+          className,
+        )}
+        {...props}
+      >
+        {children}
+      </section>
+    );
   },
   code: function CodeComponent({ className, children, ...props }) {
     const code = stringifyNodeChildren(children);
@@ -262,7 +639,8 @@ const MemoizedMarkdownBlock = memo(
   }) {
     return (
       <ReactMarkdown
-        remarkPlugins={[remarkGfm, remarkBreaks]}
+        remarkPlugins={[remarkGfm, remarkBreaks, remarkMath]}
+        rehypePlugins={[rehypeKatex]}
         components={components}
       >
         {content}
@@ -284,7 +662,33 @@ function MarkdownComponent({
 }: MarkdownProps) {
   const generatedId = useId();
   const blockId = id ?? generatedId;
-  const blocks = useMemo(() => parseMarkdownIntoBlocks(children), [children]);
+  const [processedMarkdown, setProcessedMarkdown] = useState(children);
+
+  useEffect(() => {
+    if (!LATEXIT_TAG_DETECTOR.test(children)) {
+      setProcessedMarkdown(children);
+      return;
+    }
+
+    let cancelled = false;
+    (async () => {
+      const normalized = await replaceLatexitTagsInMarkdown(children);
+      if (!cancelled) {
+        setProcessedMarkdown(normalized);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [children]);
+
+  const blocks = useMemo(() => {
+    if (shouldRenderAsSingleDocument(processedMarkdown)) {
+      return [processedMarkdown];
+    }
+    return parseMarkdownIntoBlocks(processedMarkdown);
+  }, [processedMarkdown]);
   const mergedComponents = useMemo(
     () => ({ ...INITIAL_COMPONENTS, ...components }),
     [components],
