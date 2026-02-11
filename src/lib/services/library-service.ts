@@ -1,4 +1,7 @@
 import { extractTextFromHTML } from "@/lib/utils/tiptap-utils";
+import { convertDocxFileToMarkdown } from "@/lib/utils/docx-mammoth";
+import { getFileExtension } from "@/lib/utils/document-import";
+import { convertPdfFileToMarkdown } from "@/lib/utils/pdf2md-converter";
 import { invoke } from "@tauri-apps/api/core";
 import { open } from "@tauri-apps/plugin-dialog";
 
@@ -230,6 +233,63 @@ export class LibraryService {
 	): Promise<Document | null> {
 		try {
 			console.log("Starting document upload process with pre-selected file:", file.name, "options:", options);
+
+			const extension = getFileExtension(file.name);
+			if (extension === "pdf") {
+				try {
+					const markdown = await convertPdfFileToMarkdown(file);
+					if (markdown.trim()) {
+						const title =
+							options.title ||
+							file.name.replace(/\.[^/.]+$/, "") ||
+							"Imported PDF";
+
+						const document = await this.createDocument({
+							title,
+							content: markdown,
+							doc_type: "markdown",
+							tags: options.tags || [],
+							status: "ready",
+							category_id: options.categoryId,
+						});
+
+						console.log("PDF imported via pdf2md:", document);
+						return document;
+					}
+
+					console.warn("pdf2md returned empty content, falling back to backend converter.");
+				} catch (pdf2mdError) {
+					console.warn("pdf2md conversion failed, falling back to backend converter:", pdf2mdError);
+				}
+			}
+
+			if (extension === "docx") {
+				try {
+					const markdown = await convertDocxFileToMarkdown(file);
+					if (markdown.trim()) {
+						const title =
+							options.title ||
+							file.name.replace(/\.[^/.]+$/, "") ||
+							"Imported Document";
+
+						const document = await this.createDocument({
+							title,
+							content: markdown,
+							doc_type: "markdown",
+							tags: options.tags || [],
+							status: "ready",
+							category_id: options.categoryId,
+						});
+
+						console.log("DOCX imported via Mammoth:", document);
+						return document;
+					}
+
+					console.warn("Mammoth returned empty content for DOCX, falling back to backend converter.");
+				} catch (mammothError) {
+					console.warn("DOCX conversion with Mammoth failed, falling back to backend converter:", mammothError);
+				}
+			}
 
 			// Convert File to Uint8Array for Tauri
 			const arrayBuffer = await file.arrayBuffer();

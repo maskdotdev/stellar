@@ -9,6 +9,8 @@ import { OnboardingDialog } from "@/components/onboarding"
 import { ThemeProvider, useTheme } from "@/components/theme-provider"
 import { Toaster } from "@/components/ui/sonner"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { getCurrentWindow } from "@tauri-apps/api/window"
+import { readFile } from "@tauri-apps/plugin-fs"
 import { ThemeManager } from "@/lib/config/theme-config"
 import { AppInitializationService } from "@/lib/core/app-initialization"
 import { OnboardingService } from "@/lib/services/onboarding-service"
@@ -244,6 +246,11 @@ const matchesKeybinding = (event: KeyboardEvent, keybinding: string): boolean =>
 const hasFilePayload = (event: DragEvent): boolean => {
   const types = Array.from(event.dataTransfer?.types || [])
   return types.includes("Files")
+}
+
+const getFileNameFromPath = (path: string): string => {
+  const parts = path.split(/[\\/]/)
+  return parts[parts.length - 1] || path
 }
 
 export function App() {
@@ -516,54 +523,15 @@ export function App() {
 
   // App-wide drag-and-drop import for PDF/docs.
   useEffect(() => {
+    let nativeUnlisten: null | (() => void) = null
+    let domCleanup: null | (() => void) = null
+
     const resetDragState = () => {
       dragCounterRef.current = 0
       setIsDocumentDragActive(false)
     }
 
-    const handleDragEnter = (event: DragEvent) => {
-      if (event.defaultPrevented || !hasFilePayload(event)) return
-      event.preventDefault()
-      dragCounterRef.current += 1
-      setIsDocumentDragActive(true)
-    }
-
-    const handleDragOver = (event: DragEvent) => {
-      if (event.defaultPrevented || !hasFilePayload(event)) return
-      event.preventDefault()
-      if (event.dataTransfer) {
-        event.dataTransfer.dropEffect = "copy"
-      }
-      setIsDocumentDragActive(true)
-    }
-
-    const handleDragLeave = (event: DragEvent) => {
-      if (!hasFilePayload(event)) return
-      event.preventDefault()
-      dragCounterRef.current = Math.max(0, dragCounterRef.current - 1)
-      if (dragCounterRef.current === 0) {
-        setIsDocumentDragActive(false)
-      }
-    }
-
-    const handleDrop = (event: DragEvent) => {
-      if (event.defaultPrevented || !hasFilePayload(event)) return
-      event.preventDefault()
-      resetDragState()
-
-      const files = Array.from(event.dataTransfer?.files || [])
-      if (files.length === 0) return
-
-      const droppedFile = files.find((file) => isSupportedImportFile(file))
-      if (!droppedFile) {
-        toast({
-          title: "Unsupported File",
-          description: "Drop a PDF or document file (doc, docx, pptx, xlsx, txt, md, csv).",
-          variant: "destructive",
-        })
-        return
-      }
-
+    const handleAcceptedFile = (droppedFile: File) => {
       setCurrentView("library")
       setPendingUploadFile(droppedFile)
       setShouldOpenUploadDialog(true)
@@ -573,20 +541,136 @@ export function App() {
       })
     }
 
-    window.addEventListener("dragenter", handleDragEnter)
-    window.addEventListener("dragover", handleDragOver)
-    window.addEventListener("dragleave", handleDragLeave)
-    window.addEventListener("drop", handleDrop)
-    window.addEventListener("dragend", resetDragState)
-    window.addEventListener("blur", resetDragState)
+    const handleUnsupportedDrop = () => {
+      toast({
+        title: "Unsupported File",
+        description: "Drop a PDF or document file (doc, docx, pptx, xlsx, txt, md, csv).",
+        variant: "destructive",
+      })
+    }
+
+    const setupDomFallback = () => {
+      const handleDragEnter = (event: DragEvent) => {
+        if (event.defaultPrevented || !hasFilePayload(event)) return
+        event.preventDefault()
+        dragCounterRef.current += 1
+        setIsDocumentDragActive(true)
+      }
+
+      const handleDragOver = (event: DragEvent) => {
+        if (event.defaultPrevented || !hasFilePayload(event)) return
+        event.preventDefault()
+        if (event.dataTransfer) {
+          event.dataTransfer.dropEffect = "copy"
+        }
+        setIsDocumentDragActive(true)
+      }
+
+      const handleDragLeave = (event: DragEvent) => {
+        if (!hasFilePayload(event)) return
+        event.preventDefault()
+        dragCounterRef.current = Math.max(0, dragCounterRef.current - 1)
+        if (dragCounterRef.current === 0) {
+          setIsDocumentDragActive(false)
+        }
+      }
+
+      const handleDrop = (event: DragEvent) => {
+        if (event.defaultPrevented || !hasFilePayload(event)) return
+        event.preventDefault()
+        resetDragState()
+
+        const files = Array.from(event.dataTransfer?.files || [])
+        if (files.length === 0) return
+
+        const droppedFile = files.find((file) => isSupportedImportFile(file))
+        if (!droppedFile) {
+          handleUnsupportedDrop()
+          return
+        }
+
+        handleAcceptedFile(droppedFile)
+      }
+
+      window.addEventListener("dragenter", handleDragEnter)
+      window.addEventListener("dragover", handleDragOver)
+      window.addEventListener("dragleave", handleDragLeave)
+      window.addEventListener("drop", handleDrop)
+      window.addEventListener("dragend", resetDragState)
+      window.addEventListener("blur", resetDragState)
+
+      domCleanup = () => {
+        window.removeEventListener("dragenter", handleDragEnter)
+        window.removeEventListener("dragover", handleDragOver)
+        window.removeEventListener("dragleave", handleDragLeave)
+        window.removeEventListener("drop", handleDrop)
+        window.removeEventListener("dragend", resetDragState)
+        window.removeEventListener("blur", resetDragState)
+      }
+    }
+
+    const setupNativeDrop = async () => {
+      try {
+        nativeUnlisten = await getCurrentWindow().onDragDropEvent(async (event) => {
+          if (event.payload.type === "enter" || event.payload.type === "over") {
+            setIsDocumentDragActive(true)
+            return
+          }
+
+          if (event.payload.type === "leave") {
+            resetDragState()
+            return
+          }
+
+          // drop
+          resetDragState()
+          const droppedPaths = event.payload.paths || []
+          if (droppedPaths.length === 0) return
+
+          const droppedPath = droppedPaths[0]
+          const droppedFileName = getFileNameFromPath(droppedPath)
+          if (!isSupportedImportFile({ name: droppedFileName })) {
+            handleUnsupportedDrop()
+            return
+          }
+
+          try {
+            const bytes = await readFile(droppedPath)
+            const droppedFile = new File([bytes], droppedFileName)
+            handleAcceptedFile(droppedFile)
+          } catch (error) {
+            console.error("Failed to read dropped file from native path:", error)
+            toast({
+              title: "File Read Error",
+              description: `Could not read ${droppedFileName}. Please check permissions and try again.`,
+              variant: "destructive",
+            })
+          }
+        })
+      } catch (error) {
+        console.warn("Native drag-drop listener unavailable; using DOM fallback.", error)
+        setupDomFallback()
+      }
+    }
+
+    const isTauriRuntime =
+      typeof window !== "undefined" &&
+      ("__TAURI_INTERNALS__" in window || "__TAURI_IPC__" in window)
+
+    if (isTauriRuntime) {
+      void setupNativeDrop()
+    } else {
+      setupDomFallback()
+    }
 
     return () => {
-      window.removeEventListener("dragenter", handleDragEnter)
-      window.removeEventListener("dragover", handleDragOver)
-      window.removeEventListener("dragleave", handleDragLeave)
-      window.removeEventListener("drop", handleDrop)
-      window.removeEventListener("dragend", resetDragState)
-      window.removeEventListener("blur", resetDragState)
+      if (nativeUnlisten) {
+        nativeUnlisten()
+      }
+      if (domCleanup) {
+        domCleanup()
+      }
+      resetDragState()
     }
   }, [
     setCurrentView,

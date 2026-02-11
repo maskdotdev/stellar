@@ -95,11 +95,8 @@ export function PdfUploadDialog({
 
     setUploadType("file");
     setFile(initialFile);
-
-    if (!title.trim()) {
-      setTitle(initialFile.name.replace(/\.[^/.]+$/, ""));
-    }
-  }, [open, initialFile, title]);
+    setTitle(initialFile.name.replace(/\.[^/.]+$/, ""));
+  }, [open, initialFile]);
 
   const handleTextFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
@@ -211,14 +208,23 @@ export function PdfUploadDialog({
 
         const extension = getFileExtension(file.name);
         const isPdf = extension === "pdf";
+        const isReadyNow =
+          document?.status === "ready" && document?.doc_type === "markdown";
 
         onOpenChange(false);
         resetForm();
-        toast({
-          title: isPdf ? "PDF Processing Started" : "Document Conversion Started",
-          description:
-            "Your file has been queued for background processing and will be converted to markdown in your library.",
-        });
+        if (isReadyNow) {
+          toast({
+            title: "Document Imported",
+            description: `"${document?.title || file.name}" was converted to markdown and added to your library.`,
+          });
+        } else {
+          toast({
+            title: isPdf ? "PDF Processing Started" : "Document Conversion Started",
+            description:
+              "Your file has been queued for background processing and will be converted to markdown in your library.",
+          });
+        }
         return;
       } else {
         // Use URL upload method

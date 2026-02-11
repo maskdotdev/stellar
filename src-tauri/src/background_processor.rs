@@ -421,11 +421,19 @@ impl BackgroundProcessor {
             .output()
             .await
             .map_err(|e| {
-                format!(
+                let details = format!(
                     "Failed to run MarkItDown converter at '{}': {}",
                     markitdown_command.display(),
                     e
-                )
+                );
+                if e.kind() == std::io::ErrorKind::NotFound {
+                    format!(
+                        "{}. Install it with ./scripts/setup_markitdown.sh or set STELLAR_MARKITDOWN_BIN.",
+                        details
+                    )
+                } else {
+                    details
+                }
             })?;
 
         if !output.status.success() {
