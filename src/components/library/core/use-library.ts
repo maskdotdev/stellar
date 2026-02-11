@@ -99,6 +99,10 @@ export function useLibrary() {
 		navigateBackToCategories,
 		shouldOpenCreateCategoryDialog,
 		setShouldOpenCreateCategoryDialog,
+		shouldOpenUploadDialog,
+		setShouldOpenUploadDialog,
+		pendingUploadFile,
+		setPendingUploadFile,
 	} = useStudyStore();
 
 	const libraryService = LibraryService.getInstance();
@@ -154,6 +158,14 @@ export function useLibrary() {
 			setShouldOpenCreateCategoryDialog(false);
 		}
 	}, [shouldOpenCreateCategoryDialog, setShouldOpenCreateCategoryDialog]);
+
+	// Respond to global intent to open upload dialog (e.g. app-wide drag and drop)
+	useEffect(() => {
+		if (shouldOpenUploadDialog) {
+			setShowUploadDialog(true);
+			setShouldOpenUploadDialog(false);
+		}
+	}, [shouldOpenUploadDialog, setShouldOpenUploadDialog]);
 
 	// Load documents when category changes
 	useEffect(() => {
@@ -652,5 +664,7 @@ export function useLibrary() {
 		showProcessingStatus,
 		setShowProcessingStatus,
 		handleShowProcessingStatus,
+		pendingUploadFile,
+		setPendingUploadFile,
 	};
 }

@@ -1,5 +1,6 @@
 use std::sync::Arc;
 use std::time::Duration;
+use std::path::{Path, PathBuf};
 use tokio::sync::Mutex;
 use tokio::time;
 use chrono::Utc;
@@ -124,8 +125,14 @@ impl BackgroundProcessor {
                 }
             }
             "pdf_content_extraction" => {
-                if let Err(e) = self.process_pdf_content_extraction_job(&job).await {
-                    eprintln!("❌ PDF content extraction failed: {}", e);
+                if let Err(e) = self.process_document_content_extraction_job(&job).await {
+                    eprintln!("❌ Document content extraction failed: {}", e);
+                    self.mark_job_failed(&job_id, &e).await?;
+                }
+            }
+            "document_content_extraction" => {
+                if let Err(e) = self.process_document_content_extraction_job(&job).await {
+                    eprintln!("❌ Document content extraction failed: {}", e);
                     self.mark_job_failed(&job_id, &e).await?;
                 }
             }
@@ -273,8 +280,8 @@ impl BackgroundProcessor {
         Ok(())
     }
 
-    /// Process a PDF content extraction job (updates existing document)
-    async fn process_pdf_content_extraction_job(&self, job: &ProcessingJob) -> Result<(), String> {
+    /// Process a content extraction job (updates existing document)
+    async fn process_document_content_extraction_job(&self, job: &ProcessingJob) -> Result<(), String> {
         // Update progress
         self.update_job_progress(&job.id, 20).await?;
 
@@ -305,33 +312,33 @@ impl BackgroundProcessor {
 
         self.update_job_progress(&job.id, 50).await?;
 
-        // Process the PDF with Marker; fall back to basic extraction on failure
-        let content = match self
-            .pdf_processor
-            .extract_with_marker(&source_path, marker_options)
-            .await
-        {
-            Ok(text) => text,
-            Err(e) => {
-                eprintln!(
-                    "❌ Marker extraction failed, falling back to basic text extraction: {:?}",
-                    e
-                );
-                self
-                    .pdf_processor
-                    .extract_text_from_pdf(&source_path)
-                    .map_err(|e2| format!(
-                        "PDF processing failed (Marker and basic extraction): {:?}",
-                        e2
-                    ))?
+        let content = if Self::is_pdf_file(&source_path, &job.original_filename) {
+            // Process PDF with Marker; fall back to basic extraction on failure
+            match self
+                .pdf_processor
+                .extract_with_marker(&source_path, marker_options)
+                .await
+            {
+                Ok(text) => text,
+                Err(e) => {
+                    eprintln!(
+                        "❌ Marker extraction failed, falling back to basic text extraction: {:?}",
+                        e
+                    );
+                    self
+                        .pdf_processor
+                        .extract_text_from_pdf(&source_path)
+                        .map_err(|e2| format!(
+                            "PDF processing failed (Marker and basic extraction): {:?}",
+                            e2
+                        ))?
+                }
             }
+        } else {
+            self.extract_non_pdf_markdown(&source_path).await?
         };
 
         self.update_job_progress(&job.id, 70).await?;
-
-        // Extract metadata
-        let _metadata = self.pdf_processor.extract_metadata(&source_path)
-            .map_err(|e| format!("Failed to extract metadata: {:?}", e))?;
 
         // Get the existing document
         let db_guard = self.database.lock().await;
@@ -378,6 +385,101 @@ impl BackgroundProcessor {
         println!("✅ Completed content extraction job: {} -> Updated document: {}", job.id, existing_document_id);
 
         Ok(())
+    }
+
+    fn is_pdf_file(path: &str, original_filename: &str) -> bool {
+        let extension = Path::new(path)
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .or_else(|| {
+                Path::new(original_filename)
+                    .extension()
+                    .and_then(|ext| ext.to_str())
+            })
+            .unwrap_or_default()
+            .to_lowercase();
+
+        extension == "pdf"
+    }
+
+    async fn extract_non_pdf_markdown(&self, source_path: &str) -> Result<String, String> {
+        let extension = Path::new(source_path)
+            .extension()
+            .and_then(|ext| ext.to_str())
+            .unwrap_or_default()
+            .to_lowercase();
+
+        if matches!(extension.as_str(), "txt" | "md" | "markdown" | "csv" | "tsv") {
+            let content = std::fs::read_to_string(source_path)
+                .map_err(|e| format!("Failed to read text document: {}", e))?;
+            return Ok(content.replace("\r\n", "\n"));
+        }
+
+        let markitdown_command = Self::resolve_markitdown_command();
+        let output = tokio::process::Command::new(&markitdown_command)
+            .arg(source_path)
+            .output()
+            .await
+            .map_err(|e| {
+                format!(
+                    "Failed to run MarkItDown converter at '{}': {}",
+                    markitdown_command.display(),
+                    e
+                )
+            })?;
+
+        if !output.status.success() {
+            let stderr = String::from_utf8_lossy(&output.stderr);
+            let stdout = String::from_utf8_lossy(&output.stdout);
+            let details = if !stderr.trim().is_empty() {
+                stderr.trim().to_string()
+            } else if !stdout.trim().is_empty() {
+                stdout.trim().to_string()
+            } else {
+                "no error output".to_string()
+            };
+
+            return Err(format!(
+                "MarkItDown conversion failed for '{}': {}",
+                source_path, details
+            ));
+        }
+
+        let markdown = String::from_utf8(output.stdout)
+            .map_err(|e| format!("MarkItDown produced non-UTF8 output: {}", e))?;
+
+        if markdown.trim().is_empty() {
+            return Err(format!(
+                "MarkItDown returned empty output for '{}'.",
+                source_path
+            ));
+        }
+
+        Ok(markdown.replace("\r\n", "\n"))
+    }
+
+    fn resolve_markitdown_command() -> PathBuf {
+        if let Ok(explicit_command) = std::env::var("STELLAR_MARKITDOWN_BIN") {
+            let explicit_path = PathBuf::from(explicit_command);
+            if explicit_path.exists() {
+                return explicit_path;
+            }
+        }
+
+        let candidates = [
+            PathBuf::from("markitdown_env/bin/markitdown"),
+            PathBuf::from("../markitdown_env/bin/markitdown"),
+            PathBuf::from("markitdown_env/Scripts/markitdown.exe"),
+            PathBuf::from("../markitdown_env/Scripts/markitdown.exe"),
+        ];
+
+        for candidate in candidates {
+            if candidate.exists() {
+                return candidate;
+            }
+        }
+
+        PathBuf::from("markitdown")
     }
 
     /// Download file from URL

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 // Removed unused Switch import
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { HardDrive, Link, Loader2, Plus, Upload, X } from "lucide-react";
 
@@ -20,6 +20,10 @@ import {
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import {
+  SUPPORTED_IMPORT_ACCEPT_ATTR,
+  getFileExtension,
+} from "@/lib/utils/document-import";
+import {
   type Category,
   type Document,
   LibraryService,
@@ -31,6 +35,7 @@ interface PdfUploadDialogProps {
   onSuccess: (document: Document) => void;
   categories?: Category[];
   currentCategoryId?: string | null;
+  initialFile?: File | null;
 }
 
 type UploadType = "text" | "file" | "url";
@@ -41,6 +46,7 @@ export function PdfUploadDialog({
   onSuccess,
   categories = [],
   currentCategoryId = null,
+  initialFile = null,
 }: PdfUploadDialogProps) {
   const [title, setTitle] = useState("");
   const [tags, setTags] = useState<string[]>([]);
@@ -83,6 +89,17 @@ export function PdfUploadDialog({
       setFile(e.target.files[0]);
     }
   };
+
+  useEffect(() => {
+    if (!open || !initialFile) return;
+
+    setUploadType("file");
+    setFile(initialFile);
+
+    if (!title.trim()) {
+      setTitle(initialFile.name.replace(/\.[^/.]+$/, ""));
+    }
+  }, [open, initialFile, title]);
 
   const handleTextFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const selected = e.target.files?.[0];
@@ -171,18 +188,18 @@ export function PdfUploadDialog({
         return;
       }
 
-      // For PDF file uploads we enqueue background jobs; URL returns a placeholder document immediately
+      // For local file uploads we enqueue background jobs.
       if (uploadType === "file") {
         if (!file) {
           toast({
             title: "Error",
-            description: "Please select a PDF file.",
+            description: "Please select a document file.",
             variant: "destructive",
           });
           return;
         }
 
-        const document = await libraryService.uploadPdfFileWithOptions(file, {
+        const document = await libraryService.uploadDocumentFileWithOptions(file, {
           title: title.trim() || undefined,
           tags: tags,
           categoryId: selectedCategoryId,
@@ -192,12 +209,15 @@ export function PdfUploadDialog({
           onSuccess(document);
         }
 
+        const extension = getFileExtension(file.name);
+        const isPdf = extension === "pdf";
+
         onOpenChange(false);
         resetForm();
         toast({
-          title: "Processing started",
+          title: isPdf ? "PDF Processing Started" : "Document Conversion Started",
           description:
-            "Your PDF has been queued for background processing and is now available in your library. You can monitor progress in Processing Status.",
+            "Your file has been queued for background processing and will be converted to markdown in your library.",
         });
         return;
       } else {
@@ -241,7 +261,7 @@ export function PdfUploadDialog({
       let errorMessage = "An unexpected error occurred. Please try again.";
 
       if (uploadType === "file") {
-        errorMessage = "Failed to queue PDF for processing. Please try again.";
+        errorMessage = "Failed to queue file for conversion. Please try again.";
       } else if (uploadType === "url") {
         // URL upload error - check the error message for more details
         const errorStr = error instanceof Error ? error.message : String(error);
@@ -323,7 +343,7 @@ export function PdfUploadDialog({
                 </TabsTrigger>
                 <TabsTrigger value="file" className="text-xs h-6">
                   <HardDrive className="w-3 h-3" />
-                  Local PDF
+                  Local File
                 </TabsTrigger>
                 <TabsTrigger value="url" className="text-xs h-6">
                   <Link className="w-3 h-3" />
@@ -375,7 +395,7 @@ export function PdfUploadDialog({
               <Input
                 id="file-upload"
                 type="file"
-                accept=".pdf"
+                accept={SUPPORTED_IMPORT_ACCEPT_ATTR}
                 onChange={handleFileChange}
                 className="hidden"
               />
@@ -391,7 +411,7 @@ export function PdfUploadDialog({
                   className={`text-xs ${file ? "text-primary font-medium" : "text-muted-foreground"
                     }`}
                 >
-                  {file ? file.name : "Click to upload PDF (optional)"}
+                  {file ? file.name : "Click to upload PDF or document"}
                 </p>
               </Label>
             </div>

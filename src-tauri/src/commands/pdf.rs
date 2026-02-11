@@ -35,6 +35,18 @@ fn generate_pdf_filename(original_name: &str) -> String {
     format!("{}.{}", uuid, extension)
 }
 
+fn file_extension_lower(file_name: &str) -> String {
+    std::path::Path::new(file_name)
+        .extension()
+        .and_then(|ext| ext.to_str())
+        .unwrap_or_default()
+        .to_lowercase()
+}
+
+fn is_pdf_filename(file_name: &str) -> bool {
+    file_extension_lower(file_name) == "pdf"
+}
+
 #[tauri::command]
 pub async fn upload_and_process_pdf(
     db_state: State<'_, DatabaseState>,
@@ -799,6 +811,84 @@ pub async fn save_pdf_from_data_and_process_background(
         processing_options: Some(options_json),
         metadata: Some(serde_json::json!({
             "existing_document_id": document.id
+        })),
+    };
+
+    database.create_processing_job(job_request).await
+        .map_err(|e| format!("Failed to create processing job: {}", e))?;
+
+    Ok(document)
+}
+
+/// Save a PDF or supported document provided as bytes, create a document immediately,
+/// and enqueue a background job to convert content to markdown and update the document.
+#[tauri::command]
+pub async fn save_document_from_data_and_process_background(
+    db_state: State<'_, DatabaseState>,
+    file_data: Vec<u8>,
+    file_name: String,
+    title: Option<String>,
+    tags: Option<Vec<String>>,
+    category_id: Option<String>,
+) -> Result<Document, String> {
+    let db_guard = db_state.lock().await;
+    let database = db_guard.as_ref().ok_or("Database not initialized")?;
+
+    let storage_dir = get_pdf_storage_dir()?;
+    let stored_filename = generate_pdf_filename(&file_name);
+    let stored_path = storage_dir.join(&stored_filename);
+    std::fs::write(&stored_path, &file_data)
+        .map_err(|e| format!("Failed to save document: {}", e))?;
+
+    let is_pdf = is_pdf_filename(&file_name);
+    let default_title = std::path::Path::new(&file_name)
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or(if is_pdf { "Untitled PDF" } else { "Untitled Document" })
+        .to_string();
+
+    let request = CreateDocumentRequest {
+        title: title.unwrap_or(default_title),
+        content: if is_pdf {
+            "PDF content is being processed...".to_string()
+        } else {
+            "Document content is being converted to markdown...".to_string()
+        },
+        content_hash: None,
+        // Keep file_path for PDF so renderer can show original file; markdown-only imports do not need it.
+        file_path: if is_pdf {
+            Some(stored_filename.clone())
+        } else {
+            None
+        },
+        doc_type: if is_pdf {
+            "pdf".to_string()
+        } else {
+            "markdown".to_string()
+        },
+        tags: tags.unwrap_or_default(),
+        status: Some("processing".to_string()),
+        category_id: category_id.clone(),
+    };
+
+    let document = database.create_document(request).await
+        .map_err(|e| format!("Failed to create document: {}", e))?;
+
+    let processing_options = crate::pdf_processor::MarkerOptions::default();
+    let options_json = serde_json::to_value(processing_options).unwrap_or_default();
+
+    let job_request = crate::database::CreateProcessingJobRequest {
+        job_type: "document_content_extraction".to_string(),
+        source_type: "file".to_string(),
+        source_path: Some(stored_path.to_string_lossy().to_string()),
+        original_filename: file_name.clone(),
+        title: Some(document.title.clone()),
+        tags: document.tags.clone(),
+        category_id: document.category_id.clone(),
+        processing_options: Some(options_json),
+        metadata: Some(serde_json::json!({
+            "existing_document_id": document.id,
+            "source_extension": file_extension_lower(&file_name)
         })),
     };
 

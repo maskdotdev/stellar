@@ -77,6 +77,8 @@ export function Library() {
     showProcessingStatus,
     setShowProcessingStatus,
     handleShowProcessingStatus,
+    pendingUploadFile,
+    setPendingUploadFile,
   } = useLibrary();
 
   if (isLoadingCategories && categories.length === 0) {
@@ -214,10 +216,16 @@ export function Library() {
       {/* PDF Upload Dialog */}
       <PdfUploadDialog
         open={showUploadDialog}
-        onOpenChange={setShowUploadDialog}
+        onOpenChange={(open) => {
+          setShowUploadDialog(open);
+          if (!open) {
+            setPendingUploadFile(null);
+          }
+        }}
         onSuccess={handleUploadSuccess}
         categories={categories}
         currentCategoryId={currentCategory}
+        initialFile={pendingUploadFile}
       />
 
       {/* Processing Status Dialog */}

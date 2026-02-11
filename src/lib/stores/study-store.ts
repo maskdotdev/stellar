@@ -236,6 +236,8 @@ export interface StudyState {
 
 	// Global intents
 	shouldOpenCreateCategoryDialog: boolean;
+	shouldOpenUploadDialog: boolean;
+	pendingUploadFile: File | null;
 
 	setCurrentView: (view: StudyState["currentView"]) => void;
 	setEditingNoteId: (noteId: string | null) => void;
@@ -281,6 +283,8 @@ export interface StudyState {
 
 	// Global intent setters
 	setShouldOpenCreateCategoryDialog: (open: boolean) => void;
+	setShouldOpenUploadDialog: (open: boolean) => void;
+	setPendingUploadFile: (file: File | null) => void;
 }
 
 export const useStudyStore = create<StudyState>()(
@@ -313,6 +317,8 @@ export const useStudyStore = create<StudyState>()(
 
 			// Global intents
 			shouldOpenCreateCategoryDialog: false,
+			shouldOpenUploadDialog: false,
+			pendingUploadFile: null,
 
 			setCurrentView: (view) =>
 				set((state) => {
@@ -475,6 +481,10 @@ export const useStudyStore = create<StudyState>()(
 			// Global intent setters
 			setShouldOpenCreateCategoryDialog: (open: boolean) =>
 				set({ shouldOpenCreateCategoryDialog: open }),
+			setShouldOpenUploadDialog: (open: boolean) =>
+				set({ shouldOpenUploadDialog: open }),
+			setPendingUploadFile: (file: File | null) =>
+				set({ pendingUploadFile: file }),
 		}),
 		{
 			name: "stellar-study-store",

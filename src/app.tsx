@@ -14,9 +14,11 @@ import { AppInitializationService } from "@/lib/core/app-initialization"
 import { OnboardingService } from "@/lib/services/onboarding-service"
 import { useSettingsStore } from "@/lib/stores/settings-store"
 import { useStudyStore } from "@/lib/stores/study-store"
+import { isSupportedImportFile } from "@/lib/utils/document-import"
 import { useFeatureFlags } from "@/lib/utils/feature-flags"
+import { useToast } from "@/hooks/use-toast"
 import { MessageCircle } from "lucide-react"
-import { Suspense, lazy, useEffect, useState } from "react"
+import { Suspense, lazy, useEffect, useRef, useState } from "react"
 
 // Lazy load heavy components to enable code splitting
 const FocusPane = lazy(() => import("@/components/focus/focus-pane").then(module => ({ default: module.FocusPane })))
@@ -239,6 +241,11 @@ const matchesKeybinding = (event: KeyboardEvent, keybinding: string): boolean =>
   return eventKey === key
 }
 
+const hasFilePayload = (event: DragEvent): boolean => {
+  const types = Array.from(event.dataTransfer?.types || [])
+  return types.includes("Files")
+}
+
 export function App() {
   const {
     currentView,
@@ -254,6 +261,8 @@ export function App() {
     setFocusMode,
     setCurrentView,
     setEditingNoteId,
+    setShouldOpenUploadDialog,
+    setPendingUploadFile,
     setSettingsTab,
     categories,
     currentCategory,
@@ -263,7 +272,10 @@ export function App() {
 
   const { theme, setTheme } = useTheme()
   const { isFeatureEnabled } = useFeatureFlags()
+  const { toast } = useToast()
   const [showOnboarding, setShowOnboarding] = useState(false)
+  const [isDocumentDragActive, setIsDocumentDragActive] = useState(false)
+  const dragCounterRef = useRef(0)
 
   // Check if onboarding should be shown
   useEffect(() => {
@@ -502,6 +514,87 @@ export function App() {
     isFeatureEnabled
   ])
 
+  // App-wide drag-and-drop import for PDF/docs.
+  useEffect(() => {
+    const resetDragState = () => {
+      dragCounterRef.current = 0
+      setIsDocumentDragActive(false)
+    }
+
+    const handleDragEnter = (event: DragEvent) => {
+      if (event.defaultPrevented || !hasFilePayload(event)) return
+      event.preventDefault()
+      dragCounterRef.current += 1
+      setIsDocumentDragActive(true)
+    }
+
+    const handleDragOver = (event: DragEvent) => {
+      if (event.defaultPrevented || !hasFilePayload(event)) return
+      event.preventDefault()
+      if (event.dataTransfer) {
+        event.dataTransfer.dropEffect = "copy"
+      }
+      setIsDocumentDragActive(true)
+    }
+
+    const handleDragLeave = (event: DragEvent) => {
+      if (!hasFilePayload(event)) return
+      event.preventDefault()
+      dragCounterRef.current = Math.max(0, dragCounterRef.current - 1)
+      if (dragCounterRef.current === 0) {
+        setIsDocumentDragActive(false)
+      }
+    }
+
+    const handleDrop = (event: DragEvent) => {
+      if (event.defaultPrevented || !hasFilePayload(event)) return
+      event.preventDefault()
+      resetDragState()
+
+      const files = Array.from(event.dataTransfer?.files || [])
+      if (files.length === 0) return
+
+      const droppedFile = files.find((file) => isSupportedImportFile(file))
+      if (!droppedFile) {
+        toast({
+          title: "Unsupported File",
+          description: "Drop a PDF or document file (doc, docx, pptx, xlsx, txt, md, csv).",
+          variant: "destructive",
+        })
+        return
+      }
+
+      setCurrentView("library")
+      setPendingUploadFile(droppedFile)
+      setShouldOpenUploadDialog(true)
+      toast({
+        title: "File Ready to Import",
+        description: `Added ${droppedFile.name}. Review title/tags/category, then confirm import.`,
+      })
+    }
+
+    window.addEventListener("dragenter", handleDragEnter)
+    window.addEventListener("dragover", handleDragOver)
+    window.addEventListener("dragleave", handleDragLeave)
+    window.addEventListener("drop", handleDrop)
+    window.addEventListener("dragend", resetDragState)
+    window.addEventListener("blur", resetDragState)
+
+    return () => {
+      window.removeEventListener("dragenter", handleDragEnter)
+      window.removeEventListener("dragover", handleDragOver)
+      window.removeEventListener("dragleave", handleDragLeave)
+      window.removeEventListener("drop", handleDrop)
+      window.removeEventListener("dragend", resetDragState)
+      window.removeEventListener("blur", resetDragState)
+    }
+  }, [
+    setCurrentView,
+    setPendingUploadFile,
+    setShouldOpenUploadDialog,
+    toast,
+  ])
+
   const renderCurrentView = () => {
     switch (currentView) {
       case "graph":
@@ -607,6 +700,16 @@ export function App() {
               </div>
 
             </div>
+
+            {isDocumentDragActive && (
+              <div className="pointer-events-none fixed inset-0 z-50 flex items-center justify-center bg-background/20 backdrop-blur-[1px]">
+                <div className="rounded-lg border border-primary/50 bg-card/95 px-6 py-4 shadow-lg">
+                  <p className="text-sm font-medium text-foreground">
+                    Drop PDF or document to import and convert to Markdown
+                  </p>
+                </div>
+              </div>
+            )}
 
             {/* Command Palette Overlay */}
             {showCommandPalette && <CommandPalette />}

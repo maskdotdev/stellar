@@ -143,6 +143,7 @@ pub fn run() {
             download_pdf_from_url_and_process_background,
             save_pdf_from_file_and_process_background,
             save_pdf_from_data_and_process_background,
+            save_document_from_data_and_process_background,
             get_pdf_file_path,
             get_pdf_file_content,
             delete_pdf_file,

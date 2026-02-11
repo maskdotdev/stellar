@@ -51,6 +51,12 @@ export interface UploadPdfOptions {
 	categoryId?: string;
 }
 
+export interface UploadDocumentOptions {
+	title?: string;
+	tags?: string[];
+	categoryId?: string;
+}
+
 export interface UploadPdfFromUrlOptions {
 	url: string;
 	title?: string;
@@ -215,13 +221,15 @@ export class LibraryService {
 		file: File,
 		options: UploadPdfOptions,
 	): Promise<Document | null> {
+		return this.uploadDocumentFileWithOptions(file, options);
+	}
+
+	async uploadDocumentFileWithOptions(
+		file: File,
+		options: UploadDocumentOptions,
+	): Promise<Document | null> {
 		try {
-			console.log(
-				"Starting PDF upload process with pre-selected file:",
-				file.name,
-				"options:",
-				options,
-			);
+			console.log("Starting document upload process with pre-selected file:", file.name, "options:", options);
 
 			// Convert File to Uint8Array for Tauri
 			const arrayBuffer = await file.arrayBuffer();
@@ -231,7 +239,7 @@ export class LibraryService {
 
 			// Save to storage and create a document immediately (processing in background)
 			const document = await invoke<Document>(
-				"save_pdf_from_data_and_process_background",
+				"save_document_from_data_and_process_background",
 				{
 					file_data: fileData,
 					file_name: file.name,
@@ -241,10 +249,10 @@ export class LibraryService {
 				},
 			);
 
-			console.log("Document created (processing in background):", document);
+			console.log("Document created (background conversion started):", document);
 			return document;
 		} catch (error) {
-			console.error("Failed to upload PDF file:", error);
+			console.error("Failed to upload document file:", error);
 			throw error;
 		}
 	}

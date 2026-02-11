@@ -18,6 +18,8 @@
         "resizable": true,
         "fullscreen": false,
         "decorations": true,
+        "titleBarStyle": "Transparent",
+        "hiddenTitle": true,
         "alwaysOnTop": false,
         "skipTaskbar": false,
         "center": true
