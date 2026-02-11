@@ -1,8 +1,10 @@
 import { Button } from "@/components/ui/button";
 import { Check, Copy } from "lucide-react";
 import type React from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
+import { useTheme } from "@/components/theme-provider";
+import { isDarkTheme } from "@/lib/config/theme-config";
 import { cn } from "@/lib/utils/utils";
 import { createHighlighterCore } from "shiki/core";
 import { createJavaScriptRegexEngine } from "shiki/engine/javascript";
@@ -92,6 +94,11 @@ function normalizeTheme(theme?: string): SupportedTheme {
   if (!theme) return DEFAULT_THEME;
   const normalized = theme.toLowerCase().trim();
   return THEME_ALIAS[normalized] || DEFAULT_THEME;
+}
+
+function resolveTheme(themeOverride: string | undefined, appTheme: string): SupportedTheme {
+  if (themeOverride) return normalizeTheme(themeOverride);
+  return isDarkTheme(appTheme) ? "github-dark" : "github-light";
 }
 
 async function getHighlighter() {
@@ -190,13 +197,18 @@ export type CodeBlockCodeProps = {
 function CodeBlockCode({
   code,
   language = "tsx",
-  theme = "github-light",
+  theme,
   className,
   ...props
 }: CodeBlockCodeProps) {
+  const { theme: appTheme } = useTheme();
   const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null);
   const [resolvedLanguage, setResolvedLanguage] = useState(DEFAULT_LANGUAGE);
   const [copied, setCopied] = useState(false);
+  const activeTheme = useMemo(
+    () => resolveTheme(theme, appTheme),
+    [appTheme, theme],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -211,7 +223,7 @@ function CodeBlockCode({
       }
 
       const requestedLanguage = normalizeLanguage(language);
-      const requestedTheme = normalizeTheme(theme);
+      const requestedTheme = activeTheme;
 
       try {
         await ensureThemeLoaded(requestedTheme);
@@ -241,7 +253,7 @@ function CodeBlockCode({
     return () => {
       cancelled = true;
     };
-  }, [code, language, theme]);
+  }, [activeTheme, code, language]);
 
   const classNames = cn(
     "w-full overflow-hidden rounded-xl border border-border/80 bg-card text-card-foreground",
