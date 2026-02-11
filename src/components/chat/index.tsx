@@ -83,7 +83,7 @@ function ConversationPromptInput() {
                                 {isAssistant ? (
                                     <div className="group flex w-full flex-col gap-0">
                                         <MessageContent
-                                            className="text-foreground prose w-full flex-1 rounded-lg bg-transparent p-0"
+                                            className="w-full flex-1 border-0 bg-transparent p-0 shadow-none"
                                             markdown
                                         >
                                             {message.content}

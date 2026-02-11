@@ -56,8 +56,6 @@ type VectorServiceState = Arc<Mutex<Option<VectorService>>>;
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            let app_handle = app.handle();
-            
             // Get managed state
             let db_state: tauri::State<DatabaseState> = app.state();
             let vector_state: tauri::State<VectorServiceState> = app.state();
@@ -65,8 +63,6 @@ pub fn run() {
             // Initialize database and services in background
             let db_init = db_state.inner().clone();
             let vector_init = vector_state.inner().clone();
-            let app_handle_clone = app_handle.clone();
-            
             tauri::async_runtime::spawn(async move {
                 // Use same location as database commands: ~/stellar_data/documents.db
                 let db_path = match dirs::home_dir() {

@@ -1036,14 +1036,6 @@ impl PdfProcessor {
         Ok(markdown_content)
     }
 
-    /// Check if marker_single command is available
-    /// Uses MarkerCommandResolver for comprehensive availability check
-    /// Maintains backward compatibility with existing code
-    async fn is_marker_single_available(&self) -> bool {
-        let resolver = MarkerCommandResolver::new().await;
-        resolver.is_marker_available()
-    }
-
     /// Get detailed marker installation status synchronously using an existing resolver
     /// This is a helper method for use within other methods that already have a resolver
     fn get_marker_installation_status_sync(&self, resolver: &MarkerCommandResolver) -> MarkerInstallationStatus {

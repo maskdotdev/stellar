@@ -109,11 +109,11 @@ export function PdfUploadDialog({
 
   const escapeHtml = (value: string) =>
     value
-      .replaceAll("&", "&amp;")
-      .replaceAll("<", "&lt;")
-      .replaceAll(">", "&gt;")
-      .replaceAll('"', "&quot;")
-      .replaceAll("'", "&#39;");
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
 
   const textToHtml = (value: string) => {
     const normalized = value.replace(/\r\n/g, "\n").trim();
@@ -121,7 +121,7 @@ export function PdfUploadDialog({
 
     return normalized
       .split(/\n{2,}/)
-      .map((paragraph) => `<p>${escapeHtml(paragraph).replaceAll("\n", "<br />")}</p>`)
+      .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, "<br />")}</p>`)
       .join("\n");
   };
 

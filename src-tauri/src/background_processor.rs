@@ -330,7 +330,7 @@ impl BackgroundProcessor {
         self.update_job_progress(&job.id, 70).await?;
 
         // Extract metadata
-        let metadata = self.pdf_processor.extract_metadata(&source_path)
+        let _metadata = self.pdf_processor.extract_metadata(&source_path)
             .map_err(|e| format!("Failed to extract metadata: {:?}", e))?;
 
         // Get the existing document

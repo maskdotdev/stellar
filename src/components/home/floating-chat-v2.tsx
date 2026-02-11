@@ -440,7 +440,7 @@ export function FloatingChatV2({ onClose, initialText }: FloatingChatV2Props) {
                                                         >
                                                             {isAssistant ? (
                                                                 <div className="group flex w-full flex-col gap-1">
-                                                                    <MessageContent className={cn("prose w-full flex-1 rounded-3xl p-3", message.id === "streaming" && "animate-pulse")} markdown>
+                                                                    <MessageContent className={cn("w-full flex-1 border-0 bg-transparent p-0 shadow-none", message.id === "streaming" && "animate-pulse")} markdown>
                                                                         {message.content}
                                                                     </MessageContent>
                                                                     <MessageActions className={cn("-ml-2.5 flex gap-0 opacity-0 transition-opacity duration-150 group-hover:opacity-100", isLast && "opacity-100")}
@@ -574,5 +574,4 @@ export function FloatingChatV2({ onClose, initialText }: FloatingChatV2Props) {
         </TooltipProvider>
     )
 }
-
 
