@@ -3,6 +3,7 @@
 import { ControlledEditor } from "@/components/editor/ControlledEditor";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Markdown } from "@/components/ui/markdown";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
@@ -357,9 +358,35 @@ export function DocumentRenderer({
     externalOnTextSelectionRef.current = onTextSelection
   }, [onTextSelection])
 
-  // Selection is handled directly from editorElement onMouseUp
+  // Selection is handled directly from content containers onMouseUp
 
-  const editorElement = useMemo(() => {
+  const markdownContent = useMemo(() => {
+    const content = document.content || "";
+    if (document.doc_type !== "markdown") {
+      return content;
+    }
+
+    // Legacy support: previous text import wrapped markdown into HTML paragraphs.
+    if (/<\/?(p|br)\b/i.test(content)) {
+      let normalized = content
+        .replace(/<br\s*\/?>/gi, "\n")
+        .replace(/<\/p>\s*<p[^>]*>/gi, "\n\n")
+        .replace(/<p[^>]*>/gi, "")
+        .replace(/<\/p>/gi, "\n\n")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
+        .replace(/&amp;/g, "&")
+        .replace(/&quot;/g, '"')
+        .replace(/&#39;/g, "'");
+
+      normalized = normalized.replace(/\n{3,}/g, "\n\n").trim();
+      return normalized;
+    }
+
+    return content;
+  }, [document.content, document.doc_type]);
+
+  const noteEditorElement = useMemo(() => {
     return (
       <ScrollArea className="flex-1 h-full">
         <div className="p-6">
@@ -376,24 +403,7 @@ export function DocumentRenderer({
               content={document.content}
               editable={false}
               minimal
-              className={cn(
-                "border-0 bg-transparent shadow-none",
-                "[&_h1]:mt-2 [&_h1]:mb-4 [&_h1]:text-3xl [&_h1]:font-bold [&_h1]:tracking-tight",
-                "[&_h2]:mt-8 [&_h2]:mb-3 [&_h2]:border-b [&_h2]:border-border/70 [&_h2]:pb-2 [&_h2]:text-2xl [&_h2]:font-semibold",
-                "[&_h3]:mt-6 [&_h3]:mb-3 [&_h3]:text-xl [&_h3]:font-semibold",
-                "[&_h4]:mt-5 [&_h4]:mb-2 [&_h4]:text-lg [&_h4]:font-semibold",
-                "[&_p]:mb-4 [&_p]:leading-7",
-                "[&_ul]:my-4 [&_ul]:list-disc [&_ul]:space-y-2 [&_ul]:pl-6",
-                "[&_ol]:my-4 [&_ol]:list-decimal [&_ol]:space-y-2 [&_ol]:pl-6",
-                "[&_blockquote]:my-5 [&_blockquote]:border-l-4 [&_blockquote]:border-primary/40 [&_blockquote]:bg-primary/5 [&_blockquote]:px-4 [&_blockquote]:py-3 [&_blockquote]:italic",
-                "[&_a]:font-medium [&_a]:text-primary [&_a]:underline [&_a]:decoration-primary/50 [&_a]:underline-offset-4",
-                "[&_code]:rounded-md [&_code]:border [&_code]:border-border/80 [&_code]:bg-muted [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.85em]",
-                "[&_pre]:my-5 [&_pre]:overflow-x-auto [&_pre]:rounded-xl [&_pre]:border [&_pre]:border-border [&_pre]:bg-card [&_pre]:p-4",
-                "[&_hr]:my-8 [&_hr]:border-border/70",
-                "[&_table]:my-6 [&_table]:w-full [&_table]:border-collapse",
-                "[&_th]:border-b [&_th]:border-border [&_th]:bg-muted/60 [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:text-xs [&_th]:font-semibold [&_th]:uppercase [&_th]:tracking-wide",
-                "[&_td]:border-t [&_td]:border-border/70 [&_td]:px-3 [&_td]:py-2 [&_td]:align-top",
-              )}
+              className="border-0 bg-transparent shadow-none"
               placeholder=""
             />
           </div>
@@ -401,6 +411,29 @@ export function DocumentRenderer({
       </ScrollArea>
     )
   }, [document.content])
+
+  const markdownElement = useMemo(() => {
+    return (
+      <ScrollArea className="flex-1 h-full">
+        <div className="p-6">
+          <div
+            className="mx-auto w-full max-w-3xl"
+            onMouseUp={() => {
+              const text = window.getSelection()?.toString() || ""
+              if (text.trim()) {
+                setSelectedText(text)
+                externalOnTextSelectionRef.current?.(text)
+              }
+            }}
+          >
+            <Markdown className="w-full">
+              {markdownContent}
+            </Markdown>
+          </div>
+        </div>
+      </ScrollArea>
+    );
+  }, [markdownContent]);
 
   // Memoize PdfView to prevent unnecessary rerenders
   const PdfView = useMemo(() => {
@@ -578,7 +611,7 @@ export function DocumentRenderer({
                 )}
               </div>
             ) : (
-              editorElement
+              document.doc_type === "note" ? noteEditorElement : markdownElement
             )}
           </TabsContent>
 
@@ -587,8 +620,7 @@ export function DocumentRenderer({
           </TabsContent>
         </Tabs>
       ) : (
-        // For non-PDF documents, render via the read-only editor to support math/images/etc.
-        editorElement
+        document.doc_type === "note" ? noteEditorElement : markdownElement
       )}
     </div>
   );

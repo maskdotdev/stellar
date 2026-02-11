@@ -107,24 +107,6 @@ export function PdfUploadDialog({
     }
   };
 
-  const escapeHtml = (value: string) =>
-    value
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;")
-      .replace(/'/g, "&#39;");
-
-  const textToHtml = (value: string) => {
-    const normalized = value.replace(/\r\n/g, "\n").trim();
-    if (!normalized) return "<p></p>";
-
-    return normalized
-      .split(/\n{2,}/)
-      .map((paragraph) => `<p>${escapeHtml(paragraph).replace(/\n/g, "<br />")}</p>`)
-      .join("\n");
-  };
-
   const resetForm = () => {
     setTitle("");
     setTags([]);
@@ -168,10 +150,9 @@ export function PdfUploadDialog({
           return;
         }
 
-        const htmlContent = textToHtml(normalizedText);
         const textDocument = await libraryService.createDocument({
           title: title.trim() || textFileName || "Imported Text",
-          content: htmlContent,
+          content: textContent.replace(/\r\n/g, "\n"),
           doc_type: "markdown",
           tags: tags,
           status: "ready",
