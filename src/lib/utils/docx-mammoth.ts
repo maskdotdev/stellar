@@ -1,6 +1,13 @@
 import mammoth from "mammoth";
 import TurndownService from "turndown";
 
+const DOCX_STYLE_MAP = [
+  "p[style-name='Code'] => pre:separator('\\n')",
+  "p[style-name='Code Block'] => pre:separator('\\n')",
+  "p[style-name='Source Code'] => pre:separator('\\n')",
+  "p[style-name='Source'] => pre:separator('\\n')",
+];
+
 function createTurndownService(): TurndownService {
   const service = new TurndownService({
     headingStyle: "atx",
@@ -20,6 +27,59 @@ function createTurndownService(): TurndownService {
 
 const turndown = createTurndownService();
 const inlineTurndown = createTurndownService();
+
+function normalizeInlineCodeBlockText(text: string): string {
+  return text.replace(/\u00a0/g, " ").replace(/\r\n/g, "\n").replace(/\r/g, "\n");
+}
+
+function getNodeTextWithBreaks(node: HTMLElement): string {
+  const clone = node.cloneNode(true) as HTMLElement;
+  Array.from(clone.querySelectorAll("br")).forEach((lineBreak) => {
+    lineBreak.replaceWith("\n");
+  });
+  return normalizeInlineCodeBlockText(clone.textContent ?? "");
+}
+
+function looksLikeCodeLine(line: string): boolean {
+  const trimmed = line.trim();
+  if (!trimmed) return false;
+
+  if (
+    /^(?:\s{2,}|\t)/.test(line) ||
+    /[{}[\]();:=<>\\]|->|=>|::|\/\/|#include\b|def\b|class\b|function\b|const\b|let\b|var\b|import\b|from\b|return\b/.test(
+      trimmed,
+    )
+  ) {
+    return true;
+  }
+
+  // Formula-like lines that usually belong in monospaced blocks from doc exports.
+  if (/[∀∃ΣΠ∈∉⊂⊆→⇒↔]/.test(trimmed)) {
+    return true;
+  }
+
+  return false;
+}
+
+function isCodeLikeMultiLineParagraph(node: HTMLElement): boolean {
+  if (node.nodeName !== "P") return false;
+  const hasLineBreaks = Array.from(node.childNodes).some(
+    (child) => child.nodeName === "BR",
+  );
+  if (!hasLineBreaks) return false;
+
+  const raw = getNodeTextWithBreaks(node);
+  const lines = raw
+    .split("\n")
+    .map((line) => line.replace(/\s+$/g, ""))
+    .filter((line) => line.trim().length > 0);
+
+  if (lines.length < 2) return false;
+
+  const codeLikeLineCount = lines.filter(looksLikeCodeLine).length;
+  const ratio = codeLikeLineCount / lines.length;
+  return codeLikeLineCount >= 2 && ratio >= 0.6;
+}
 
 function normalizeTableCellMarkdown(markdown: string): string {
   return markdown
@@ -85,9 +145,42 @@ turndown.addRule("tables", {
   },
 });
 
+// Mammoth often emits <pre> without nested <code>; force fenced output.
+turndown.addRule("preformattedBlocks", {
+  filter: (node) => node.nodeName === "PRE",
+  replacement: (_content, node) => {
+    const raw = getNodeTextWithBreaks(node as HTMLElement);
+    const normalized = raw
+      .split("\n")
+      .map((line) => line.replace(/\s+$/g, ""))
+      .join("\n")
+      .trim();
+
+    return normalized ? `\n\n\`\`\`\n${normalized}\n\`\`\`\n\n` : "\n\n";
+  },
+});
+
+// DOCX exports frequently encode code blocks as single paragraphs with <br>.
+turndown.addRule("codeLikeParagraphs", {
+  filter: (node) => isCodeLikeMultiLineParagraph(node as HTMLElement),
+  replacement: (_content, node) => {
+    const raw = getNodeTextWithBreaks(node as HTMLElement);
+    const normalized = raw
+      .split("\n")
+      .map((line) => line.replace(/\s+$/g, ""))
+      .join("\n")
+      .trim();
+
+    return normalized ? `\n\n\`\`\`\n${normalized}\n\`\`\`\n\n` : "\n\n";
+  },
+});
+
 export async function convertDocxFileToMarkdown(file: File): Promise<string> {
   const arrayBuffer = await file.arrayBuffer();
-  const result = await mammoth.convertToHtml({ arrayBuffer });
+  const result = await mammoth.convertToHtml(
+    { arrayBuffer },
+    { styleMap: DOCX_STYLE_MAP },
+  );
 
   if (!result.value || !result.value.trim()) {
     return "";
