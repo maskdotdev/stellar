@@ -3,19 +3,19 @@ import { Check, Copy } from "lucide-react";
 import type React from "react";
 import { useEffect, useMemo, useState } from "react";
 
-import { useTheme } from "@/components/theme-provider";
-import { isDarkTheme } from "@/lib/config/theme-config";
 import { cn } from "@/lib/utils/utils";
 import { createHighlighterCore } from "shiki/core";
 import { createJavaScriptRegexEngine } from "shiki/engine/javascript";
-import githubLightTheme from "shiki/themes/github-light.mjs";
+import tokyoNightTheme from "shiki/themes/tokyo-night.mjs";
 
-type SupportedTheme = "github-light" | "github-dark";
+type SupportedTheme = "tokyo-night" | "github-light" | "github-dark";
 type Highlighter = Awaited<ReturnType<typeof createHighlighterCore>>;
 type ShikiModule = { default: unknown };
 type Loader = () => Promise<ShikiModule>;
 
 const THEME_ALIAS: Record<string, SupportedTheme> = {
+  tokyonight: "tokyo-night",
+  "tokyo-night": "tokyo-night",
   light: "github-light",
   dark: "github-dark",
   "github-light": "github-light",
@@ -44,11 +44,12 @@ const LANGUAGE_ALIAS: Record<string, string> = {
   txt: "text",
 };
 
-const DEFAULT_THEME: SupportedTheme = "github-light";
+const DEFAULT_THEME: SupportedTheme = "tokyo-night";
 const DEFAULT_LANGUAGE = "text";
 
 const THEME_LOADERS: Record<SupportedTheme, Loader> = {
-  "github-light": async () => ({ default: githubLightTheme }),
+  "tokyo-night": async () => ({ default: tokyoNightTheme }),
+  "github-light": () => import("shiki/themes/github-light.mjs"),
   "github-dark": () => import("shiki/themes/github-dark.mjs"),
 };
 
@@ -74,6 +75,84 @@ const LANGUAGE_LOADERS: Record<string, Loader> = {
   toml: () => import("shiki/langs/toml.mjs"),
 };
 
+function looksLikeJson(source: string): boolean {
+  const first = source[0];
+  if (first !== "{" && first !== "[") return false;
+  try {
+    JSON.parse(source);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+function detectLanguageFromCode(code: string): string {
+  const source = code.trim();
+  if (!source) return DEFAULT_LANGUAGE;
+
+  if (looksLikeJson(source)) return "json";
+  if (/^(diff --git|--- |\+\+\+ |@@ )/m.test(source)) return "diff";
+
+  if (source.startsWith("#!")) {
+    if (/\bpython(?:\d+(?:\.\d+)?)?\b/i.test(source)) return "python";
+    if (/\b(?:bash|zsh|sh)\b/i.test(source)) return "bash";
+  }
+
+  if (/^\s*<([a-zA-Z][\w:-]*)(\s|>)/.test(source) && /<\/[a-zA-Z][\w:-]*>\s*$/.test(source)) {
+    return "html";
+  }
+
+  if (/^\s*\[[\w.-]+\]\s*$/m.test(source) && /^\s*[\w.-]+\s*=\s*.+$/m.test(source)) {
+    return "toml";
+  }
+
+  const yamlLikeLines = source
+    .split("\n")
+    .filter((line) => /^\s*[\w-]+\s*:\s*.+$/.test(line));
+  if (yamlLikeLines.length >= 2 && !/[{};]/.test(source)) return "yaml";
+
+  if (
+    /\b(SELECT|INSERT|UPDATE|DELETE|CREATE|ALTER|DROP|WITH|FROM|WHERE|JOIN)\b/i.test(source) &&
+    /[;\n]/.test(source)
+  ) {
+    return "sql";
+  }
+
+  if (/\bpackage\s+main\b/.test(source) || /\bfunc\s+\w+\s*\(/.test(source)) return "go";
+  if (/\bfn\s+\w+\s*\(/.test(source) || /\buse\s+std::/.test(source)) return "rust";
+
+  if (
+    (/\b(def|class)\s+\w+\s*[:(]/.test(source) || /\bimport\s+\w+/.test(source)) &&
+    /:\s*(?:\n|$)/.test(source)
+  ) {
+    return "python";
+  }
+
+  if (
+    /\b(interface|type|enum)\s+\w+/.test(source) ||
+    /:\s*[A-Za-z_$][\w<>\[\]\s|,&?]*(?=[,);=])/m.test(source)
+  ) {
+    return "typescript";
+  }
+
+  if (/\b(import|export|const|let|var|function|=>|console\.)\b/.test(source)) {
+    return "javascript";
+  }
+
+  if (/^[^{}]+\{[^}]*:[^}]*\}/s.test(source) && /;/.test(source)) return "css";
+  if (/^#{1,6}\s/m.test(source) || /```/.test(source)) return "markdown";
+
+  return DEFAULT_LANGUAGE;
+}
+
+function resolveLanguage(code: string, requestedLanguage?: string): string {
+  const normalized = normalizeLanguage(requestedLanguage);
+  if (normalized !== DEFAULT_LANGUAGE) return normalized;
+
+  const detected = normalizeLanguage(detectLanguageFromCode(code));
+  return LANGUAGE_LOADERS[detected] ? detected : DEFAULT_LANGUAGE;
+}
+
 let highlighterPromise: Promise<Highlighter> | null = null;
 const loadedThemes = new Set<SupportedTheme>([DEFAULT_THEME]);
 const loadedLanguages = new Set<string>([DEFAULT_LANGUAGE]);
@@ -96,16 +175,16 @@ function normalizeTheme(theme?: string): SupportedTheme {
   return THEME_ALIAS[normalized] || DEFAULT_THEME;
 }
 
-function resolveTheme(themeOverride: string | undefined, appTheme: string): SupportedTheme {
+function resolveTheme(themeOverride?: string): SupportedTheme {
   if (themeOverride) return normalizeTheme(themeOverride);
-  return isDarkTheme(appTheme) ? "github-dark" : "github-light";
+  return DEFAULT_THEME;
 }
 
 async function getHighlighter() {
   if (!highlighterPromise) {
     highlighterPromise = createHighlighterCore({
       engine: createJavaScriptRegexEngine(),
-      themes: [githubLightTheme],
+      themes: [tokyoNightTheme],
       langs: [],
     });
   }
@@ -201,14 +280,10 @@ function CodeBlockCode({
   className,
   ...props
 }: CodeBlockCodeProps) {
-  const { theme: appTheme } = useTheme();
   const [highlightedHtml, setHighlightedHtml] = useState<string | null>(null);
   const [resolvedLanguage, setResolvedLanguage] = useState(DEFAULT_LANGUAGE);
   const [copied, setCopied] = useState(false);
-  const activeTheme = useMemo(
-    () => resolveTheme(theme, appTheme),
-    [appTheme, theme],
-  );
+  const activeTheme = useMemo(() => resolveTheme(theme), [theme]);
 
   useEffect(() => {
     let cancelled = false;
@@ -222,7 +297,7 @@ function CodeBlockCode({
         return;
       }
 
-      const requestedLanguage = normalizeLanguage(language);
+      const requestedLanguage = resolveLanguage(code, language);
       const requestedTheme = activeTheme;
 
       try {
@@ -297,11 +372,11 @@ function CodeBlockCode({
         </Button>
       </div>
       {highlightedHtml ? (
-        <div className="w-full overflow-x-auto text-[13px] [&>pre]:m-0 [&>pre]:px-4 [&>pre]:py-4">
+        <div className="w-full overflow-x-auto text-[13px] [&_pre]:m-0 [&_pre]:px-3 [&_pre]:py-3">
           <div dangerouslySetInnerHTML={{ __html: highlightedHtml }} />
         </div>
       ) : (
-        <pre className="overflow-x-auto px-4 py-4 text-[13px]">
+        <pre className="overflow-x-auto p-3 text-[13px]">
           <code>{code}</code>
         </pre>
       )}
