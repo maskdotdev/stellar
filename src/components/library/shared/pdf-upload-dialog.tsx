@@ -33,7 +33,7 @@ interface PdfUploadDialogProps {
   currentCategoryId?: string | null;
 }
 
-type UploadType = "file" | "url";
+type UploadType = "text" | "file" | "url";
 
 export function PdfUploadDialog({
   open,
@@ -45,10 +45,12 @@ export function PdfUploadDialog({
   const [title, setTitle] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
-  const [uploadType, setUploadType] = useState<UploadType>("file");
+  const [uploadType, setUploadType] = useState<UploadType>("text");
   const [url, setUrl] = useState("");
+  const [textContent, setTextContent] = useState("");
   const [isUploading, setIsUploading] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  const [textFileName, setTextFileName] = useState<string | null>(null);
   const [selectedCategoryId, setSelectedCategoryId] = useState<
     string | undefined
   >(currentCategoryId ?? undefined);
@@ -82,13 +84,56 @@ export function PdfUploadDialog({
     }
   };
 
+  const handleTextFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const selected = e.target.files?.[0];
+    if (!selected) return;
+
+    try {
+      const fileText = await selected.text();
+      setTextContent(fileText);
+      setTextFileName(selected.name);
+
+      if (!title.trim()) {
+        const fileTitle = selected.name.replace(/\.[^/.]+$/, "");
+        setTitle(fileTitle);
+      }
+    } catch (error) {
+      console.error("Failed to read text file:", error);
+      toast({
+        title: "Error",
+        description: "Failed to read the selected text file.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const escapeHtml = (value: string) =>
+    value
+      .replaceAll("&", "&amp;")
+      .replaceAll("<", "&lt;")
+      .replaceAll(">", "&gt;")
+      .replaceAll('"', "&quot;")
+      .replaceAll("'", "&#39;");
+
+  const textToHtml = (value: string) => {
+    const normalized = value.replace(/\r\n/g, "\n").trim();
+    if (!normalized) return "<p></p>";
+
+    return normalized
+      .split(/\n{2,}/)
+      .map((paragraph) => `<p>${escapeHtml(paragraph).replaceAll("\n", "<br />")}</p>`)
+      .join("\n");
+  };
+
   const resetForm = () => {
     setTitle("");
     setTags([]);
     setTagInput("");
     setUrl("");
-    setUploadType("file");
+    setUploadType("text");
+    setTextContent("");
     setFile(null);
+    setTextFileName(null);
     setSelectedCategoryId(currentCategoryId ?? undefined);
     // no-op for background processing toggle
 
@@ -99,17 +144,64 @@ export function PdfUploadDialog({
     if (fileInput) {
       fileInput.value = "";
     }
+
+    const textFileInput = document.getElementById(
+      "text-file-upload"
+    ) as HTMLInputElement;
+    if (textFileInput) {
+      textFileInput.value = "";
+    }
   };
 
   const handleUpload = async () => {
     try {
       setIsUploading(true);
 
-      // For file uploads we enqueue background jobs; URL returns a placeholder document immediately
+      if (uploadType === "text") {
+        const normalizedText = textContent.trim();
+        if (!normalizedText) {
+          toast({
+            title: "Error",
+            description: "Please paste text or upload a .txt/.md file.",
+            variant: "destructive",
+          });
+          return;
+        }
 
+        const htmlContent = textToHtml(normalizedText);
+        const textDocument = await libraryService.createDocument({
+          title: title.trim() || textFileName || "Imported Text",
+          content: htmlContent,
+          doc_type: "markdown",
+          tags: tags,
+          status: "ready",
+          category_id: selectedCategoryId,
+        });
+
+        onSuccess(textDocument);
+        onOpenChange(false);
+        resetForm();
+
+        toast({
+          title: "Text Imported",
+          description: `"${textDocument.title}" was added to your library.`,
+        });
+
+        return;
+      }
+
+      // For PDF file uploads we enqueue background jobs; URL returns a placeholder document immediately
       if (uploadType === "file") {
-        // Always use OS file dialog path to avoid big JS memory copies
-        const document = await libraryService.uploadPdfWithOptions({
+        if (!file) {
+          toast({
+            title: "Error",
+            description: "Please select a PDF file.",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        const document = await libraryService.uploadPdfFileWithOptions(file, {
           title: title.trim() || undefined,
           tags: tags,
           categoryId: selectedCategoryId,
@@ -162,14 +254,14 @@ export function PdfUploadDialog({
 
       // handled per-branch
     } catch (error) {
-      console.error("Failed to upload PDF:", error);
+      console.error("Failed to import document:", error);
 
       // More specific error messages
       let errorMessage = "An unexpected error occurred. Please try again.";
 
       if (uploadType === "file") {
         errorMessage = "Failed to queue PDF for processing. Please try again.";
-      } else {
+      } else if (uploadType === "url") {
         // URL upload error - check the error message for more details
         const errorStr = error instanceof Error ? error.message : String(error);
 
@@ -189,11 +281,16 @@ export function PdfUploadDialog({
           errorMessage =
             "Failed to download PDF from URL. Please check the URL and try again.";
         }
+      } else {
+        errorMessage = "Text import failed. Please paste text and try again.";
       }
 
       toast({
         title: "Error",
-        description: errorMessage,
+        description:
+          uploadType === "url" || uploadType === "file"
+            ? `${errorMessage} If this keeps failing, use Text import instead.`
+            : errorMessage,
         variant: "destructive",
       });
     } finally {
@@ -202,6 +299,7 @@ export function PdfUploadDialog({
   };
 
   const isFormValid =
+    (uploadType === "text" && textContent.trim().length > 0) ||
     (uploadType === "file" && file !== null) ||
     (uploadType === "url" && url.trim().length > 0);
 
@@ -214,7 +312,7 @@ export function PdfUploadDialog({
         <div className="flex items-center justify-between p-4 border-b border-border">
           <div className="flex items-center gap-2">
             <Upload className="w-4 h-4 text-primary" />
-            <h2 className="text-lg font-semibold text-foreground">Add PDF</h2>
+            <h2 className="text-lg font-semibold text-foreground">Add Document</h2>
           </div>
           <Button
             variant="ghost"
@@ -231,27 +329,62 @@ export function PdfUploadDialog({
           {/* Upload Method - Tabs */}
           <div className="space-y-1">
             <Label className="text-xs font-medium text-muted-foreground">
-              Upload Method
+              Import Method
             </Label>
             <Tabs
               value={uploadType}
               onValueChange={(value) => setUploadType(value as UploadType)}
             >
               <TabsList className="h-8">
+                <TabsTrigger value="text" className="text-xs h-6">
+                  <Plus className="w-3 h-3" />
+                  Text
+                </TabsTrigger>
                 <TabsTrigger value="file" className="text-xs h-6">
                   <HardDrive className="w-3 h-3" />
-                  Local File
+                  Local PDF
                 </TabsTrigger>
                 <TabsTrigger value="url" className="text-xs h-6">
                   <Link className="w-3 h-3" />
-                  URL
+                  PDF URL
                 </TabsTrigger>
               </TabsList>
             </Tabs>
           </div>
 
           {/* File Upload or URL Input - Compact */}
-          {uploadType === "file" ? (
+          {uploadType === "text" ? (
+            <div className="space-y-2">
+              <Input
+                id="text-file-upload"
+                type="file"
+                accept=".txt,.md,text/plain,text/markdown"
+                onChange={handleTextFileChange}
+                className="hidden"
+              />
+              <div className="flex items-center gap-2">
+                <Label htmlFor="text-file-upload" className="cursor-pointer">
+                  <Button type="button" variant="outline" size="sm" className="h-7 px-2 text-xs" asChild>
+                    <span>
+                      <Upload className="w-3 h-3 mr-1" />
+                      Upload .txt/.md
+                    </span>
+                  </Button>
+                </Label>
+                {textFileName && (
+                  <p className="text-xs text-muted-foreground truncate">
+                    {textFileName}
+                  </p>
+                )}
+              </div>
+              <textarea
+                value={textContent}
+                onChange={(e) => setTextContent(e.target.value)}
+                placeholder="Paste text here... (recommended if PDF import is unreliable)"
+                className="w-full min-h-[140px] rounded-md border border-border bg-background px-3 py-2 text-xs text-foreground resize-y focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              />
+            </div>
+          ) : uploadType === "file" ? (
             <div
               className={`border border-dashed rounded p-2 text-center transition-colors ${file
                 ? "border-primary bg-primary/5"
@@ -277,14 +410,14 @@ export function PdfUploadDialog({
                   className={`text-xs ${file ? "text-primary font-medium" : "text-muted-foreground"
                     }`}
                 >
-                  {file ? file.name : "Click to upload PDF"}
+                  {file ? file.name : "Click to upload PDF (optional)"}
                 </p>
               </Label>
             </div>
           ) : (
             <Input
               type="url"
-              placeholder="https://example.com/document.pdf"
+              placeholder="https://example.com/document.pdf (optional)"
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               className="text-xs h-8"
@@ -400,12 +533,16 @@ export function PdfUploadDialog({
             {isUploading ? (
               <>
                 <Loader2 className="w-3 h-3 animate-spin mr-1" />
-                {uploadType === "url" ? "Downloading..." : "Processing..."}
+                {uploadType === "url"
+                  ? "Downloading..."
+                  : uploadType === "file"
+                    ? "Processing..."
+                    : "Importing..."}
               </>
             ) : (
               <>
                 <Upload className="w-3 h-3 mr-1" />
-                Process
+                {uploadType === "text" ? "Import" : "Process"}
               </>
             )}
           </Button>

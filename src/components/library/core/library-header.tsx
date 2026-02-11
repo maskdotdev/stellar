@@ -71,7 +71,7 @@ export function LibraryHeader({
             <>
               <Button variant="outline" size="sm" onClick={onShowUploadDialog}>
                 <Upload className="h-4 w-4 mr-2" />
-                Add PDF
+                Add Document
               </Button>
               <Button variant="outline" size="sm" onClick={onCreateNote}>
                 <Plus className="h-4 w-4 mr-2" />

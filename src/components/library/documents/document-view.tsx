@@ -117,7 +117,7 @@ export function DocumentView({
         <h3 className="text-lg font-medium mb-2">No documents found</h3>
         <p className="text-muted-foreground mb-4">
           {documents.length === 0
-            ? "Get started by uploading a PDF or creating a new note in this category."
+            ? "Get started by adding a document (text or PDF) or creating a new note in this category."
             : "Try adjusting your search terms."
           }
         </p>
@@ -125,7 +125,7 @@ export function DocumentView({
           <div className="flex space-x-2">
             <Button onClick={onUploadPdf}>
               <Upload className="h-4 w-4 mr-2" />
-              Add PDF
+              Add Document
             </Button>
             <Button variant="outline" onClick={onCreateNote}>
               <Plus className="h-4 w-4 mr-2" />
