@@ -397,7 +397,7 @@ const INITIAL_COMPONENTS: Partial<Components> = {
     return (
       <h1
         className={cn(
-          "mt-2 mb-4 text-3xl font-bold tracking-tight text-foreground",
+          "mt-2 mb-4 text-[length:var(--md-h1-size,1.875rem)] font-bold tracking-tight text-foreground",
           className,
         )}
         {...props}
@@ -410,7 +410,7 @@ const INITIAL_COMPONENTS: Partial<Components> = {
     return (
       <h2
         className={cn(
-          "mt-7 mb-3 border-b border-border/70 pb-2 text-2xl font-semibold tracking-tight text-foreground",
+          "mt-7 mb-3 border-b border-border/70 pb-2 text-[length:var(--md-h2-size,1.5rem)] font-semibold tracking-tight text-foreground",
           className,
         )}
         {...props}
@@ -422,7 +422,10 @@ const INITIAL_COMPONENTS: Partial<Components> = {
   h3: function Heading3Component({ children, className, ...props }) {
     return (
       <h3
-        className={cn("mt-6 mb-3 text-xl font-semibold text-foreground", className)}
+        className={cn(
+          "mt-6 mb-3 text-[length:var(--md-h3-size,1.25rem)] font-semibold text-foreground",
+          className,
+        )}
         {...props}
       >
         {children}
@@ -432,7 +435,10 @@ const INITIAL_COMPONENTS: Partial<Components> = {
   h4: function Heading4Component({ children, className, ...props }) {
     return (
       <h4
-        className={cn("mt-5 mb-2 text-lg font-semibold text-foreground", className)}
+        className={cn(
+          "mt-5 mb-2 text-[length:var(--md-h4-size,1.125rem)] font-semibold text-foreground",
+          className,
+        )}
         {...props}
       >
         {children}
@@ -443,7 +449,7 @@ const INITIAL_COMPONENTS: Partial<Components> = {
     return (
       <p
         className={cn(
-          "mb-4 last:mb-0 text-[0.97rem] leading-7 text-foreground/95",
+          "mb-4 last:mb-0 text-[length:var(--md-p-size,0.97rem)] leading-7 text-foreground/95",
           className,
         )}
         {...props}
@@ -474,7 +480,13 @@ const INITIAL_COMPONENTS: Partial<Components> = {
   },
   li: function ListItemComponent({ children, className, ...props }) {
     return (
-      <li className={cn("pl-1 leading-7 text-foreground/95", className)} {...props}>
+      <li
+        className={cn(
+          "pl-1 text-[length:var(--md-p-size,0.97rem)] leading-7 text-foreground/95",
+          className,
+        )}
+        {...props}
+      >
         {children}
       </li>
     );
@@ -498,7 +510,7 @@ const INITIAL_COMPONENTS: Partial<Components> = {
   },
   strong: function StrongComponent({ children, className, ...props }) {
     return (
-      <strong className={cn("font-semibold text-foreground", className)} {...props}>
+      <strong className={cn("font-semibold text-primary/70", className)} {...props}>
         {children}
       </strong>
     );

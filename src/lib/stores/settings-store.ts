@@ -17,7 +17,7 @@ interface LayoutSettings {
 interface DisplaySettings {
   reduceMotion: boolean
   highContrast: boolean
-  fontSize: "small" | "medium" | "large"
+  fontSize: "small" | "medium" | "large" | "xlarge" | "xxlarge"
   compactMode: boolean
   showLineNumbers: boolean
   wordWrap: boolean
@@ -105,7 +105,7 @@ interface SettingsState {
   // Actions for Display Settings
   setReduceMotion: (reduce: boolean) => void
   setHighContrast: (contrast: boolean) => void
-  setFontSize: (size: "small" | "medium" | "large") => void
+  setFontSize: (size: "small" | "medium" | "large" | "xlarge" | "xxlarge") => void
   setCompactMode: (compact: boolean) => void
   setShowLineNumbers: (show: boolean) => void
   setWordWrap: (wrap: boolean) => void

@@ -11,6 +11,7 @@ import { useActionsStore } from "@/lib/services/actions-service";
 import type { Document } from "@/lib/services/library-service";
 import { LibraryService } from "@/lib/services/library-service";
 import { type DocumentReference, useAIStore } from "@/lib/stores/ai-store";
+import { useSettingsStore } from "@/lib/stores/settings-store";
 import { useStudyStore } from "@/lib/stores/study-store";
 import { cn } from "@/lib/utils/utils";
 import { invoke } from "@tauri-apps/api/core";
@@ -22,9 +23,11 @@ import {
   FileText,
   Loader2,
   MessageCircle,
+  Minus,
+  Plus,
   Sparkles,
 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { PdfRenderer } from "../../pdf-renderer";
 
 // Renders trusted HTML content (generated within the app) without using dangerouslySetInnerHTML inline
@@ -46,6 +49,94 @@ interface DocumentRendererProps {
 }
 
 type ViewMode = "markdown" | "pdf";
+
+interface TocItem {
+  id: string;
+  text: string;
+  level: number;
+}
+
+type RendererFontSize = "small" | "medium" | "large" | "xlarge" | "xxlarge";
+
+const TOC_HEADING_SELECTOR = "h1, h2, h3, h4";
+const FONT_SIZE_ORDER: RendererFontSize[] = [
+  "small",
+  "medium",
+  "large",
+  "xlarge",
+  "xxlarge",
+];
+const FONT_SIZE_LABELS: Record<RendererFontSize, string> = {
+  small: "A-",
+  medium: "A",
+  large: "A+",
+  xlarge: "A++",
+  xxlarge: "A+++",
+};
+const FONT_SIZE_VARS: Record<
+  RendererFontSize,
+  {
+    p: string;
+    h1: string;
+    h2: string;
+    h3: string;
+    h4: string;
+    note: string;
+  }
+> = {
+  small: {
+    p: "0.9rem",
+    h1: "1.7rem",
+    h2: "1.35rem",
+    h3: "1.15rem",
+    h4: "1.02rem",
+    note: "0.93rem",
+  },
+  medium: {
+    p: "0.97rem",
+    h1: "1.875rem",
+    h2: "1.5rem",
+    h3: "1.25rem",
+    h4: "1.125rem",
+    note: "1rem",
+  },
+  large: {
+    p: "1.08rem",
+    h1: "2.1rem",
+    h2: "1.75rem",
+    h3: "1.4rem",
+    h4: "1.2rem",
+    note: "1.1rem",
+  },
+  xlarge: {
+    p: "1.2rem",
+    h1: "2.35rem",
+    h2: "1.95rem",
+    h3: "1.55rem",
+    h4: "1.35rem",
+    note: "1.22rem",
+  },
+  xxlarge: {
+    p: "1.32rem",
+    h1: "2.6rem",
+    h2: "2.15rem",
+    h3: "1.7rem",
+    h4: "1.5rem",
+    note: "1.34rem",
+  },
+};
+
+function slugifyHeading(value: string): string {
+  const slug = value
+    .toLowerCase()
+    .trim()
+    .replace(/[^\w\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  return slug || "section";
+}
 
 export function DocumentRenderer({
   document,
@@ -74,10 +165,16 @@ export function DocumentRenderer({
 
   const libraryService = LibraryService.getInstance();
   const { setShowFloatingChat, setInitialChatText, setEditingNoteId, setCurrentView } = useStudyStore();
+  const rendererFontSize = useSettingsStore((state) => state.display.fontSize);
+  const setRendererFontSize = useSettingsStore((state) => state.setFontSize);
   const { createConversationWithContext } = useAIStore();
   const { currentSessionId } = useActionsStore();
   const { toast } = useToast();
   const containerRef = useRef<HTMLDivElement>(null);
+  const markdownContentRef = useRef<HTMLDivElement>(null);
+  const markdownScrollAreaRef = useRef<HTMLDivElement>(null);
+  const [tocItems, setTocItems] = useState<TocItem[]>([]);
+  const [activeTocId, setActiveTocId] = useState<string>("");
 
   // Load PDF file path when component mounts or document changes
   useEffect(() => {
@@ -386,10 +483,139 @@ export function DocumentRenderer({
     return content;
   }, [document.content, document.doc_type]);
 
+  const handleTocItemClick = useCallback((id: string) => {
+    const headingEl = globalThis.document?.getElementById(id);
+    if (!headingEl) return;
+
+    headingEl.scrollIntoView({ behavior: "smooth", block: "start" });
+    setActiveTocId(id);
+  }, []);
+
+  useEffect(() => {
+    const shouldShowMarkdown =
+      document.doc_type !== "note" && (!hasPdfFile || viewMode === "markdown");
+
+    if (!shouldShowMarkdown) {
+      setTocItems([]);
+      setActiveTocId("");
+      return;
+    }
+
+    let cleanupScrollHandlers: (() => void) | undefined;
+    const rafId = window.requestAnimationFrame(() => {
+      const contentRoot = markdownContentRef.current;
+      const scrollViewportRoot = markdownScrollAreaRef.current;
+      const scrollViewport =
+        scrollViewportRoot?.querySelector<HTMLElement>(
+          "[data-radix-scroll-area-viewport]"
+        ) ?? scrollViewportRoot;
+
+      if (!contentRoot || !scrollViewport) {
+        setTocItems([]);
+        setActiveTocId("");
+        return;
+      }
+
+      const headingElements = Array.from(
+        contentRoot.querySelectorAll<HTMLHeadingElement>(TOC_HEADING_SELECTOR)
+      );
+      const slugCounts = new Map<string, number>();
+      const nextTocItems: TocItem[] = [];
+
+      for (const headingEl of headingElements) {
+        const text = headingEl.textContent?.trim() || "";
+        if (!text) continue;
+
+        const baseId = slugifyHeading(text);
+        const count = (slugCounts.get(baseId) ?? 0) + 1;
+        slugCounts.set(baseId, count);
+
+        const id = count === 1 ? baseId : `${baseId}-${count}`;
+        headingEl.id = id;
+
+        const rawLevel = Number.parseInt(headingEl.tagName.slice(1), 10);
+        const level = Number.isNaN(rawLevel) ? 4 : Math.min(Math.max(rawLevel, 1), 4);
+        nextTocItems.push({ id, text, level });
+      }
+
+      setTocItems(nextTocItems);
+
+      if (nextTocItems.length === 0) {
+        setActiveTocId("");
+        return;
+      }
+
+      const updateActiveHeading = () => {
+        const rootTop = scrollViewport.getBoundingClientRect().top;
+        let currentActiveId = nextTocItems[0].id;
+
+        for (const headingEl of headingElements) {
+          const headingTop = headingEl.getBoundingClientRect().top - rootTop;
+          if (headingTop <= 120) {
+            currentActiveId = headingEl.id;
+            continue;
+          }
+          break;
+        }
+
+        setActiveTocId((prev) =>
+          prev === currentActiveId ? prev : currentActiveId
+        );
+      };
+
+      updateActiveHeading();
+      scrollViewport.addEventListener("scroll", updateActiveHeading, {
+        passive: true,
+      });
+      window.addEventListener("resize", updateActiveHeading);
+
+      cleanupScrollHandlers = () => {
+        scrollViewport.removeEventListener("scroll", updateActiveHeading);
+        window.removeEventListener("resize", updateActiveHeading);
+      };
+    });
+
+    return () => {
+      window.cancelAnimationFrame(rafId);
+      cleanupScrollHandlers?.();
+    };
+  }, [document.doc_type, hasPdfFile, markdownContent, viewMode]);
+
+  const markdownFontStyle = useMemo<CSSProperties>(() => {
+    const preset = FONT_SIZE_VARS[rendererFontSize];
+    return {
+      "--md-p-size": preset.p,
+      "--md-h1-size": preset.h1,
+      "--md-h2-size": preset.h2,
+      "--md-h3-size": preset.h3,
+      "--md-h4-size": preset.h4,
+    } as CSSProperties;
+  }, [rendererFontSize]);
+
+  const adjustRendererFontSize = useCallback(
+    (direction: -1 | 1) => {
+      const currentIndex = FONT_SIZE_ORDER.indexOf(rendererFontSize);
+      if (currentIndex < 0) return;
+      const nextIndex = Math.min(
+        FONT_SIZE_ORDER.length - 1,
+        Math.max(0, currentIndex + direction)
+      );
+      if (nextIndex === currentIndex) return;
+      setRendererFontSize(FONT_SIZE_ORDER[nextIndex]);
+    },
+    [rendererFontSize, setRendererFontSize]
+  );
+
+  const isFontSizeDecreaseDisabled = rendererFontSize === "small";
+  const isFontSizeIncreaseDisabled = rendererFontSize === "xxlarge";
+
+  const shouldShowFontSizeControl =
+    document.doc_type === "note" || !hasPdfFile || viewMode === "markdown";
+
   const noteEditorElement = useMemo(() => {
     return (
       <ScrollArea className="flex-1 h-full">
-        <div className="p-6">
+        <div className="p-6" style={{ fontSize: FONT_SIZE_VARS[rendererFontSize].note }}>
           <div
             onMouseUp={() => {
               const text = window.getSelection()?.toString() || ""
@@ -410,30 +636,66 @@ export function DocumentRenderer({
         </div>
       </ScrollArea>
     )
-  }, [document.content])
+  }, [document.content, rendererFontSize])
 
   const markdownElement = useMemo(() => {
+    const hasToc = tocItems.length > 0;
+
     return (
-      <ScrollArea className="flex-1 h-full">
-        <div className="p-6">
-          <div
-            className="mx-auto w-full max-w-3xl"
-            onMouseUp={() => {
-              const text = window.getSelection()?.toString() || ""
-              if (text.trim()) {
-                setSelectedText(text)
-                externalOnTextSelectionRef.current?.(text)
-              }
-            }}
-          >
-            <Markdown className="w-full">
-              {markdownContent}
-            </Markdown>
-          </div>
+      <div className="relative h-full">
+        <div ref={markdownScrollAreaRef} className="h-full">
+          <ScrollArea className="flex-1 h-full">
+            <div className="p-6">
+              <div
+                ref={markdownContentRef}
+                className="mx-auto w-full max-w-3xl"
+                style={markdownFontStyle}
+                onMouseUp={() => {
+                  const text = window.getSelection()?.toString() || ""
+                  if (text.trim()) {
+                    setSelectedText(text)
+                    externalOnTextSelectionRef.current?.(text)
+                  }
+                }}
+              >
+                <Markdown className="w-full">
+                  {markdownContent}
+                </Markdown>
+              </div>
+            </div>
+          </ScrollArea>
         </div>
-      </ScrollArea>
+        {hasToc && (
+          <aside className="pointer-events-none absolute left-3 top-3 z-20 hidden max-h-[calc(100%-1.5rem)] w-48 xl:block">
+            <div className="pointer-events-auto rounded-md border border-border/50 bg-background/80 p-2 shadow-sm backdrop-blur-sm">
+              <p className="mb-1 px-1 text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/90">
+                Contents
+              </p>
+              <div className="max-h-[calc(100vh-15rem)] overflow-y-auto">
+                {tocItems.map((item) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    onClick={() => handleTocItemClick(item.id)}
+                    aria-current={item.id === activeTocId ? "location" : undefined}
+                    style={{ paddingLeft: `${(item.level - 1) * 10 + 6}px` }}
+                    className={cn(
+                      "mb-0.5 block w-full rounded px-2 py-1 text-left text-xs leading-snug transition-colors",
+                      item.id === activeTocId
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                    )}
+                  >
+                    {item.text}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </aside>
+        )}
+      </div>
     );
-  }, [markdownContent]);
+  }, [tocItems, activeTocId, handleTocItemClick, markdownContent, markdownFontStyle]);
 
   // Memoize PdfView to prevent unnecessary rerenders
   const PdfView = useMemo(() => {
@@ -521,6 +783,33 @@ export function DocumentRenderer({
         </div>
 
         <div className="flex items-center space-x-2">
+          {shouldShowFontSizeControl && (
+            <div className="flex items-center rounded-md border border-border/70 bg-background/60 p-0.5">
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0"
+                disabled={isFontSizeDecreaseDisabled}
+                onClick={() => adjustRendererFontSize(-1)}
+                aria-label="Decrease font size"
+              >
+                <Minus className="h-3 w-3" />
+              </Button>
+              <span className="min-w-7 px-1 text-center text-[11px] font-medium text-muted-foreground">
+                {FONT_SIZE_LABELS[rendererFontSize]}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="h-7 w-7 p-0"
+                disabled={isFontSizeIncreaseDisabled}
+                onClick={() => adjustRendererFontSize(1)}
+                aria-label="Increase font size"
+              >
+                <Plus className="h-3 w-3" />
+              </Button>
+            </div>
+          )}
           {document.doc_type === "note" && (
             <Button
               variant="outline"
